@@ -1,0 +1,5 @@
+{
+  "name": " mws-2.0.1 | Beta Gestione lead",
+  "description": "Inizio gestione lead per tutti i clienti MWS con: \n-creazione preventivi (poterli inviare subito al cliente ) \n-mappa per vedere se si riesce a fare più clienti in una giornata se sono nello stesso posto\n-messaggi pre impostati per ogni cliente pronti da poter mandare su whatsapp con 1 click. \n-cambiamento database con migliroamento auth supabase sicurezza + recupero password ecc \n-rls databse per sicurezza lead \n-adattare tutta la piattaforma per mobile \n",
+  "requestFramePermissions": []
+}
