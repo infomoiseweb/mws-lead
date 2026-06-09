@@ -20,14 +20,7 @@ async function fetchUserProfile(userId: string): Promise<User | null> {
         .eq('id', userId)
         .single();
 
-    if (error) {
-        console.error('fetchUserProfile error:', error.code, error.message, error.hint);
-        return null;
-    }
-    if (!profile) {
-        console.warn('fetchUserProfile: nessun profilo per userId:', userId);
-        return null;
-    }
+    if (error || !profile) return null;
     return profile as User;
 }
 
