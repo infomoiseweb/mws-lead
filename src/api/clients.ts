@@ -26,7 +26,7 @@ export async function createClient(params: {
     return json.client as Client;
 }
 
-function unpackMwsSettings<T extends { services?: any; mws_fixed_fee?: number; mws_profit_percentage?: number }>(clientData: T): T {
+function unpackMwsSettings<T extends { services?: any; mws_fixed_fee?: number; mws_profit_percentage?: number; lead_intake_mode?: 'form' | 'api' }>(clientData: T): T {
     if (!clientData) return clientData;
 
     const c = { ...clientData };
@@ -38,13 +38,18 @@ function unpackMwsSettings<T extends { services?: any; mws_fixed_fee?: number; m
 
     const arr = Array.isArray(raw) ? raw : [];
     const mwsSettings = arr.find((s: any) => s?.id === 'mws_settings');
+    const leadModeEntry = arr.find((s: any) => s?.name === '__lead_mode__');
 
     if (mwsSettings) {
         c.mws_fixed_fee = mwsSettings.mws_fixed_fee;
         c.mws_profit_percentage = mwsSettings.mws_profit_percentage;
     }
 
-    c.services = arr.filter((s: any) => s?.id !== 'mws_settings');
+    if (leadModeEntry) {
+        c.lead_intake_mode = leadModeEntry.mode || 'form';
+    }
+
+    c.services = arr.filter((s: any) => s?.id !== 'mws_settings' && s?.name !== '__lead_mode__');
     return c;
 }
 

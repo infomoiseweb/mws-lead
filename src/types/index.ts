@@ -149,6 +149,7 @@ export interface Client {
     mws_profit_percentage?: number;
     quote_webhook_url?: string;
     message_templates?: MessageTemplate[];
+    lead_intake_mode?: 'form' | 'api';
     // These are loaded separately
     leads: Lead[];
     adSpends?: AdSpend[];

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import type { Client, Service, LeadField, LeadFieldType } from '../types';
 import * as ApiService from '@api';
-import { PlusCircle, Trash2, Tag, ChevronDown, ChevronUp, GripVertical, DollarSign, Percent, Webhook, Layers, Sparkles } from 'lucide-react';
+import { PlusCircle, Trash2, Tag, ChevronDown, ChevronUp, GripVertical, Webhook, Layers, Sparkles, FileCode, Globe } from 'lucide-react';
 import Modal from './Modal';
 import { useTranslation } from 'react-i18next';
 
@@ -39,6 +39,7 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
     const [defaultFields, setDefaultFields] = useState<LeadField[]>([]);
     const [services, setServices] = useState<ServiceState[]>([]);
     
+    const [leadIntakeMode, setLeadIntakeMode] = useState<'form' | 'api'>('form');
     const [mwsFixedFee, setMwsFixedFee] = useState<string>('');
     const [mwsProfitPercentage, setMwsProfitPercentage] = useState<string>('');
     const [quoteWebhookUrl, setQuoteWebhookUrl] = useState('');
@@ -78,12 +79,16 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
             }
 
             // Other actual user-facing services
-            const otherServices = rawServices.filter(s => s.name !== '__default_fields__');
-            setServices(otherServices.map(s => ({ 
-                ...s, 
-                isExpanded: false, 
-                fields: (s.fields || []).map(f => ({ ...f, type: f.type || 'text' })) 
+            const otherServices = rawServices.filter(s => s.name !== '__default_fields__' && s.name !== '__lead_mode__');
+            setServices(otherServices.map(s => ({
+                ...s,
+                isExpanded: false,
+                fields: (s.fields || []).map(f => ({ ...f, type: f.type || 'text' }))
             })));
+
+            // Lead intake mode
+            const leadModeEntry = rawServices.find((s: any) => s.name === '__lead_mode__');
+            setLeadIntakeMode(leadModeEntry?.mode || client.lead_intake_mode || 'form');
 
             setMwsFixedFee(String(client.mws_fixed_fee || ''));
             setMwsProfitPercentage(String(client.mws_profit_percentage || ''));
@@ -95,6 +100,7 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
             setPassword('');
             setDefaultFields(initialDefaultFields);
             setServices([]);
+            setLeadIntakeMode('form');
             setMwsFixedFee('');
             setMwsProfitPercentage('');
             setQuoteWebhookUrl('');
@@ -303,13 +309,13 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
             })
             .filter(Boolean);
 
-        if (finalServices.length === 0) {
-            setError("Aggiungi almeno un servizio specifico (es. Tagliando, Yoga, ecc.) sotto.");
-            return;
-        }
+        // Lead mode entry (stored as special service in JSONB)
+        const leadModeObj = { id: 'service_lead_mode', name: '__lead_mode__', mode: leadIntakeMode, fields: [] };
 
-        // Combine system default fields as a service and add actual services
-        const mergedServices = [defaultServiceObj, ...finalServices];
+        // Combine: default fields + lead mode + (services only if form mode)
+        const mergedServices = leadIntakeMode === 'api'
+            ? [defaultServiceObj, leadModeObj]
+            : [defaultServiceObj, leadModeObj, ...finalServices];
 
         setIsLoading(true);
         
@@ -425,6 +431,46 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
                     </div>
                 </fieldset>
 
+                {/* LEAD INTAKE MODE SELECTOR */}
+                <fieldset className="border-t border-slate-200 dark:border-slate-700 pt-5">
+                    <div className="flex items-center space-x-2 mb-3">
+                        <h3 className="text-sm font-semibold text-slate-700 dark:text-gray-200">Modalità Ricezione Lead</h3>
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-gray-400 mb-3">
+                        Scegli come questo cliente riceverà le lead. Puoi cambiarlo in qualsiasi momento.
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <label className={`flex items-start gap-3 p-4 rounded-lg border-2 cursor-pointer transition-colors ${
+                            leadIntakeMode === 'form'
+                                ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
+                                : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                        }`}>
+                            <input type="radio" name="leadIntakeMode" value="form" checked={leadIntakeMode === 'form'} onChange={() => setLeadIntakeMode('form')} className="mt-0.5 h-4 w-4 text-primary-600 border-gray-300 focus:ring-primary-500" />
+                            <div>
+                                <div className="flex items-center gap-2">
+                                    <Globe size={16} className="text-primary-500" />
+                                    <span className="text-sm font-semibold text-slate-800 dark:text-white">Formulario HTML</span>
+                                </div>
+                                <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">Le lead arrivano dal form generato dall'app. Puoi configurare servizi con campi personalizzati.</p>
+                            </div>
+                        </label>
+                        <label className={`flex items-start gap-3 p-4 rounded-lg border-2 cursor-pointer transition-colors ${
+                            leadIntakeMode === 'api'
+                                ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
+                                : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                        }`}>
+                            <input type="radio" name="leadIntakeMode" value="api" checked={leadIntakeMode === 'api'} onChange={() => setLeadIntakeMode('api')} className="mt-0.5 h-4 w-4 text-primary-600 border-gray-300 focus:ring-primary-500" />
+                            <div>
+                                <div className="flex items-center gap-2">
+                                    <FileCode size={16} className="text-primary-500" />
+                                    <span className="text-sm font-semibold text-slate-800 dark:text-white">API / Integrazione Esterna</span>
+                                </div>
+                                <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">Le lead arrivano via API POST. Vengono usati solo i campi di default come struttura dati.</p>
+                            </div>
+                        </label>
+                    </div>
+                </fieldset>
+
                 {/* SECTION 1: Default Fields (Campi di Default) */}
                 <fieldset className="border-t border-slate-200 dark:border-slate-700 pt-5">
                     <div className="flex items-center space-x-2 text-indigo-600 dark:text-indigo-400 mb-3">
@@ -530,16 +576,21 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
                     </button>
                 </fieldset>
 
-                {/* SECTION 2: Specific Services and custom extra fields */}
+                {/* SECTION 2: Specific Services and custom extra fields — shown only in form mode */}
+                {leadIntakeMode === 'form' && (
                 <fieldset className="border-t border-slate-200 dark:border-slate-700 pt-5">
-                    <div className="flex items-center space-x-2 text-primary-600 dark:text-primary-400 mb-3">
-                        <Tag size={18} />
-                        <h3 className="text-base font-bold tracking-tight">2. Servizi Specifici e Campi Personalizzati</h3>
+                    <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center space-x-2 text-primary-600 dark:text-primary-400">
+                            <Tag size={18} />
+                            <h3 className="text-base font-bold tracking-tight">2. Servizi Specifici e Campi Personalizzati</h3>
+                        </div>
+                        <span className="text-xs text-slate-400 dark:text-gray-500 italic">Opzionale</span>
                     </div>
-                    
+
                     <p className="text-xs text-slate-500 dark:text-gray-400 mb-4 bg-emerald-50 dark:bg-slate-800/50 p-3 rounded-lg border border-emerald-100 dark:border-emerald-950/40">
-                        Aggiungi i vari servizi offerti dal cliente (es. <em>Tagliando, Controllo Freni, Abbonamento Yoga, Lezione di Prova</em>). 
-                        Configura per ogni servizio solo le domande extra o specifiche richieste per quel servizio (es. <em>Targa per l'auto, Livello per il corso</em>).
+                        Aggiungi i vari servizi offerti dal cliente (es. <em>Irrorazione, Semina, Abbonamento Yoga</em>).
+                        Configura per ogni servizio solo le domande extra specifiche (es. <em>Ettari, Zona, Livello</em>).
+                        Se non aggiungi servizi, le lead useranno solo i campi di default.
                     </p>
 
                     <div className="space-y-4">
@@ -661,15 +712,16 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
                         ))}
                     </div>
                     
-                    <button 
-                        type="button" 
-                        onClick={handleAddService} 
+                    <button
+                        type="button"
+                        onClick={handleAddService}
                         className="mt-4 flex items-center text-sm font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-gray-250 hover:bg-slate-200 dark:hover:bg-slate-750 px-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700"
                     >
                         <PlusCircle size={18} className="mr-2 text-primary-500" />
                         Aggiungi Nuovo Servizio Specifico
                     </button>
                 </fieldset>
+                )}
 
                 {error && <p className="text-sm text-red-500 dark:text-red-400 mt-4 font-semibold">{error}</p>}
                 
