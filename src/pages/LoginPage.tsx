@@ -12,7 +12,7 @@ const LoginPage: React.FC = () => {
     const { login, forgotPassword } = useAuth();
 
     // Form states
-    const [username, setUsername] = useState('');
+    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
@@ -40,7 +40,7 @@ const LoginPage: React.FC = () => {
         setIsLoading(true);
 
         try {
-            const user = await login(username, password);
+            const user = await login(email, password);
             if (user) {
                 if (user.role === 'admin') {
                     navigate('/admin/dashboard');
@@ -250,15 +250,15 @@ const LoginPage: React.FC = () => {
                                         <User className="h-5 w-5 text-slate-400" />
                                     </div>
                                     <input
-                                        id="username"
-                                        name="username"
-                                        type="text"
-                                        autoComplete="username"
+                                        id="email"
+                                        name="email"
+                                        type="email"
+                                        autoComplete="email"
                                         required
-                                        value={username}
-                                        onChange={(e) => setUsername(e.target.value)}
+                                        value={email}
+                                        onChange={(e) => setEmail(e.target.value)}
                                         className="appearance-none relative block w-full px-3 py-3 pl-10 bg-slate-900/60 border border-slate-700/80 placeholder-slate-500 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent sm:text-sm"
-                                        placeholder="Email o Nome utente"
+                                        placeholder="Indirizzo Email"
                                     />
                                 </div>
                                 <div className="relative">
