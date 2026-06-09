@@ -32,6 +32,7 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
     const { t } = useTranslation();
     const [name, setName] = useState('');
     const [username, setUsername] = useState('');
+    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     
     // Split standard services into: default fields (system configuration) and actual other services
@@ -90,6 +91,7 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
         } else {
             setName('');
             setUsername('');
+            setEmail('');
             setPassword('');
             setDefaultFields(initialDefaultFields);
             setServices([]);
@@ -322,7 +324,14 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
                 };
                 await ApiService.updateClient(client.id, updates);
             } else {
-                await ApiService.addClient(name, username, password, mergedServices as Omit<Service, 'id'>[], quoteWebhookUrl);
+                await ApiService.createClient({
+                    name,
+                    username: username || email,
+                    email,
+                    password,
+                    services: mergedServices as Omit<Service, 'id'>[],
+                    quote_webhook_url: quoteWebhookUrl,
+                });
             }
             onSuccess();
         } catch (err: any) {
@@ -347,12 +356,16 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
                 {!isEditing && (
                     <>
                         <div>
-                            <label htmlFor="username" className="block text-sm font-medium text-slate-700 dark:text-gray-300">Username Cliente</label>
-                            <input type="text" id="username" value={username} onChange={(e) => setUsername(e.target.value)} required className={inputClasses} />
+                            <label htmlFor="clientEmail" className="block text-sm font-medium text-slate-700 dark:text-gray-300">Email Cliente (per accesso)</label>
+                            <input type="email" id="clientEmail" value={email} onChange={(e) => setEmail(e.target.value)} required className={inputClasses} placeholder="email@cliente.it" />
+                        </div>
+                        <div>
+                            <label htmlFor="username" className="block text-sm font-medium text-slate-700 dark:text-gray-300">Username (nome visualizzato)</label>
+                            <input type="text" id="username" value={username} onChange={(e) => setUsername(e.target.value)} className={inputClasses} placeholder="Lascia vuoto per usare l'email" />
                         </div>
                         <div>
                             <label htmlFor="password" className="block text-sm font-medium text-slate-700 dark:text-gray-300">Password Cliente</label>
-                            <input type="password" id="password" value={password} onChange={(e) => setPassword(e.target.value)} required className={inputClasses} />
+                            <input type="password" id="password" value={password} onChange={(e) => setPassword(e.target.value)} required className={inputClasses} placeholder="Min. 6 caratteri" />
                         </div>
                     </>
                 )}

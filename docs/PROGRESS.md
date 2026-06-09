@@ -43,9 +43,15 @@ Claude Code supporta agent in worktree separati che lavorano in parallelo:
 - ✅ `.env.local` e `.env.example` aggiornati con tutte le variabili
 - ✅ Spiegate le variabili da aggiungere su Vercel dashboard
 
-### Prossimi passi
-1. Eseguire `migration_reset_v2.sql` su Supabase (se non ancora fatto)
-2. Creare account admin su Supabase Auth
-3. Configurare dominio email su Resend (resend.com → Domains)
-4. Aggiungere le variabili su Vercel → Settings → Environment Variables
-5. Collegare il repo GitHub a Vercel per il deploy automatico
+### Deploy e login completati (2026-06-09)
+- ✅ App live su https://www.mws-saas.com e https://mws-lead.vercel.app
+- ✅ GitHub: https://github.com/infomoiseweb/mws-lead (auto-deploy su push)
+- ✅ Fix policy RLS ricorsiva su public.users → funzione is_admin() SECURITY DEFINER
+- ✅ Fix campo login: email invece di username
+- ✅ Login admin funzionante
+
+### Prossimi passi — Fase 2
+1. Aggiungere primo cliente reale dal pannello admin
+2. Testare flusso completo: lead → preventivo → email
+3. Rimuovere riferimenti hardcoded alle officine meccaniche
+4. Rendere il software multi-nicchia

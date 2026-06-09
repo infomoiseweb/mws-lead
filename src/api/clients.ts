@@ -1,6 +1,31 @@
 import { supabase } from '../lib/supabase';
 import type { Client, Lead, AdSpend, Service } from '../types';
 
+export async function createClient(params: {
+    name: string;
+    username: string;
+    email: string;
+    password: string;
+    services: Omit<Service, 'id'>[];
+    quote_webhook_url?: string;
+}): Promise<Client> {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error('Non autenticato.');
+
+    const res = await fetch('/api/create-client', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(params),
+    });
+
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || 'Errore nella creazione del cliente');
+    return json.client as Client;
+}
+
 function unpackMwsSettings<T extends { services?: any; mws_fixed_fee?: number; mws_profit_percentage?: number }>(clientData: T): T {
     if (!clientData) return clientData;
 
