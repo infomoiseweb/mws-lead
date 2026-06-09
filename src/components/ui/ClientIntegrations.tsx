@@ -26,6 +26,8 @@ export const ClientIntegrations: React.FC<ClientIntegrationsProps> = ({ client, 
   const [testError, setTestError] = useState('');
 
   const endpointUrl = `${window.location.origin}/#/api/lead/${client.id}`;
+  const apiEndpointUrl = `${window.location.origin.replace('/#', '')}/api/leads`;
+  const apiToken = client.api_token;
 
   const triggerCopy = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
@@ -264,30 +266,60 @@ export const ClientIntegrations: React.FC<ClientIntegrationsProps> = ({ client, 
           {activeSubTab === 'webhook' && (
             <div className="space-y-4">
               <p className="text-sm text-slate-600 dark:text-gray-400">
-                Usa questo JSON payload per fare una chiamata REST di tipo <code className="bg-slate-100 dark:bg-slate-900 px-1.5 py-0.5 rounded text-red-500 dark:text-red-400 font-mono text-xs">POST</code> o <code className="bg-slate-100 dark:bg-slate-900 px-1.5 py-0.5 rounded text-red-500 dark:text-red-400 font-mono text-xs">GET</code> dal tuo server o piattaforma (Zapier, Make, o codice backend custom).
+                Invia lead via <code className="bg-slate-100 dark:bg-slate-900 px-1.5 py-0.5 rounded text-red-500 dark:text-red-400 font-mono text-xs">POST</code> all'endpoint qui sotto usando il tuo API Token univoco. Compatibile con Zapier, Make, n8n, o codice backend custom.
               </p>
 
-              <div className="p-4 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-850 rounded-xl">
-                <p className="text-xs font-semibold text-slate-500 dark:text-gray-400">ENDPOINT URL (POST/GET)</p>
-                <div className="font-mono text-sm break-all font-bold text-slate-800 dark:text-white mt-1">
-                  {endpointUrl}
+              {/* Endpoint URL */}
+              <div className="p-3 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl">
+                <p className="text-xs font-semibold text-slate-500 dark:text-gray-400 mb-1">ENDPOINT (POST)</p>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-mono text-xs break-all text-slate-800 dark:text-white">{apiEndpointUrl}</span>
+                  <button onClick={() => triggerCopy(apiEndpointUrl, 'apiurl')} type="button" className="shrink-0 text-slate-400 hover:text-primary-500 transition">
+                    {copiedText === 'apiurl' ? <Check size={15} className="text-green-500" /> : <Copy size={15} />}
+                  </button>
                 </div>
               </div>
 
-              <div className="relative mt-2">
-                <div className="absolute right-3 top-3">
-                  <button
-                    onClick={() => triggerCopy(webhookJsonSnippet, 'json')}
-                    type="button"
-                    className="p-1 px-2.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 rounded-md text-xs font-semibold text-slate-700 dark:text-white flex items-center space-x-1"
-                  >
-                    {copiedText === 'json' ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
-                    <span>{copiedText === 'json' ? 'Copiato!' : 'Copia'}</span>
-                  </button>
+              {/* API Token */}
+              <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl">
+                <p className="text-xs font-semibold text-amber-700 dark:text-amber-300 mb-1 flex items-center gap-1.5">
+                  <FileCode size={13} /> API TOKEN (segreto — non condividere)
+                </p>
+                {apiToken ? (
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-mono text-xs break-all text-amber-900 dark:text-amber-200 select-all">{apiToken}</span>
+                    <button onClick={() => triggerCopy(apiToken, 'apitoken')} type="button" className="shrink-0 text-amber-500 hover:text-amber-700 dark:hover:text-amber-300 transition">
+                      {copiedText === 'apitoken' ? <Check size={15} className="text-green-500" /> : <Copy size={15} />}
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-xs text-amber-600 dark:text-amber-400">Token non disponibile. Contatta l'admin.</p>
+                )}
+              </div>
+
+              {/* Esempio cURL */}
+              <div>
+                <p className="text-xs font-semibold text-slate-500 dark:text-gray-400 mb-1">ESEMPIO RICHIESTA (cURL / Zapier body)</p>
+                <div className="relative">
+                  <div className="absolute right-3 top-3">
+                    <button
+                      onClick={() => triggerCopy(webhookJsonSnippet, 'json')}
+                      type="button"
+                      className="p-1 px-2.5 bg-slate-700 hover:bg-slate-600 rounded-md text-xs font-semibold text-white flex items-center space-x-1"
+                    >
+                      {copiedText === 'json' ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+                      <span>{copiedText === 'json' ? 'Copiato!' : 'Copia'}</span>
+                    </button>
+                  </div>
+                  <pre className="p-4 bg-slate-950 text-green-400 rounded-xl overflow-x-auto text-xs font-mono">
+{`// Header
+Authorization: Bearer ${apiToken || '<api_token>'}
+Content-Type: application/json
+
+// Body
+${webhookJsonSnippet}`}
+                  </pre>
                 </div>
-                <pre className="p-4 bg-slate-950 text-slate-200 dark:text-green-400 rounded-xl overflow-x-auto text-xs font-mono h-44">
-                  {webhookJsonSnippet}
-                </pre>
               </div>
             </div>
           )}

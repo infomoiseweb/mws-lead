@@ -150,6 +150,7 @@ export interface Client {
     quote_webhook_url?: string;
     message_templates?: MessageTemplate[];
     lead_intake_mode?: 'form' | 'api';
+    api_token?: string;
     // These are loaded separately
     leads: Lead[];
     adSpends?: AdSpend[];
