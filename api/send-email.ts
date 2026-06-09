@@ -1,59 +1,45 @@
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { Resend } from 'resend';
 import { createClient } from '@supabase/supabase-js';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-// Client Supabase con la service_role key — può verificare JWT senza RLS
-const supabase = createClient(
+const supabaseAdmin = createClient(
     process.env.VITE_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-export default async function handler(req: Request): Promise<Response> {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method !== 'POST') {
-        return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405 });
+        return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    // Verifica il JWT di Supabase — chi non è loggato non può mandare email
-    const authHeader = req.headers.get('Authorization');
+    const authHeader = req.headers.authorization;
     if (!authHeader?.startsWith('Bearer ')) {
-        return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+        return res.status(401).json({ error: 'Unauthorized' });
     }
 
     const jwt = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabase.auth.getUser(jwt);
-
+    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(jwt);
     if (authError || !user) {
-        return new Response(JSON.stringify({ error: 'Token non valido o scaduto' }), { status: 401 });
+        return res.status(401).json({ error: 'Token non valido o scaduto' });
     }
 
-    let payload: { to: string | string[]; subject: string; html: string; from?: string };
-    try {
-        payload = await req.json();
-    } catch {
-        return new Response(JSON.stringify({ error: 'Invalid JSON body' }), { status: 400 });
-    }
-
-    const { to, subject, html, from } = payload;
+    const { to, subject, html, from } = req.body;
     if (!to || !subject || !html) {
-        return new Response(JSON.stringify({ error: 'to, subject e html sono obbligatori' }), { status: 400 });
+        return res.status(400).json({ error: 'to, subject e html sono obbligatori' });
     }
 
-    try {
-        const { data, error } = await resend.emails.send({
-            from: from || 'MWS Lead <noreply@mwslead.it>',
-            to: Array.isArray(to) ? to : [to],
-            subject,
-            html,
-        });
+    const { data, error } = await resend.emails.send({
+        from: from || 'MWS Lead <noreply@mwslead.it>',
+        to: Array.isArray(to) ? to : [to],
+        subject,
+        html,
+    });
 
-        if (error) {
-            console.error('Resend error:', error);
-            return new Response(JSON.stringify({ error: error.message }), { status: 500 });
-        }
-
-        return new Response(JSON.stringify({ success: true, id: data?.id }), { status: 200 });
-    } catch (err: any) {
-        return new Response(JSON.stringify({ error: err.message }), { status: 500 });
+    if (error) {
+        return res.status(500).json({ error: error.message });
     }
+
+    return res.status(200).json({ success: true, id: data?.id });
 }

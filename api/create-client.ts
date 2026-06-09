@@ -1,34 +1,32 @@
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 
-// Usa service_role per creare utenti Auth server-side
 const supabaseAdmin = createClient(
     process.env.VITE_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-export default async function handler(req: Request): Promise<Response> {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method !== 'POST') {
-        return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405 });
+        return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    // Verifica variabili d'ambiente
     if (!process.env.VITE_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-        return new Response(JSON.stringify({ error: 'Variabili VITE_SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY mancanti su Vercel' }), { status: 500 });
+        return res.status(500).json({ error: 'Variabili d\'ambiente mancanti su Vercel' });
     }
 
-    // Verifica che sia un admin autenticato
-    const authHeader = req.headers.get('Authorization');
+    // Verifica JWT admin
+    const authHeader = req.headers.authorization;
     if (!authHeader?.startsWith('Bearer ')) {
-        return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+        return res.status(401).json({ error: 'Unauthorized' });
     }
 
     const jwt = authHeader.replace('Bearer ', '');
     const { data: { user: requester }, error: authError } = await supabaseAdmin.auth.getUser(jwt);
     if (authError || !requester) {
-        return new Response(JSON.stringify({ error: 'Token non valido' }), { status: 401 });
+        return res.status(401).json({ error: 'Token non valido' });
     }
 
-    // Verifica che sia admin
     const { data: profile } = await supabaseAdmin
         .from('users')
         .select('role')
@@ -36,37 +34,34 @@ export default async function handler(req: Request): Promise<Response> {
         .single();
 
     if (profile?.role !== 'admin') {
-        return new Response(JSON.stringify({ error: 'Solo gli admin possono creare clienti' }), { status: 403 });
+        return res.status(403).json({ error: 'Solo gli admin possono creare clienti' });
     }
 
-    const { name, username, email, password, services, quote_webhook_url } = await req.json();
+    const { name, username, email, password, services, quote_webhook_url } = req.body;
 
     if (!name || !email || !password || !services) {
-        return new Response(JSON.stringify({ error: 'name, email, password e services sono obbligatori' }), { status: 400 });
+        return res.status(400).json({ error: 'name, email, password e services sono obbligatori' });
     }
 
-    // 1. Crea utente in Supabase Auth
+    // Crea utente in Supabase Auth
     const { data: authData, error: createError } = await supabaseAdmin.auth.admin.createUser({
         email,
         password,
-        email_confirm: true, // conferma email automatica
+        email_confirm: true,
         user_metadata: { username: username || email, role: 'client' },
     });
 
     if (createError) {
-        return new Response(JSON.stringify({ error: createError.message }), { status: 400 });
+        return res.status(400).json({ error: createError.message });
     }
 
     const userId = authData.user.id;
 
-    // 2. Il trigger handle_new_user() crea il profilo in public.users automaticamente
-    // Aggiorniamo username e role per sicurezza
     await supabaseAdmin
         .from('users')
         .update({ username: username || email, role: 'client', status: 'active' })
         .eq('id', userId);
 
-    // 3. Crea il client record con i servizi
     const servicesWithIds = services.map((s: any) => ({
         ...s,
         id: `service_${Date.now()}_${Math.random()}`,
@@ -80,13 +75,12 @@ export default async function handler(req: Request): Promise<Response> {
         .single();
 
     if (clientError) {
-        // Rollback: elimina l'utente Auth se la creazione del client fallisce
         await supabaseAdmin.auth.admin.deleteUser(userId);
-        return new Response(JSON.stringify({ error: clientError.message }), { status: 500 });
+        return res.status(500).json({ error: clientError.message });
     }
 
-    return new Response(JSON.stringify({
+    return res.status(201).json({
         success: true,
         client: { ...newClient, leads: [], adSpends: [], services: servicesWithIds }
-    }), { status: 201 });
+    });
 }
