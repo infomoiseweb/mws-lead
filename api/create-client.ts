@@ -11,6 +11,11 @@ export default async function handler(req: Request): Promise<Response> {
         return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405 });
     }
 
+    // Verifica variabili d'ambiente
+    if (!process.env.VITE_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+        return new Response(JSON.stringify({ error: 'Variabili VITE_SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY mancanti su Vercel' }), { status: 500 });
+    }
+
     // Verifica che sia un admin autenticato
     const authHeader = req.headers.get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) {
