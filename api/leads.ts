@@ -85,8 +85,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(401).json({ error: 'api_token non valido o cliente non trovato.' });
     }
 
+    // Normalizza tutte le chiavi in minuscolo (es. "Nome" → "nome")
+    const normalizedBody: Record<string, string> = {};
+    for (const [key, value] of Object.entries(body)) {
+        normalizedBody[key.toLowerCase()] = value;
+    }
+
     // Rimuovi i campi riservati, tutto il resto va in lead.data
-    const { service, api_token: _token, ...leadData } = body;
+    const { service, api_token: _token, ...leadData } = normalizedBody;
 
     if (!leadData || Object.keys(leadData).length === 0) {
         return res.status(400).json({ error: 'Nessun dato lead nel body.' });

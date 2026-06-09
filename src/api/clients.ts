@@ -49,10 +49,7 @@ function unpackMwsSettings<T extends { services?: any; mws_fixed_fee?: number; m
         c.lead_intake_mode = leadModeEntry.mode || 'form';
     }
 
-    // Mantieni i raw services (incluso __default_fields__) per uso interno nella UI
-    (c as any)._rawServices = arr;
-
-    c.services = arr.filter((s: any) => s?.id !== 'mws_settings' && s?.name !== '__lead_mode__' && s?.name !== '__default_fields__');
+    c.services = arr.filter((s: any) => s?.id !== 'mws_settings' && s?.name !== '__lead_mode__');
     return c;
 }
 
