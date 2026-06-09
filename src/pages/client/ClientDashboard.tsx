@@ -287,15 +287,33 @@ const ClientDashboard: React.FC = () => {
 
     const dynamicColumns = useMemo<LeadField[]>(() => {
         if (!client) return [];
+
+        // Campi di default configurati dall'admin (dal servizio __default_fields__)
+        const rawServices: any[] = (client as any)._rawServices || [];
+        const defaultFieldsService = rawServices.find((s: any) => s.name === '__default_fields__');
+        const configuredDefaultFields: LeadField[] = defaultFieldsService?.fields || [];
+
+        // Fallback se non ci sono campi configurati
+        const fallbackColumns: LeadField[] = [
+            { id: 'default-nome', name: 'nome', label: 'Nome', type: 'text' },
+            { id: 'default-email', name: 'email', label: 'Email', type: 'email' },
+            { id: 'default-telefono', name: 'telefono', label: 'Telefono', type: 'tel' },
+        ];
+
+        const baseColumns = configuredDefaultFields.length > 0 ? configuredDefaultFields : fallbackColumns;
+
         if (selectedService === 'all') {
-            return [
-                { id: 'default-nome', name: 'nome', label: 'Nome', type: 'text' },
-                { id: 'default-email', name: 'email', label: 'Email', type: 'email' },
-                { id: 'default-telefono', name: 'telefono', label: 'Telefono', type: 'tel' },
-            ];
+            return baseColumns;
         }
+
         const service = client.services.find(s => s.name === selectedService);
-        return service ? service.fields : [];
+        if (!service || service.fields.length === 0) {
+            // Nessun campo extra per questo servizio — mostra comunque i default
+            return baseColumns;
+        }
+        // Servizio con campi extra: default + campi specifici (senza duplicati)
+        const extraFields = service.fields.filter(f => !baseColumns.some(b => b.name === f.name));
+        return [...baseColumns, ...extraFields];
     }, [client, selectedService]);
 
     const orderedColumns = useMemo(() => {
