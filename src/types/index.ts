@@ -130,6 +130,15 @@ export interface Lead {
     appointments?: Appointment[];
 }
 
+// Variabili disponibili nei template: {{nome}}, {{telefono}}, {{email}}, {{servizio}}, {{data}}, + qualsiasi campo della lead
+export interface MessageTemplate {
+    id: string;
+    name: string;               // Es. "Prima risposta irrorazione"
+    service: string;            // Nome del servizio o "*" per tutti
+    channel: 'whatsapp' | 'email' | 'entrambi';
+    body: string;               // Testo con segnaposto {{nome}}, {{telefono}}, ecc.
+}
+
 export interface Client {
     id: string;
     name: string;
@@ -139,6 +148,7 @@ export interface Client {
     mws_fixed_fee?: number;
     mws_profit_percentage?: number;
     quote_webhook_url?: string;
+    message_templates?: MessageTemplate[];
     // These are loaded separately
     leads: Lead[];
     adSpends?: AdSpend[];

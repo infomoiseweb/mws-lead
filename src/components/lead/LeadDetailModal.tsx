@@ -89,7 +89,8 @@ const DetailRow: React.FC<{ icon: React.ReactNode, label: string, value: React.R
     </div>
 );
 
-const MESSAGE_TEMPLATES: Record<string, { label: string; template: string }> = {
+// Legacy hardcoded templates removed — templates now come from client.message_templates
+const _LEGACY_TEMPLATES_REMOVED: Record<string, { label: string; template: string }> = {
   cambio: {
     label: 'Cambio Automatico',
     template: `💬 Buongiorno [nome_lead], sono Luca dell'Autoriparazioni Facchetti.  
@@ -261,6 +262,19 @@ Buona giornata!`
   }
 };
 
+function substituteTemplateVars(body: string, lead: { data: Record<string, string>; service?: string; created_at: string }): string {
+    let result = body;
+    // Standard vars
+    result = result.replace(/\{\{nome\}\}/g, lead.data.nome || lead.data.name || '');
+    result = result.replace(/\{\{telefono\}\}/g, lead.data.telefono || lead.data.phone || '');
+    result = result.replace(/\{\{email\}\}/g, lead.data.email || '');
+    result = result.replace(/\{\{servizio\}\}/g, lead.service || '');
+    result = result.replace(/\{\{data\}\}/g, new Date(lead.created_at).toLocaleDateString('it-IT'));
+    // Dynamic: any other {{field}} from lead.data
+    result = result.replace(/\{\{(\w+)\}\}/g, (_match, key) => lead.data[key] || '');
+    return result;
+}
+
 const EditHistoricalLeadForm: React.FC<{
     lead: Lead;
     client: Client;
@@ -358,7 +372,7 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
     const [serviceCopied, setServiceCopied] = useState(false);
     const [targaCopied, setTargaCopied] = useState(false);
     const [activeTab, setActiveTab] = useState('dati');
-    const [selectedTemplateKey, setSelectedTemplateKey] = useState('cambio');
+    const [selectedTemplateKey, setSelectedTemplateKey] = useState<string>('');
     const [price, setPrice] = useState('');
     const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
     const [editingNoteContent, setEditingNoteContent] = useState('');
@@ -614,16 +628,12 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
 
         setTimeout(() => {
             try {
-                const selectedTemplateObject = MESSAGE_TEMPLATES[selectedTemplateKey];
+                const dynamicTemplates = client?.message_templates || [];
+                const selectedTemplate = dynamicTemplates.find(t => t.id === selectedTemplateKey);
 
-                if (selectedTemplateObject) {
-                    let processedTemplate = selectedTemplateObject.template;
-                    processedTemplate = processedTemplate.replace(/\[nome_lead\]/g, lead.data.nome || '[nome non specificato]');
-                    processedTemplate = processedTemplate.replace(/\[tipo di tagliando\]/g, tipoTagliando || '[servizio non specificato]');
-                    processedTemplate = processedTemplate.replace(/\[targa\]/g, lead.data.targa || '[targa non specificata]');
-                    processedTemplate = processedTemplate.replace(/\[prezzo\]/g, price ? `${price}€` : '[prezzo non specificato]');
-        
-                    setGeneratedMessage(processedTemplate);
+                if (selectedTemplate) {
+                    const processed = substituteTemplateVars(selectedTemplate.body, lead);
+                    setGeneratedMessage(processed);
                 } else {
                     setGenerationError("Seleziona un modello di messaggio valido.");
                 }
@@ -1303,52 +1313,63 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
                             </div>
                         )}
 
-                        {isFacchetti ? (
-                            <fieldset className="mb-4">
-                                <legend className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
-                                    {t('component_leadDetailModal.choose_template')}
-                                </legend>
-                                <div className="space-y-2">
-                                    {Object.entries(MESSAGE_TEMPLATES).map(([key, { label }]) => (
-                                        <label key={key} className="flex items-center space-x-3 p-3 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer border border-slate-200 dark:border-slate-600">
-                                            <input
-                                                type="radio"
-                                                name="template"
-                                                value={key}
-                                                checked={selectedTemplateKey === key}
-                                                onChange={() => setSelectedTemplateKey(key)}
-                                                className="h-4 w-4 border-gray-300 text-primary-600 focus:ring-primary-500"
-                                            />
-                                            <span className="text-sm font-medium text-slate-700 dark:text-gray-300">{t(`component_leadDetailModal.template_labels.${key}`, label)}</span>
-                                        </label>
-                                    ))}
-                                </div>
-                            </fieldset>
-                        ) : (
-                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">La generazione di messaggi automatici non è configurata per questo cliente.</p>
-                        )}
-                        
-                        {isFacchetti && (
-                             <div className="text-center mt-4">
-                                <button 
-                                    onClick={handleGenerateMessage} 
-                                    disabled={isGenerating}
-                                    className="inline-flex items-center justify-center bg-primary-600 text-white px-4 py-2 text-sm rounded-lg shadow hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    {isGenerating ? (
-                                        <>
-                                            <Loader2 size={16} className="animate-spin mr-2"/>
-                                            Generazione in corso...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Sparkles size={16} className="mr-2" />
-                                            Genera Messaggio
-                                        </>
-                                    )}
-                                </button>
-                            </div>
-                        )}
+                        {(() => {
+                            const templates = (client?.message_templates || []).filter(t =>
+                                t.service === '*' || t.service === lead?.service
+                            );
+                            if (templates.length === 0) {
+                                return (
+                                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                                        Nessun modello configurato. Aggiungili nelle{' '}
+                                        <span className="text-primary-500 font-medium">Impostazioni Account → Modelli Messaggi</span>.
+                                    </p>
+                                );
+                            }
+                            return (
+                                <>
+                                    <fieldset className="mb-4">
+                                        <legend className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
+                                            Scegli modello
+                                        </legend>
+                                        <div className="space-y-2">
+                                            {templates.map(tpl => (
+                                                <label key={tpl.id} className="flex items-center space-x-3 p-3 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer border border-slate-200 dark:border-slate-600">
+                                                    <input
+                                                        type="radio"
+                                                        name="template"
+                                                        value={tpl.id}
+                                                        checked={selectedTemplateKey === tpl.id}
+                                                        onChange={() => setSelectedTemplateKey(tpl.id)}
+                                                        className="h-4 w-4 border-gray-300 text-primary-600 focus:ring-primary-500"
+                                                    />
+                                                    <div className="flex-1 min-w-0">
+                                                        <span className="text-sm font-medium text-slate-700 dark:text-gray-300">{tpl.name}</span>
+                                                        {tpl.service !== '*' && (
+                                                            <span className="ml-2 text-xs text-primary-500">({tpl.service})</span>
+                                                        )}
+                                                        <span className="ml-2 text-xs text-slate-400 capitalize">{tpl.channel}</span>
+                                                    </div>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </fieldset>
+
+                                    <div className="text-center mt-4">
+                                        <button
+                                            onClick={handleGenerateMessage}
+                                            disabled={isGenerating || !selectedTemplateKey}
+                                            className="inline-flex items-center justify-center bg-primary-600 text-white px-4 py-2 text-sm rounded-lg shadow hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            {isGenerating ? (
+                                                <><Loader2 size={16} className="animate-spin mr-2"/>Generazione in corso...</>
+                                            ) : (
+                                                <><Sparkles size={16} className="mr-2" />Genera Messaggio</>
+                                            )}
+                                        </button>
+                                    </div>
+                                </>
+                            );
+                        })()}
 
                         {generationError && (
                             <p className="text-sm text-red-500 dark:text-red-400 mt-4 text-center">{generationError}</p>

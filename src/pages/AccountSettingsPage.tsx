@@ -2,7 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@contexts/AuthContext';
 import * as ApiService from '@api';
-import { Settings, User, Mail, Phone, Lock, AlertTriangle, Trash2, CheckCircle } from 'lucide-react';
+import { Settings, User, Mail, Phone, Lock, AlertTriangle, Trash2, CheckCircle, MessageSquare } from 'lucide-react';
+import type { Client, MessageTemplate } from '../types';
+import MessageTemplatesSettings from '@components/ui/MessageTemplatesSettings';
 
 const Card: React.FC<{ title: string; icon: React.ReactNode; children: React.ReactNode }> = ({ title, icon, children }) => (
     <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
@@ -20,6 +22,7 @@ const Card: React.FC<{ title: string; icon: React.ReactNode; children: React.Rea
 const AccountSettingsPage: React.FC = () => {
     const { user, updateUserContext, logout } = useAuth();
 
+    const [clientData, setClientData] = useState<Client | null>(null);
     const [profileData, setProfileData] = useState({ username: '', email: '', phone: '' });
     const [passwordData, setPasswordData] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
     const [deleteConfirm, setDeleteConfirm] = useState('');
@@ -45,6 +48,9 @@ const AccountSettingsPage: React.FC = () => {
                     });
                 }
             });
+            if (user.role === 'client') {
+                ApiService.getClientByUserId(user.id).then(c => { if (c) setClientData(c); });
+            }
         }
     }, [user]);
     
@@ -115,6 +121,12 @@ const AccountSettingsPage: React.FC = () => {
         }
     };
     
+    const handleSaveTemplates = async (templates: MessageTemplate[]) => {
+        if (!clientData) return;
+        const updated = await ApiService.updateClient(clientData.id, { message_templates: templates });
+        setClientData(prev => prev ? { ...prev, message_templates: updated.message_templates } : prev);
+    };
+
     const handleDeleteAccount = async (e: React.FormEvent) => {
         e.preventDefault();
         setDeleteError('');
@@ -195,6 +207,12 @@ const AccountSettingsPage: React.FC = () => {
                     </div>
                 </form>
             </Card>
+
+            {user?.role === 'client' && clientData && (
+                <Card title="Modelli Messaggi" icon={<MessageSquare className="text-primary-500 dark:text-primary-400" />}>
+                    <MessageTemplatesSettings client={clientData} onSave={handleSaveTemplates} />
+                </Card>
+            )}
 
             {user?.role === 'client' && (
                 <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-500/30 p-6 rounded-xl shadow-xl">
