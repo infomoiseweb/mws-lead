@@ -287,15 +287,27 @@ const ClientDashboard: React.FC = () => {
 
     const dynamicColumns = useMemo<LeadField[]>(() => {
         if (!client) return [];
-        if (selectedService === 'all') {
-            return [
+
+        const defaultFieldService = client.services.find(s => s.name === '__default_fields__');
+        const defaultFields: LeadField[] = defaultFieldService?.fields?.length
+            ? defaultFieldService.fields
+            : [
                 { id: 'default-nome', name: 'nome', label: 'Nome', type: 'text' },
                 { id: 'default-email', name: 'email', label: 'Email', type: 'email' },
                 { id: 'default-telefono', name: 'telefono', label: 'Telefono', type: 'tel' },
             ];
+
+        if (selectedService === 'all') {
+            return defaultFields;
         }
+
         const service = client.services.find(s => s.name === selectedService);
-        return service ? service.fields : [];
+        const extraFields = service ? service.fields : [];
+
+        // Merge: default fields + campi extra del servizio (evita duplicati per nome chiave)
+        const defaultNames = new Set(defaultFields.map(f => f.name));
+        const uniqueExtra = extraFields.filter(f => !defaultNames.has(f.name));
+        return [...defaultFields, ...uniqueExtra];
     }, [client, selectedService]);
 
     const orderedColumns = useMemo(() => {
