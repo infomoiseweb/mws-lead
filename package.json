@@ -12,6 +12,7 @@
   "dependencies": {
     "@google/genai": "^1.17.0",
     "@supabase/supabase-js": "^2.57.0",
+    "busboy": "^1.6.0",
     "chart.js": "^4.5.1",
     "i18next": "^23.11.5",
     "lucide-react": "^0.542.0",
@@ -23,6 +24,7 @@
     "resend": "^6.12.4"
   },
   "devDependencies": {
+    "@types/busboy": "^1.5.4",
     "@types/node": "^22.14.0",
     "@vercel/node": "^5.8.14",
     "@vitejs/plugin-react": "^5.0.0",
