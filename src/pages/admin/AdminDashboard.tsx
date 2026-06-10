@@ -5,7 +5,8 @@ import Modal from '@components/ui/Modal';
 import ClientForm from '@components/ui/ClientForm';
 import * as ApiService from '@api';
 import type { Client, Lead, User, LeadField, AdSpend, AdSpendPlatform, Service, SavedForm } from '../types';
-import { Plus, Clipboard, Trash2, Edit, ChevronDown, ChevronUp, Mail, Phone, Upload, RefreshCw, UserCog, Lock, User as UserIcon, Tag, Search, Ban, UserCheck, DollarSign, Activity } from 'lucide-react';
+import { Plus, Clipboard, Trash2, Edit, ChevronDown, ChevronUp, Mail, Phone, Upload, RefreshCw, UserCog, Lock, User as UserIcon, Tag, Search, Ban, UserCheck, DollarSign, Activity, FileCode, Check } from 'lucide-react';
+import { isBaseService } from '@/utils/services';
 import DateRangeFilter from '@components/ui/DateRangeFilter';
 import LeadForm from '@components/lead/LeadForm';
 import LeadDetailModal from '@components/lead/LeadDetailModal';
@@ -772,6 +773,59 @@ const WebhookUrlItem: React.FC<{ clientId: string, service: string, fields: Lead
     );
 };
 
+// Anteprima dell'integrazione API per un servizio (endpoint, token e payload JSON di esempio), copiabile con un click
+const ApiServiceItem: React.FC<{ apiToken?: string, service: Service, fields: LeadField[] }> = ({ apiToken, service, fields }) => {
+    const [copied, setCopied] = useState(false);
+
+    const apiEndpointUrl = `${window.location.origin.replace(/\/#.*$/, '')}/api/leads`;
+
+    const apiSnippet = useMemo(() => {
+        const sample: Record<string, string> = {};
+        (fields || []).forEach(f => {
+            if (f.type === 'email') sample[f.name] = 'mario@esempio.it';
+            else if (f.type === 'tel') sample[f.name] = '3331234567';
+            else if (f.name === 'nome') sample[f.name] = 'Mario Rossi';
+            else sample[f.name] = `Valore ${f.label}`;
+        });
+        sample['service'] = service.name;
+
+        return `// POST ${apiEndpointUrl}
+// Header
+Authorization: Bearer ${apiToken || '<api_token>'}
+Content-Type: application/json
+
+// Body
+${JSON.stringify(sample, null, 2)}`;
+    }, [apiToken, apiEndpointUrl, service.name, fields]);
+
+    const handleCopyToClipboard = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        const success = await copyTextToClipboard(apiSnippet);
+        if (success) {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        } else {
+            alert("Impossibile copiare. Prova a farlo manualmente.");
+        }
+    };
+
+    return (
+        <div className="relative bg-slate-100 dark:bg-slate-900 p-2 rounded-md border border-slate-200 dark:border-slate-700">
+            <div className="flex items-start mb-1">
+                <FileCode size={14} className="mr-2 mt-0.5 text-indigo-500 dark:text-indigo-400 flex-shrink-0" />
+                <span className="font-bold text-slate-800 dark:text-white text-xs flex items-center gap-1.5">
+                    {service.name}
+                    <span className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">API</span>
+                </span>
+            </div>
+            <pre className="font-mono text-[11px] text-slate-600 dark:text-gray-300 overflow-x-auto whitespace-pre-wrap break-all pr-16">{apiSnippet}</pre>
+            <button onClick={handleCopyToClipboard} className="absolute top-2 right-2 p-1 px-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded text-xs font-semibold text-slate-700 dark:text-white flex items-center gap-1">
+                {copied ? <><Check size={14} className="text-green-500" /> Copiato!</> : <><Clipboard size={14} /> Copia</>}
+            </button>
+        </div>
+    );
+};
+
 
 const ClientCard: React.FC<{ 
     client: Client, 
@@ -810,12 +864,18 @@ const ClientCard: React.FC<{
             {isExpanded && (
                  <div className="p-4 bg-slate-50 dark:bg-slate-800/50 space-y-4">
                      <div>
-                        <h4 className="font-semibold text-slate-700 dark:text-gray-300 mb-2">Webhook URLs per Servizio</h4>
+                        <h4 className="font-semibold text-slate-700 dark:text-gray-300 mb-2">Endpoint per Servizio</h4>
                         {client.services && client.services.filter(s => s.name !== '__default_fields__').length > 0 ? (
                             <div className="space-y-2">
-                                {client.services.filter(s => s.name !== '__default_fields__').map(service => (
-                                    <WebhookUrlItem key={service.id} clientId={client.id} service={service.name} fields={service.fields || []} />
-                                ))}
+                                {client.services.filter(s => s.name !== '__default_fields__').map(service => {
+                                    const baseFields = client.services?.find(isBaseService)?.fields || [];
+                                    const allFields = isBaseService(service) ? (service.fields || []) : [...baseFields, ...(service.fields || [])];
+                                    return service.intake_mode === 'api' ? (
+                                        <ApiServiceItem key={service.id} apiToken={client.api_token} service={service} fields={allFields} />
+                                    ) : (
+                                        <WebhookUrlItem key={service.id} clientId={client.id} service={service.name} fields={allFields} />
+                                    );
+                                })}
                             </div>
                         ) : (
                             <p className="text-sm text-gray-500 bg-slate-100 dark:bg-slate-900 p-3 rounded-md border border-slate-200 dark:border-slate-700">Nessun servizio configurato. Modifica il cliente per aggiungerne.</p>
