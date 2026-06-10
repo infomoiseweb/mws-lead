@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import * as ApiService from '@api';
 import type { Client, Service, LeadField } from '../types';
+import { isBaseService } from '@/utils/services';
 import {
   Code, Copy, Check, CheckCircle2,
   ExternalLink, FileCode, Sparkles, AlertCircle, Globe, Tag
@@ -23,7 +24,7 @@ export const ClientIntegrations: React.FC<ClientIntegrationsProps> = ({ client, 
   );
 
   const defaultFields = useMemo(
-    () => client.services.find(s => s.name === '__default_fields__')?.fields || [],
+    () => client.services.find(isBaseService)?.fields || [],
     [client.services]
   );
 
@@ -123,9 +124,16 @@ export const ClientIntegrations: React.FC<ClientIntegrationsProps> = ({ client, 
     return `  <div style="margin-bottom: 16px;">\n${labelHtml}\n${inputHtml}\n  </div>`;
   };
 
-  // Codice HTML generato dinamicamente per un servizio specifico (campi suoi + campi base)
+  // Campi di un servizio: i suoi campi + i campi base ereditati (evita duplicati per il servizio base stesso)
+  const getServiceFields = (service: Service | null): LeadField[] => {
+    if (!service) return defaultFields;
+    if (isBaseService(service)) return service.fields || [];
+    return [...defaultFields, ...(service.fields || [])];
+  };
+
+  // Codice HTML generato dinamicamente per un servizio specifico (campi suoi + campi base ereditati)
   const buildHtmlEmbedCode = (service: Service | null): string => {
-    const allFields = [...(service?.fields || []), ...defaultFields];
+    const allFields = getServiceFields(service);
     const fieldsHtml = allFields.map(renderFieldHtml).join('\n\n');
     const title = service?.name || client.name;
 
@@ -141,9 +149,9 @@ ${fieldsHtml}
 </form>`;
   };
 
-  // Esempio JSON per l'invio via API per un servizio specifico (campi suoi + campi base)
+  // Esempio JSON per l'invio via API per un servizio specifico (campi suoi + campi base ereditati)
   const buildApiJsonSnippet = (service: Service | null): string => {
-    const allFields = [...defaultFields, ...(service?.fields || [])];
+    const allFields = getServiceFields(service);
     const sample: Record<string, string> = {};
 
     allFields.forEach(f => {

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import type { Client, Lead, LeadField } from '../types';
 import * as ApiService from '@api';
+import { isBaseService } from '@/utils/services';
 import { useAuth } from '@contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 
@@ -41,12 +42,12 @@ const LeadForm: React.FC<LeadFormProps> = ({ clients, client, onSuccess }) => {
     const stepsConfig = useMemo(() => {
         const fieldChunks: LeadField[][] = [];
         
-        const defaultService = selectedClient?.services.find(s => s.name === '__default_fields__');
+        const defaultService = selectedClient?.services.find(isBaseService);
         const defaultFields = defaultService?.fields || [];
-        
-        // Exclude system default fields from being appended twice
-        const activeServiceFields = currentService?.name !== '__default_fields__' ? (currentService?.fields || []) : [];
-        
+
+        // Exclude base fields from being appended twice
+        const activeServiceFields = !isBaseService(currentService) ? (currentService?.fields || []) : [];
+
         const fields = [...defaultFields, ...activeServiceFields];
         
         // Divide in clusters of 4 fields per step
@@ -75,7 +76,7 @@ const LeadForm: React.FC<LeadFormProps> = ({ clients, client, onSuccess }) => {
     useEffect(() => {
         // When client changes, reset everything
         if (selectedClient) {
-            // Find first real service (exclude __default_fields__)
+            // Find first real (named) service, excluding the un-renamed base-fields marker
             const otherServices = selectedClient.services.filter(s => s.name !== '__default_fields__');
             const firstService = otherServices[0]?.name || '';
             setService(firstService);
@@ -93,9 +94,9 @@ const LeadForm: React.FC<LeadFormProps> = ({ clients, client, onSuccess }) => {
     
     // Auto-detect which field is the required "name" key
     const nameFieldKey = useMemo(() => {
-        const defaultService = selectedClient?.services.find(s => s.name === '__default_fields__');
+        const defaultService = selectedClient?.services.find(isBaseService);
         const defaultFields = defaultService?.fields || [];
-        const activeServiceFields = currentService?.name !== '__default_fields__' ? (currentService?.fields || []) : [];
+        const activeServiceFields = !isBaseService(currentService) ? (currentService?.fields || []) : [];
         const allFields = [...defaultFields, ...activeServiceFields];
         
         const found = allFields.find(f => f.name === 'nome' || f.name.includes('nome') || f.name === 'name');
@@ -135,11 +136,11 @@ const LeadForm: React.FC<LeadFormProps> = ({ clients, client, onSuccess }) => {
         }
 
         // Validate all required fields across all steps
-        const defaultService = selectedClient?.services.find(s => s.name === '__default_fields__');
+        const defaultService = selectedClient?.services.find(isBaseService);
         const defaultFields = defaultService?.fields || [];
-        const activeServiceFields = currentService?.name !== '__default_fields__' ? (currentService?.fields || []) : [];
+        const activeServiceFields = !isBaseService(currentService) ? (currentService?.fields || []) : [];
         const allFields = [...defaultFields, ...activeServiceFields];
-        
+
         const missingRequired = allFields.filter(f => f.required && !leadData[f.name]?.trim());
         if (missingRequired.length > 0) {
             setError(`Il campo obbligatorio "${missingRequired[0].label}" non può essere vuoto.`);

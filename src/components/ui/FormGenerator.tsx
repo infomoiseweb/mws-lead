@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import type { Client, LeadField, SavedForm, SavedFormConfig } from '../types';
 import { FileCode, Clipboard, Link, Check, Eye, ShieldCheck, FileText, Palette, Database, Webhook, Save, XCircle } from 'lucide-react';
 import * as ApiService from '@api';
+import { isBaseService } from '@/utils/services';
 import Modal from './Modal';
 
 // Funzione di copia robusta con fallback
@@ -97,16 +98,16 @@ const FormGenerator: React.FC<FormGeneratorProps> = ({ clients, formToEdit, onDo
     
     const defaultFields = useMemo(() => {
         if (!selectedClient) return [];
-        const service = selectedClient.services.find(s => s.name === '__default_fields__');
+        const service = selectedClient.services.find(isBaseService);
         return service ? service.fields : [];
     }, [selectedClient]);
 
     const serviceFields = useMemo(() => {
         if (!selectedClient) return [];
-        const defFields = selectedClient.services.find(s => s.name === '__default_fields__')?.fields || [];
-        
+        const defFields = selectedClient.services.find(isBaseService)?.fields || [];
+
         if (selectedServiceName === '__all_services__') {
-            const otherServices = selectedClient.services.filter(s => s.name !== '__default_fields__');
+            const otherServices = selectedClient.services.filter(s => !isBaseService(s));
             const allSpecificFields = otherServices.flatMap(s => s.fields);
             
             // Deduplicate fields by name
@@ -194,20 +195,22 @@ const FormGenerator: React.FC<FormGeneratorProps> = ({ clients, formToEdit, onDo
 
     useEffect(() => {
         if (selectedClient && selectedClient.services.length > 0) {
-            const otherServices = selectedClient.services.filter(s => s.name !== '__default_fields__');
-            const hasRealServices = otherServices.length > 0;
-            
-            if (selectedServiceName === '__all_services__' && hasRealServices) {
+            const selectableServices = selectedClient.services.filter(s => s.name !== '__default_fields__');
+            const hasMultipleServices = selectableServices.length > 1;
+
+            if (selectedServiceName === '__all_services__' && hasMultipleServices) {
                 return;
             }
-            
-            if (selectedServiceName && selectedClient.services.some(s => s.name === selectedServiceName)) {
+
+            if (selectedServiceName && selectableServices.some(s => s.name === selectedServiceName)) {
                 return;
             }
-            
-            // Fallback: Default to all connected services if has real ones, otherwise default fields.
-            if (hasRealServices) {
+
+            // Fallback: Default to all connected services if there's more than one, otherwise the only one (or the base fields if not yet renamed).
+            if (hasMultipleServices) {
                 setSelectedServiceName('__all_services__');
+            } else if (selectableServices.length === 1) {
+                setSelectedServiceName(selectableServices[0].name);
             } else {
                 setSelectedServiceName('__default_fields__');
             }
@@ -382,13 +385,13 @@ const FormGenerator: React.FC<FormGeneratorProps> = ({ clients, formToEdit, onDo
                             {selectedClient && (
                                 <select value={selectedServiceName} onChange={e => setSelectedServiceName(e.target.value)} className={selectClasses} disabled={!selectedClient}>
                                     <option value="" disabled>Seleziona un servizio...</option>
-                                    {selectedClient.services.some(s => s.name !== '__default_fields__') && (
+                                    {selectedClient.services.filter(s => s.name !== '__default_fields__').length > 1 && (
                                         <option value="__all_services__">Modulo Dinamico - Tutti i Servizi Collegati</option>
                                     )}
                                     {selectedClient.services.filter(s => s.name !== '__default_fields__').map(s => (
                                         <option key={s.id} value={s.name}>{s.name}</option>
                                     ))}
-                                    {!selectedClient.services.some(s => s.name !== '__default_fields__') && (
+                                    {selectedClient.services.filter(s => s.name !== '__default_fields__').length === 0 && (
                                         <option value="__default_fields__">Campi di Default</option>
                                     )}
                                 </select>
@@ -752,7 +755,7 @@ function generateFormCode({
     const uniqueFormId = `lf-wrapper-${Date.now()}`;
     
     const isDynamic = serviceName === '__all_services__';
-    const defaultFields = client.services.find(s => s.name === '__default_fields__')?.fields || [];
+    const defaultFields = client.services.find(isBaseService)?.fields || [];
     const realServices = client.services.filter(s => s.name !== '__default_fields__');
     
     const fieldsByStep = fields.reduce((acc, field) => {

@@ -68,6 +68,8 @@ export interface Service {
     name: string;
     fields: LeadField[];
     intake_mode?: 'form' | 'api';
+    // True for the "base" service whose fields are shared/inherited by all other services
+    is_base?: boolean;
 }
 
 export interface QuoteItem {

@@ -4,6 +4,7 @@ import * as ApiService from '@api';
 import { PlusCircle, Trash2, Tag, ChevronDown, ChevronUp, GripVertical, Webhook, Layers, Sparkles, FileCode, Globe, Copy, Check } from 'lucide-react';
 import Modal from './Modal';
 import { useTranslation } from 'react-i18next';
+import { isBaseService } from '@/utils/services';
 
 interface ClientFormProps {
     client?: Client | null;
@@ -35,8 +36,6 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     
-    // Split standard services into: default fields (system configuration) and actual other services
-    const [defaultFields, setDefaultFields] = useState<LeadField[]>([]);
     const [services, setServices] = useState<ServiceState[]>([]);
     
     const [leadIntakeMode, setLeadIntakeMode] = useState<'form' | 'api'>('form');
@@ -55,8 +54,7 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
     
     // Drag and drop states
     const [draggedField, setDraggedField] = useState<{ serviceIndex: number; fieldIndex: number } | null>(null);
-    const [draggedDefaultFieldIndex, setDraggedDefaultFieldIndex] = useState<number | null>(null);
-    
+
     const [deleteServiceConfirm, setDeleteServiceConfirm] = useState<{ isOpen: boolean; serviceIndex: number | null }>({ isOpen: false, serviceIndex: null });
 
     const isEditing = !!client;
@@ -74,30 +72,44 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
             setName(client.name);
             setUsername('');
             setPassword('');
-            
-            // Search for special default fields config service
+
             const rawServices = client.services || [];
-            const foundDefaultService = rawServices.find(s => s.name === '__default_fields__');
-            
-            if (foundDefaultService) {
-                setDefaultFields((foundDefaultService.fields || []).map(f => ({ ...f, type: f.type || 'text' })));
-            } else {
-                setDefaultFields(initialDefaultFields);
-            }
 
             // Lead intake mode (default/fallback mode)
             const leadModeEntry = rawServices.find((s: any) => s.name === '__lead_mode__');
             const fallbackIntakeMode: 'form' | 'api' = leadModeEntry?.mode || client.lead_intake_mode || 'form';
             setLeadIntakeMode(fallbackIntakeMode);
 
-            // Other actual user-facing services
-            const otherServices = rawServices.filter(s => s.name !== '__default_fields__' && s.name !== '__lead_mode__');
-            setServices(otherServices.map(s => ({
-                ...s,
+            // Base service (i suoi campi sono ereditati automaticamente da tutti gli altri servizi)
+            const baseService = rawServices.find(isBaseService);
+            const baseServiceState: ServiceState = baseService ? {
+                ...baseService,
+                id: baseService.id || 'service_default_fields',
+                name: baseService.name === '__default_fields__' ? 'Generale' : baseService.name,
+                is_base: true,
                 isExpanded: false,
-                intake_mode: s.intake_mode || fallbackIntakeMode,
-                fields: (s.fields || []).map(f => ({ ...f, type: f.type || 'text' }))
-            })));
+                intake_mode: baseService.intake_mode || fallbackIntakeMode,
+                fields: (baseService.fields || []).map(f => ({ ...f, type: f.type || 'text' }))
+            } : {
+                id: 'service_default_fields',
+                name: 'Generale',
+                is_base: true,
+                isExpanded: false,
+                intake_mode: fallbackIntakeMode,
+                fields: initialDefaultFields
+            };
+
+            // Other actual user-facing services
+            const otherServices = rawServices.filter(s => s.name !== '__lead_mode__' && !isBaseService(s));
+            setServices([
+                baseServiceState,
+                ...otherServices.map(s => ({
+                    ...s,
+                    isExpanded: false,
+                    intake_mode: s.intake_mode || fallbackIntakeMode,
+                    fields: (s.fields || []).map(f => ({ ...f, type: f.type || 'text' }))
+                }))
+            ]);
 
             setMwsFixedFee(String(client.mws_fixed_fee || ''));
             setMwsProfitPercentage(String(client.mws_profit_percentage || ''));
@@ -107,66 +119,20 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
             setUsername('');
             setEmail('');
             setPassword('');
-            setDefaultFields(initialDefaultFields);
-            setServices([]);
+            setServices([{
+                id: 'service_default_fields',
+                name: 'Generale',
+                is_base: true,
+                isExpanded: true,
+                intake_mode: 'form',
+                fields: initialDefaultFields
+            }]);
             setLeadIntakeMode('form');
             setMwsFixedFee('');
             setMwsProfitPercentage('');
             setQuoteWebhookUrl('');
         }
     }, [client, isEditing]);
-
-    // Managing Default Fields (Campi di Default)
-    const handleDefaultFieldPropertyChange = (fieldIndex: number, propName: keyof LeadField, value: any) => {
-        const updatedFields = [...defaultFields];
-        const field = updatedFields[fieldIndex];
-        
-        (field as any)[propName] = value;
-
-        if (propName === 'label') {
-            field.name = (value as string).toLowerCase().replace(/\s+/g, '_').replace(/[^\w-]/g, '');
-        }
-
-        if (propName === 'type') {
-            if (value !== 'radio' && value !== 'select') {
-                delete field.options;
-            } else if (!field.options) {
-                field.options = [];
-            }
-        }
-        
-        setDefaultFields(updatedFields);
-    };
-
-    const handleAddDefaultField = () => {
-        setDefaultFields([...defaultFields, { id: `new_def_${Date.now()}_${Math.random()}`, label: '', name: '', type: 'text', required: false }]);
-    };
-
-    const handleRemoveDefaultField = (fieldIndex: number) => {
-        const updatedFields = [...defaultFields];
-        updatedFields.splice(fieldIndex, 1);
-        setDefaultFields(updatedFields);
-    };
-
-    const handleDefaultFieldDragStart = (e: React.DragEvent, index: number) => {
-        setDraggedDefaultFieldIndex(index);
-        e.dataTransfer.effectAllowed = 'move';
-    };
-
-    const handleDefaultFieldDrop = (e: React.DragEvent, targetIndex: number) => {
-        e.preventDefault();
-        if (draggedDefaultFieldIndex === null || draggedDefaultFieldIndex === targetIndex) {
-            setDraggedDefaultFieldIndex(null);
-            return;
-        }
-
-        const updatedFields = [...defaultFields];
-        const [removed] = updatedFields.splice(draggedDefaultFieldIndex, 1);
-        updatedFields.splice(targetIndex, 0, removed);
-        
-        setDefaultFields(updatedFields);
-        setDraggedDefaultFieldIndex(null);
-    };
 
     // Managing Special/Niche Services
     const handleServiceChange = (index: number, newName: string) => {
@@ -192,6 +158,7 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
     };
     
     const handleRemoveService = (index: number) => {
+        if (services[index]?.is_base) return;
         setDeleteServiceConfirm({ isOpen: true, serviceIndex: index });
     };
 
@@ -267,7 +234,6 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
 
     const handleDragEnd = () => {
         setDraggedField(null);
-        setDraggedDefaultFieldIndex(null);
     };
     
     const toggleServiceExpand = (index: number) => {
@@ -280,25 +246,7 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
         e.preventDefault();
         setError('');
 
-        // 1. Process default fields service
-        const validDefaultFields = defaultFields.filter(f => 
-            f && 
-            typeof f.label === 'string' && f.label.trim() !== '' &&
-            typeof f.name === 'string' && f.name.trim() !== ''
-        ).map(f => {
-            if (f.options) {
-                return { ...f, options: f.options.map(opt => opt.trim()).filter(Boolean) };
-            }
-            return f;
-        });
-
-        const defaultServiceObj = {
-            id: 'service_default_fields',
-            name: '__default_fields__',
-            fields: validDefaultFields
-        };
-
-        // 2. Process niche services
+        // Process all services (incl. the base service, which carries is_base: true)
         const finalServices = services
             .map(s => {
                 if (!s || typeof s.name !== 'string' || s.name.trim() === '') {
@@ -329,8 +277,8 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
         // Lead mode entry (stored as special service in JSONB) — fallback/default mode
         const leadModeObj = { id: 'service_lead_mode', name: '__lead_mode__', mode: leadIntakeMode, fields: [] };
 
-        // Combine: default fields + lead mode + all user-defined services (each with its own intake_mode)
-        const mergedServices = [defaultServiceObj, leadModeObj, ...finalServices];
+        // Combine: lead mode + all user-defined services (incl. the base service, each with its own intake_mode)
+        const mergedServices = [leadModeObj, ...finalServices];
 
         setIsLoading(true);
         
@@ -486,142 +434,26 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
                     </div>
                 </fieldset>
 
-                {/* SECTION 1: Default Fields (Campi di Default) */}
-                <fieldset className="border-t border-slate-200 dark:border-slate-700 pt-5">
-                    <div className="flex items-center space-x-2 text-indigo-600 dark:text-indigo-400 mb-3">
-                        <Layers size={18} />
-                        <h3 className="text-base font-bold tracking-tight">1. Campi di Default (Richiesti in tutti i moduli)</h3>
-                    </div>
-                    
-                    <p className="text-xs text-slate-500 dark:text-gray-400 mb-4 bg-indigo-50 dark:bg-slate-800/50 p-3 rounded-lg border border-indigo-100 dark:border-indigo-950/40">
-                        Questi sono i campi standard (es. Nome, Email, Telefono) che compaiono <strong>automaticamente</strong> in fondo o all'inizio di ogni modulo di prenotazione o lead dei clienti, indistintamente dal servizio scelto.
-                    </p>
-
-                    <div className="space-y-3">
-                        {defaultFields.map((field, fieldIndex) => (
-                            <div
-                                key={field.id || fieldIndex}
-                                draggable
-                                onDragStart={(e) => handleDefaultFieldDragStart(e, fieldIndex)}
-                                onDragOver={handleDragOver}
-                                onDrop={(e) => handleDefaultFieldDrop(e, fieldIndex)}
-                                onDragEnd={handleDragEnd}
-                                className={`flex items-start gap-x-1 p-3 bg-slate-50 dark:bg-slate-900 rounded-md border border-slate-200 dark:border-slate-800 transition-opacity ${
-                                    draggedDefaultFieldIndex === fieldIndex ? 'opacity-40' : 'opacity-100'
-                                }`}
-                            >
-                                <div className="cursor-move text-slate-400 dark:text-gray-500 pt-7" title="Trascina per riordinare">
-                                    <GripVertical size={20} />
-                                </div>
-                                <div className="flex-grow grid grid-cols-12 gap-x-4 gap-y-2 items-center">
-                                    <div className="col-span-12 md:col-span-5">
-                                        <label className={fieldLabelClasses}>Etichetta Campo</label>
-                                        <input
-                                            type="text"
-                                            placeholder={`Es. Nome o Cognome`}
-                                            value={field.label}
-                                            onChange={e => handleDefaultFieldPropertyChange(fieldIndex, 'label', e.target.value)}
-                                            className={fieldInputClasses}
-                                        />
-                                    </div>
-                                    <div className="col-span-12 md:col-span-4">
-                                        <label className={fieldLabelClasses}>Tipo Campo</label>
-                                        <select 
-                                            value={field.type}
-                                            onChange={(e) => handleDefaultFieldPropertyChange(fieldIndex, 'type', e.target.value as LeadFieldType)}
-                                            className={fieldInputClasses}
-                                        >
-                                            {fieldTypes.map(ft => <option key={ft.value} value={ft.value}>{ft.label}</option>)}
-                                        </select>
-                                    </div>
-                                    <div className="col-span-12 md:col-span-2 flex items-center self-end pb-1.5">
-                                        <label className="flex items-center space-x-2 cursor-pointer text-xs text-slate-600 dark:text-gray-400">
-                                            <input
-                                                type="checkbox"
-                                                checked={!!field.required}
-                                                onChange={e => handleDefaultFieldPropertyChange(fieldIndex, 'required', e.target.checked)}
-                                                className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                                            />
-                                            <span>Obbligatorio</span>
-                                        </label>
-                                    </div>
-                                    <div className="col-span-12 md:col-span-1 flex items-center justify-end self-end pb-1.5">
-                                        <button 
-                                            type="button" 
-                                            onClick={() => handleRemoveDefaultField(fieldIndex)} 
-                                            className={`${actionButtonClasses} text-red-500 hover:bg-red-500/10`}
-                                        >
-                                            <Trash2 size={16} />
-                                        </button>
-                                    </div>
-                                    
-                                    <div className="col-span-12 md:col-span-5">
-                                        <label className={fieldLabelClasses}>Nome Chiave (API)</label>
-                                        <div className="relative">
-                                            <input
-                                                type="text"
-                                                value={field.name}
-                                                readOnly
-                                                className="w-full px-2 py-1 pr-7 bg-slate-200 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600 rounded-md text-gray-500 dark:text-gray-400 text-xs"
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={() => copyFieldName(field.name, `default-${field.id}`)}
-                                                title="Copia nome chiave"
-                                                className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-primary-500 transition"
-                                            >
-                                                {copiedFieldName === `default-${field.id}` ? <Check size={13} className="text-green-500" /> : <Copy size={13} />}
-                                            </button>
-                                        </div>
-                                    </div>
-                                    {(field.type === 'select' || field.type === 'radio') && (
-                                        <div className="col-span-12 md:col-span-7">
-                                            <label className={fieldLabelClasses}>Opzioni (separate da punto e virgola ';')</label>
-                                            <input
-                                                type="text"
-                                                placeholder="Opzione 1; Opzione 2; Opzione con spazi"
-                                                value={field.options?.join(';') || ''}
-                                                onChange={e => handleDefaultFieldPropertyChange(fieldIndex, 'options', (e.target.value || '').split(';'))}
-                                                className={`w-full ${fieldInputClasses}`}
-                                            />
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                    
-                    <button 
-                        type="button" 
-                        onClick={handleAddDefaultField} 
-                        className="mt-3 flex items-center text-sm font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-500"
-                    >
-                        <PlusCircle size={16} className="mr-1.5" />
-                        Aggiungi Campo Comune / Generico
-                    </button>
-                </fieldset>
-
-                {/* SECTION 2: Specific Services and custom extra fields */}
+                {/* Servizi del cliente (incl. il servizio base, le cui campi sono ereditati da tutti gli altri) */}
                 <fieldset className="border-t border-slate-200 dark:border-slate-700 pt-5">
                     <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center space-x-2 text-primary-600 dark:text-primary-400">
                             <Tag size={18} />
-                            <h3 className="text-base font-bold tracking-tight">2. Servizi Specifici e Campi Personalizzati</h3>
+                            <h3 className="text-base font-bold tracking-tight">Servizi e Campi Personalizzati</h3>
                         </div>
-                        <span className="text-xs text-slate-400 dark:text-gray-500 italic">Opzionale</span>
                     </div>
 
                     <p className="text-xs text-slate-500 dark:text-gray-400 mb-4 bg-emerald-50 dark:bg-slate-800/50 p-3 rounded-lg border border-emerald-100 dark:border-emerald-950/40">
                         Aggiungi i vari servizi offerti dal cliente (es. <em>Irrorazione, Semina, Abbonamento Yoga</em>).
-                        Configura per ogni servizio solo le domande extra specifiche (es. <em>Ettari, Zona, Livello</em>).
-                        Se non aggiungi servizi, le lead useranno solo i campi di default.
+                        Per ognuno scegli un nome, la modalità di ricezione lead (form o API) e i campi richiesti.
+                        Il primo servizio è quello <strong>base</strong>: i suoi campi vengono inclusi automaticamente in tutti gli altri.
                     </p>
 
                     <div className="space-y-4">
                         {services.map((service, serviceIndex) => (
                             <div key={service.id || serviceIndex} className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg">
                                 <div className="flex items-center p-3 cursor-pointer" onClick={() => toggleServiceExpand(serviceIndex)}>
-                                    <Tag className="mr-2 text-primary-500 dark:text-primary-400" size={18}/>
+                                    {service.is_base ? <Layers className="mr-2 text-indigo-500 dark:text-indigo-400" size={18}/> : <Tag className="mr-2 text-primary-500 dark:text-primary-400" size={18}/>}
                                     <input
                                         type="text"
                                         placeholder="Nome Servizio (es. Tagliando)"
@@ -630,9 +462,11 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
                                         onClick={e => e.stopPropagation()}
                                         className="flex-grow font-bold bg-transparent focus:outline-none focus:ring-0 border-0 p-0 text-slate-900 dark:text-white"
                                     />
-                                    <button type="button" onClick={(e) => { e.stopPropagation(); handleRemoveService(serviceIndex); }} className="p-2 text-red-500 hover:text-red-400 ml-2">
-                                        <Trash2 size={16} />
-                                    </button>
+                                    {!service.is_base && (
+                                        <button type="button" onClick={(e) => { e.stopPropagation(); handleRemoveService(serviceIndex); }} className="p-2 text-red-500 hover:text-red-400 ml-2">
+                                            <Trash2 size={16} />
+                                        </button>
+                                    )}
                                     {service.isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
                                 </div>
 
@@ -640,7 +474,11 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
                                     <div className="p-4 border-t border-slate-200 dark:border-slate-700 space-y-3 bg-white dark:bg-slate-950/40">
                                         <div className="flex items-center space-x-1 text-xs text-amber-600 dark:text-amber-400 bg-amber-500/10 p-2 rounded-md font-medium">
                                             <Sparkles size={14} />
-                                            <span>Questo servizio includerà automaticamente tutti i campi di default configurati nella sezione 1.</span>
+                                            <span>
+                                                {service.is_base
+                                                    ? 'Questo è il servizio base: i suoi campi vengono inclusi automaticamente in tutti gli altri servizi.'
+                                                    : 'Questo servizio includerà automaticamente tutti i campi del servizio base.'}
+                                            </span>
                                         </div>
 
                                         <div>
@@ -681,7 +519,11 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
                                             </div>
                                         </div>
 
-                                        <h4 className="text-xs font-bold text-slate-500 dark:text-gray-400 uppercase tracking-wider">Campi extra unici per "{service.name || 'Filtro vuoto'}":</h4>
+                                        <h4 className="text-xs font-bold text-slate-500 dark:text-gray-400 uppercase tracking-wider">
+                                            {service.is_base
+                                                ? 'Campi base (condivisi con tutti i servizi):'
+                                                : `Campi extra unici per "${service.name || 'Filtro vuoto'}":`}
+                                        </h4>
                                         {service.fields.map((field, fieldIndex) => (
                                            <div
                                                 key={field.id || fieldIndex}
@@ -776,7 +618,7 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
                                             className="mt-2 flex items-center text-xs font-semibold text-primary-600 dark:text-primary-400 hover:text-primary-500"
                                         >
                                             <PlusCircle size={15} className="mr-1" />
-                                            Aggiungi Campo Extra per {service.name || 'questo servizio'}
+                                            {service.is_base ? 'Aggiungi Campo Base' : `Aggiungi Campo Extra per ${service.name || 'questo servizio'}`}
                                         </button>
                                     </div>
                                 )}

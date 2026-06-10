@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom';
 import * as ApiService from '@api';
 import type { Client, Lead, LeadField } from '../types';
+import { isBaseService } from '@/utils/services';
 import {
   Trash2, ChevronDown, RefreshCw, Plus, Search, Settings, Activity,
   Megaphone, DollarSign, Pin
@@ -366,7 +367,7 @@ const ClientDashboard: React.FC = () => {
 
     // Campi base mostrati di default: nome, cognome, telefono, mail/email (solo se presenti)
     const defaultFieldNames = useMemo<string[]>(() => {
-        const defaultFieldService = client?.services.find(s => s.name === '__default_fields__');
+        const defaultFieldService = client?.services.find(isBaseService);
         const configured = defaultFieldService?.fields?.length
             ? defaultFieldService.fields.map(f => f.name)
             : ['nome', 'email', 'telefono'];
