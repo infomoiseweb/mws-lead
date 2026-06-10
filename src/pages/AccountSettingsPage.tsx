@@ -2,9 +2,10 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@contexts/AuthContext';
 import * as ApiService from '@api';
-import { Settings, User, Mail, Phone, Lock, AlertTriangle, Trash2, CheckCircle, MessageSquare } from 'lucide-react';
-import type { Client, MessageTemplate } from '../types';
+import { Settings, User, Mail, Phone, Lock, AlertTriangle, Trash2, CheckCircle, MessageSquare, FileText } from 'lucide-react';
+import type { Client, MessageTemplate, QuoteSettings } from '../types';
 import MessageTemplatesSettings from '@components/ui/MessageTemplatesSettings';
+import QuoteSettingsEditor from '@components/ui/QuoteSettingsEditor';
 
 const Card: React.FC<{ title: string; icon: React.ReactNode; children: React.ReactNode }> = ({ title, icon, children }) => (
     <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
@@ -127,6 +128,12 @@ const AccountSettingsPage: React.FC = () => {
         setClientData(prev => prev ? { ...prev, message_templates: updated.message_templates } : prev);
     };
 
+    const handleSaveQuoteSettings = async (settings: QuoteSettings) => {
+        if (!clientData) return;
+        const updated = await ApiService.updateClient(clientData.id, { quote_settings: settings });
+        setClientData(prev => prev ? { ...prev, quote_settings: updated.quote_settings } : prev);
+    };
+
     const handleDeleteAccount = async (e: React.FormEvent) => {
         e.preventDefault();
         setDeleteError('');
@@ -211,6 +218,12 @@ const AccountSettingsPage: React.FC = () => {
             {user?.role === 'client' && clientData && (
                 <Card title="Modelli Messaggi" icon={<MessageSquare className="text-primary-500 dark:text-primary-400" />}>
                     <MessageTemplatesSettings client={clientData} onSave={handleSaveTemplates} />
+                </Card>
+            )}
+
+            {user?.role === 'client' && clientData && (
+                <Card title="Impostazioni Preventivi" icon={<FileText className="text-primary-500 dark:text-primary-400" />}>
+                    <QuoteSettingsEditor client={clientData} onSave={handleSaveQuoteSettings} />
                 </Card>
             )}
 

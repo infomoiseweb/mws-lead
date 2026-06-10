@@ -30,7 +30,7 @@ const QuotesPage: React.FC = () => {
     const [selectedClientId, setSelectedClientId] = useState<string>('all');
     const [statusFilter, setStatusFilter] = useState<Quote['status'] | 'all'>('all');
     
-    const [selectedQuote, setSelectedQuote] = useState<Quote | null>(null);
+    const [selectedQuote, setSelectedQuote] = useState<QuoteWithDetails | null>(null);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     
     const [isCreatorModalOpen, setIsCreatorModalOpen] = useState(false);
@@ -250,7 +250,7 @@ const QuotesPage: React.FC = () => {
         });
     };
 
-    const handleViewDetails = (quote: Quote) => {
+    const handleViewDetails = (quote: QuoteWithDetails) => {
         setSelectedQuote(quote);
         setIsDetailModalOpen(true);
     };
@@ -535,6 +535,7 @@ const QuotesPage: React.FC = () => {
                 isOpen={isDetailModalOpen}
                 onClose={() => setIsDetailModalOpen(false)}
                 quote={selectedQuote}
+                client={selectedQuote ? clients.find(c => c.id === selectedQuote.client_id) || null : null}
             />
             {clientForModal && leadForModal && (
                 <QuoteCreatorModal

@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import type { Client, Service, LeadField, LeadFieldType } from '../types';
 import * as ApiService from '@api';
-import { PlusCircle, Trash2, Tag, ChevronDown, ChevronUp, GripVertical, Webhook, Layers, Sparkles, FileCode, Globe, Copy, Check } from 'lucide-react';
+import { PlusCircle, Trash2, Tag, ChevronDown, ChevronUp, GripVertical, Webhook, Layers, Sparkles, FileCode, Globe, Copy, Check, FileText } from 'lucide-react';
 import Modal from './Modal';
 import { useTranslation } from 'react-i18next';
 import { isBaseService } from '@/utils/services';
+import QuoteSettingsEditor from './QuoteSettingsEditor';
+import type { QuoteSettings } from '../../types';
 
 interface ClientFormProps {
     client?: Client | null;
@@ -636,8 +638,23 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
                     </button>
                 </fieldset>
 
+                {isEditing && client && (
+                    <fieldset className="border-t border-slate-200 dark:border-slate-700 pt-5">
+                        <div className="flex items-center space-x-2 mb-3 text-primary-600 dark:text-primary-400">
+                            <FileText size={18} />
+                            <h3 className="text-base font-bold tracking-tight">Impostazioni Preventivi</h3>
+                        </div>
+                        <QuoteSettingsEditor
+                            client={client}
+                            onSave={async (settings: QuoteSettings) => {
+                                await ApiService.updateClient(client.id, { quote_settings: settings });
+                            }}
+                        />
+                    </fieldset>
+                )}
+
                 {error && <p className="text-sm text-red-500 dark:text-red-400 mt-4 font-semibold">{error}</p>}
-                
+
                 <div className="flex justify-end pt-5 border-t border-slate-200 dark:border-slate-700">
                     <button type="submit" disabled={isLoading} className="bg-primary-600 text-white font-bold px-6 py-2.5 rounded-lg shadow-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                         {isLoading ? 'Salvataggio...' : (isEditing ? 'Salva Modifiche Cliente' : 'Crea Cliente')}

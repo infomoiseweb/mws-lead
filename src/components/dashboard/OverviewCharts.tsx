@@ -20,10 +20,11 @@ import type { Lead } from '../../types';
 ChartJS.register(ArcElement, CategoryScale, LinearScale, BarElement, PointElement, LineElement, Tooltip, Legend, Filler);
 
 const statusOrder: Lead['status'][] = ['Nuovo', 'Contattato', 'In Lavorazione', 'Vinto', 'Perso'];
+// Palette basata sui colori del brand (blu primario) con due accenti semantici (verde/rosso per esito)
 const statusColors: Record<Lead['status'], string> = {
-    'Nuovo': '#38bdf8',
-    'Contattato': '#f59e0b',
-    'In Lavorazione': '#a855f7',
+    'Nuovo': '#93c5fd',
+    'Contattato': '#3b82f6',
+    'In Lavorazione': '#1d4ed8',
     'Vinto': '#22c55e',
     'Perso': '#ef4444',
 };
@@ -165,16 +166,16 @@ export const MonthlyTrendChart: React.FC<MonthlyTrendChartProps> = ({ leads, tit
                 backgroundColor: (context: ScriptableContext<'line'>) => {
                     const ctx = context.chart.ctx;
                     const gradient = ctx.createLinearGradient(0, 0, 0, 260);
-                    gradient.addColorStop(0, 'rgba(56,189,248,0.35)');
-                    gradient.addColorStop(1, 'rgba(56,189,248,0.02)');
+                    gradient.addColorStop(0, 'rgba(59,130,246,0.35)');
+                    gradient.addColorStop(1, 'rgba(59,130,246,0.02)');
                     return gradient;
                 },
-                borderColor: '#38bdf8',
+                borderColor: '#3b82f6',
                 borderWidth: 3,
                 tension: 0.4,
                 pointRadius: 4,
                 pointHoverRadius: 7,
-                pointBackgroundColor: '#38bdf8',
+                pointBackgroundColor: '#3b82f6',
             },
             {
                 label: wonLabel,
@@ -237,8 +238,8 @@ export const ClientBarChart: React.FC<ClientBarChartProps> = ({ data, title }) =
                 backgroundColor: (context: ScriptableContext<'bar'>) => {
                     const ctx = context.chart.ctx;
                     const gradient = ctx.createLinearGradient(0, 0, 260, 0);
-                    gradient.addColorStop(0, '#a855f7');
-                    gradient.addColorStop(1, '#6366f1');
+                    gradient.addColorStop(0, '#60a5fa');
+                    gradient.addColorStop(1, '#1d4ed8');
                     return gradient;
                 },
                 borderRadius: 8,

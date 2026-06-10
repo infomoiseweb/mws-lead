@@ -25,7 +25,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(401).json({ error: 'Token non valido o scaduto' });
     }
 
-    const { to, subject, html, from } = req.body;
+    const { to, subject, html, from, attachments } = req.body;
     if (!to || !subject || !html) {
         return res.status(400).json({ error: 'to, subject e html sono obbligatori' });
     }
@@ -35,6 +35,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         to: Array.isArray(to) ? to : [to],
         subject,
         html,
+        attachments,
     });
 
     if (error) {

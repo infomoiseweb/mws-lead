@@ -62,27 +62,27 @@ const AdminOverview: React.FC = () => {
                     label={t('overview.stat_total_leads')}
                     value={stats.totalLeads.toLocaleString()}
                     subValue={`${stats.openLeads.length} ${t('overview.stat_open_leads').toLowerCase()}`}
-                    gradient="from-cyan-500 to-blue-600"
+                    gradient="from-primary-400 to-primary-600"
                 />
                 <StatCard
                     icon={<Target size={22} />}
                     label={t('overview.stat_conversion_rate')}
                     value={`${stats.conversionRate.toFixed(1)}%`}
                     subValue={`${stats.wonLeads.length} ${t('overview.stat_won_leads').toLowerCase()}`}
-                    gradient="from-emerald-500 to-green-600"
+                    gradient="from-emerald-500 to-emerald-700"
                 />
                 <StatCard
                     icon={<Users size={22} />}
                     label={t('overview.stat_total_clients')}
                     value={clients.length.toString()}
-                    gradient="from-purple-500 to-indigo-600"
+                    gradient="from-primary-600 to-primary-900"
                 />
                 <StatCard
                     icon={<DollarSign size={22} />}
                     label={t('overview.stat_revenue')}
                     value={formatCurrency(stats.revenue)}
                     subValue={`${t('overview.stat_ad_spend')}: ${formatCurrency(stats.adSpend)}`}
-                    gradient="from-amber-500 to-orange-600"
+                    gradient="from-slate-700 to-slate-900"
                 />
             </div>
 
@@ -120,7 +120,7 @@ const AdminOverview: React.FC = () => {
                         icon={<TrendingUp size={22} />}
                         label={t('overview.stat_roi')}
                         value={`${stats.roi.toFixed(1)}%`}
-                        gradient="from-rose-500 to-pink-600"
+                        gradient="from-emerald-500 to-emerald-700"
                     />
                 </div>
             )}

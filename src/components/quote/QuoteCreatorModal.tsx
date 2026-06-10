@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Modal from '@components/ui/Modal';
 import * as ApiService from '@api';
-import type { Client, Lead, Quote, QuoteItem } from '../types';
-import { Plus, Trash2, Save, Loader2, X, ChevronDown } from 'lucide-react';
+import type { Client, Lead, Quote, QuoteItem, QuotePricePreset } from '../types';
+import { Plus, Trash2, Save, Loader2, X, ChevronDown, User, Phone, Mail, Tag, Calendar, Eye, RotateCcw } from 'lucide-react';
+import { incrementQuoteNumber } from '@lib/quoteNumbering';
+import QuotePreviewDocument from './QuotePreviewDocument';
 
 interface QuoteCreatorModalProps {
     isOpen: boolean;
@@ -54,24 +56,25 @@ const QuoteCreatorModal: React.FC<QuoteCreatorModalProps> = ({ isOpen, onClose, 
     const [items, setItems] = useState<QuoteItemForState[]>([]);
     const [notes, setNotes] = useState('');
     const [manualQuoteNumber, setManualQuoteNumber] = useState('');
-    
+    const [termsAndConditions, setTermsAndConditions] = useState('');
+    const [leftTab, setLeftTab] = useState<'lead' | 'preview'>('lead');
+
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
 
-    const descriptionSuggestions = [
-        "Manodopera", 
-        "Olio Motore", 
-        "Filtro Olio", 
-        "Filtro Aria", 
-        "Filtro Carburante", 
-        "Filtro Abitacolo", 
-        "Azzeramento Service", 
-        "Olio Cambio", 
-        "Filtro cambio", 
-        "Olio differenziale"
-    ];
+    const descriptionSuggestions = useMemo(() => {
+        const presets = client.quote_settings?.price_presets || [];
+        return Array.from(new Set(presets.map(p => p.description).filter(Boolean)));
+    }, [client.quote_settings]);
 
     const isEditing = !!quoteToEdit;
+
+    const getDefaultTerms = (svc: string): string => {
+        const presets = client.quote_settings?.terms_presets || [];
+        const matching = presets.find(p => p.service !== '*' && p.service === svc);
+        const fallback = presets.find(p => p.service === '*');
+        return (matching || fallback)?.text || '';
+    };
 
     useEffect(() => {
         if (isOpen) {
@@ -116,6 +119,7 @@ const QuoteCreatorModal: React.FC<QuoteCreatorModalProps> = ({ isOpen, onClose, 
                 }
                 
                 setNotes(quoteToEdit.notes || '');
+                setTermsAndConditions(quoteToEdit.terms_and_conditions || '');
 
             } else {
                 // Set defaults for new quote
@@ -124,18 +128,29 @@ const QuoteCreatorModal: React.FC<QuoteCreatorModalProps> = ({ isOpen, onClose, 
                 nextWeek.setDate(nextWeek.getDate() + 7);
                 setDueDate(nextWeek.toISOString().split('T')[0]);
                 setRecipientName(lead.data.nome || '');
-                setVehicleDetails({
-                    'Marca': lead.data.marca || '',
-                    'modello': lead.data.modello || '',
-                    'Targa': lead.data.targa || '',
-                    'Telaio': lead.data.telaio || '',
-                    'KM': lead.data.chilometraggio || lead.data.km || '',
+                // Mostra solo i campi veicolo che il lead possiede effettivamente
+                // (rilevanti per clienti tipo officine, non per tutti i clienti)
+                const vehicleFieldDefs: { label: string; keys: string[] }[] = [
+                    { label: 'Marca', keys: ['marca'] },
+                    { label: 'Modello', keys: ['modello'] },
+                    { label: 'Targa', keys: ['targa'] },
+                    { label: 'Telaio', keys: ['telaio'] },
+                    { label: 'KM', keys: ['chilometraggio', 'km'] },
+                ];
+                const detectedVehicleDetails: Record<string, string> = {};
+                vehicleFieldDefs.forEach(({ label, keys }) => {
+                    const foundKey = keys.find(k => k in lead.data);
+                    if (foundKey) detectedVehicleDetails[label] = lead.data[foundKey] || '';
                 });
+                setVehicleDetails(detectedVehicleDetails);
                 setService(getServiceFromLead(lead));
-                setManualQuoteNumber('');
+                const numbering = client.quote_settings?.numbering;
+                setManualQuoteNumber(numbering?.enabled && numbering.next_number ? numbering.next_number : '');
                 setItems([{ id: crypto.randomUUID(), description: '', quantity: '1', price: '0', vat: '22' }]);
                 setNotes('');
+                setTermsAndConditions(getDefaultTerms(getServiceFromLead(lead)));
             }
+            setLeftTab('lead');
         }
     }, [isOpen, quoteToEdit, isEditing, lead, client]);
 
@@ -156,13 +171,41 @@ const QuoteCreatorModal: React.FC<QuoteCreatorModalProps> = ({ isOpen, onClose, 
             totalAmount: taxable + vat
         };
     }, [items]);
+
+    const getFieldLabel = (key: string): string => {
+        for (const svc of client.services || []) {
+            const field = svc.fields.find(f => f.name === key);
+            if (field) return field.label;
+        }
+        return key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' ');
+    };
+
+    const leadDataEntries = useMemo(() => {
+        const technicalFields = ['ip_address', 'user_agent', '_is_historical'];
+        return Object.entries(lead.data || {}).filter(([key, value]) => !technicalFields.includes(key) && value !== '' && value !== null && value !== undefined);
+    }, [lead]);
+
+    const sortedPresets = useMemo(() => {
+        const presets = client.quote_settings?.price_presets || [];
+        const detectedService = getServiceFromLead(lead);
+        const matching = presets.filter(p => p.service !== '*' && p.service === detectedService);
+        const others = presets.filter(p => !(p.service !== '*' && p.service === detectedService));
+        return [...matching, ...others].map(p => ({ ...p, isMatch: matching.includes(p) }));
+    }, [client.quote_settings, lead]);
     
     const handleItemChange = (index: number, field: keyof Omit<QuoteItemForState, 'id'>, value: string) => {
         const updatedItems = [...items];
         const currentItem = updatedItems[index];
         
         if (field === 'description') {
-            (currentItem as any)[field] = value;
+            currentItem.description = value;
+
+            const matchedPreset = (client.quote_settings?.price_presets || [])
+                .find(p => p.description.trim().toLowerCase() === value.trim().toLowerCase());
+            if (matchedPreset) {
+                currentItem.price = String(matchedPreset.price).replace('.', ',');
+                currentItem.vat = String(matchedPreset.vat).replace('.', ',');
+            }
         } else {
             const sanitizedValue = value.replace('.', ',');
             if ((sanitizedValue.match(/,/g) || []).length > 1 || !/^[0-9]*?,?[0-9]*$/.test(sanitizedValue)) {
@@ -176,6 +219,16 @@ const QuoteCreatorModal: React.FC<QuoteCreatorModalProps> = ({ isOpen, onClose, 
 
     const handleAddItem = () => {
         setItems([...items, { id: crypto.randomUUID(), description: '', quantity: '1', price: '0', vat: '22' }]);
+    };
+
+    const handleAddPresetItem = (preset: QuotePricePreset) => {
+        setItems([...items, {
+            id: crypto.randomUUID(),
+            description: preset.description,
+            quantity: '1',
+            price: String(preset.price).replace('.', ','),
+            vat: String(preset.vat).replace('.', ','),
+        }]);
     };
 
     const handleRemoveItem = (id: string) => {
@@ -227,6 +280,7 @@ const QuoteCreatorModal: React.FC<QuoteCreatorModalProps> = ({ isOpen, onClose, 
                 recipient_name: recipientName,
                 vehicle_details: finalVehicleDetails,
                 notes,
+                terms_and_conditions: termsAndConditions,
                 quote_number_display: finalQuoteNumber,
                 taxable_amount: taxableAmount,
                 vat_amount: vatAmount,
@@ -240,6 +294,20 @@ const QuoteCreatorModal: React.FC<QuoteCreatorModalProps> = ({ isOpen, onClose, 
                 savedQuote = await ApiService.updateQuote(quoteToEdit.id, quotePayload as Partial<Omit<Quote, 'id' | 'created_at'>>);
             } else {
                 savedQuote = await ApiService.saveQuote(quotePayload as Omit<Quote, 'id' | 'created_at' | 'status'>);
+
+                const numbering = client.quote_settings?.numbering;
+                if (numbering?.enabled && numbering.next_number) {
+                    try {
+                        await ApiService.updateClient(client.id, {
+                            quote_settings: {
+                                ...client.quote_settings,
+                                numbering: { ...numbering, next_number: incrementQuoteNumber(numbering.next_number) },
+                            },
+                        });
+                    } catch {
+                        // Non bloccare il salvataggio del preventivo se l'incremento fallisce
+                    }
+                }
             }
             onSave(savedQuote);
         } catch (err: any) {
@@ -252,13 +320,125 @@ const QuoteCreatorModal: React.FC<QuoteCreatorModalProps> = ({ isOpen, onClose, 
     const formatCurrency = (value: number) => value.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={isEditing ? "Modifica Preventivo" : "Crea Nuovo Preventivo"} size="large">
+        <Modal isOpen={isOpen} onClose={onClose} title={isEditing ? "Modifica Preventivo" : "Crea Nuovo Preventivo"} size="extra-large">
             <datalist id="description-suggestions">
                 {descriptionSuggestions.map(suggestion => (
                     <option key={suggestion} value={suggestion} />
                 ))}
             </datalist>
-            <div className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+                {/* Lead Details Panel */}
+                <div className="lg:col-span-2 lg:order-1">
+                    <div className="lg:sticky lg:top-0 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700 lg:max-h-[75vh] lg:overflow-y-auto">
+                        <div className="flex items-center gap-1 mb-3 border-b border-slate-200 dark:border-slate-700">
+                            <button
+                                type="button"
+                                onClick={() => setLeftTab('lead')}
+                                className={`flex items-center gap-1.5 px-3 py-2 text-sm font-semibold border-b-2 -mb-px transition-colors ${
+                                    leftTab === 'lead'
+                                        ? 'border-primary-500 text-primary-600 dark:text-primary-400'
+                                        : 'border-transparent text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-200'
+                                }`}
+                            >
+                                <Tag size={14} /> Dettagli Lead
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setLeftTab('preview')}
+                                className={`flex items-center gap-1.5 px-3 py-2 text-sm font-semibold border-b-2 -mb-px transition-colors ${
+                                    leftTab === 'preview'
+                                        ? 'border-primary-500 text-primary-600 dark:text-primary-400'
+                                        : 'border-transparent text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-200'
+                                }`}
+                            >
+                                <Eye size={14} /> Anteprima
+                            </button>
+                        </div>
+                        {leftTab === 'lead' ? (
+                        <div className="space-y-2.5">
+                            {lead.data.nome && (
+                                <div className="flex items-start gap-2">
+                                    <User size={14} className="mt-0.5 text-slate-400 dark:text-gray-500 shrink-0" />
+                                    <div className="min-w-0">
+                                        <p className="text-xs text-slate-500 dark:text-gray-400">Nome</p>
+                                        <p className="text-sm font-semibold text-slate-800 dark:text-white break-words">{lead.data.nome}</p>
+                                    </div>
+                                </div>
+                            )}
+                            {lead.data.telefono && (
+                                <div className="flex items-start gap-2">
+                                    <Phone size={14} className="mt-0.5 text-slate-400 dark:text-gray-500 shrink-0" />
+                                    <div className="min-w-0">
+                                        <p className="text-xs text-slate-500 dark:text-gray-400">Telefono</p>
+                                        <p className="text-sm font-semibold text-slate-800 dark:text-white break-words">{lead.data.telefono}</p>
+                                    </div>
+                                </div>
+                            )}
+                            {(lead.data.mail || lead.data.email) && (
+                                <div className="flex items-start gap-2">
+                                    <Mail size={14} className="mt-0.5 text-slate-400 dark:text-gray-500 shrink-0" />
+                                    <div className="min-w-0">
+                                        <p className="text-xs text-slate-500 dark:text-gray-400">Email</p>
+                                        <p className="text-sm font-semibold text-slate-800 dark:text-white break-words">{lead.data.mail || lead.data.email}</p>
+                                    </div>
+                                </div>
+                            )}
+                            {lead.created_at && (
+                                <div className="flex items-start gap-2">
+                                    <Calendar size={14} className="mt-0.5 text-slate-400 dark:text-gray-500 shrink-0" />
+                                    <div className="min-w-0">
+                                        <p className="text-xs text-slate-500 dark:text-gray-400">Data ricezione</p>
+                                        <p className="text-sm font-semibold text-slate-800 dark:text-white break-words">{new Date(lead.created_at).toLocaleString('it-IT')}</p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {leadDataEntries.length > 0 && (
+                                <div className="pt-2 mt-2 border-t border-slate-200 dark:border-slate-700 space-y-2.5">
+                                    {leadDataEntries
+                                        .filter(([key]) => !['nome', 'telefono', 'mail', 'email'].includes(key))
+                                        .map(([key, value]) => (
+                                        <div key={key} className="min-w-0">
+                                            <p className="text-xs text-slate-500 dark:text-gray-400">{getFieldLabel(key)}</p>
+                                            <p className="text-sm font-semibold text-slate-800 dark:text-white break-words">{String(value)}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                        ) : (
+                        <div className="overflow-auto" style={{ maxHeight: '70vh' }}>
+                            <div style={{ width: '794px', transform: 'scale(0.37)', transformOrigin: 'top left' }}>
+                                <QuotePreviewDocument
+                                    clientName={client.name}
+                                    branding={client.quote_settings?.branding}
+                                    data={{
+                                        quoteNumber: client.name.toLowerCase().includes('facche') ? `${manualQuoteNumber} ${service}`.trim() : manualQuoteNumber,
+                                        quoteDate,
+                                        dueDate,
+                                        recipientName,
+                                        vehicleDetails,
+                                        items: items.map(item => ({
+                                            description: item.description,
+                                            quantity: parseFloat(item.quantity.replace(',', '.')) || 0,
+                                            price: parseFloat(item.price.replace(',', '.')) || 0,
+                                            vat: parseFloat(item.vat.replace(',', '.')) || 0,
+                                        })),
+                                        notes,
+                                        termsAndConditions,
+                                        taxableAmount,
+                                        vatAmount,
+                                        totalAmount,
+                                    }}
+                                />
+                            </div>
+                        </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Quote Form */}
+                <div className="lg:col-span-3 lg:order-2 space-y-6">
                 {/* Header Section */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700">
                     <div>
@@ -344,6 +524,30 @@ const QuoteCreatorModal: React.FC<QuoteCreatorModalProps> = ({ isOpen, onClose, 
                     ))}
                 </div>
 
+                {/* Preset rapidi */}
+                {sortedPresets.length > 0 && (
+                    <div className="space-y-2">
+                        <label className="block text-sm font-medium text-slate-700 dark:text-gray-300">Preset rapidi</label>
+                        <div className="flex flex-wrap gap-2">
+                            {sortedPresets.map(preset => (
+                                <button
+                                    key={preset.id}
+                                    type="button"
+                                    onClick={() => handleAddPresetItem(preset)}
+                                    title={`${preset.description} — ${preset.price.toFixed(2)} € / ${preset.unit || 'unità'} (IVA ${preset.vat}%)`}
+                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                                        preset.isMatch
+                                            ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
+                                            : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-gray-300 hover:border-slate-300 dark:hover:border-slate-600'
+                                    }`}
+                                >
+                                    <Plus size={12} /> {preset.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 {/* Line Items Table */}
                 <div className="overflow-x-auto">
                     <table className="min-w-full text-sm">
@@ -393,6 +597,27 @@ const QuoteCreatorModal: React.FC<QuoteCreatorModalProps> = ({ isOpen, onClose, 
                     </div>
                 </div>
 
+                {/* Terms and Conditions */}
+                <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
+                    <div className="flex items-center justify-between mb-1">
+                        <label className="block text-sm font-medium text-slate-700 dark:text-gray-300">Termini e Condizioni</label>
+                        <button
+                            type="button"
+                            onClick={() => setTermsAndConditions(getDefaultTerms(service))}
+                            className="flex items-center gap-1 text-xs text-primary-600 dark:text-primary-400 hover:text-primary-500"
+                        >
+                            <RotateCcw size={12} /> Ripristina default
+                        </button>
+                    </div>
+                    <textarea
+                        value={termsAndConditions}
+                        onChange={e => setTermsAndConditions(e.target.value)}
+                        rows={4}
+                        className="w-full p-2 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-sm"
+                        placeholder="Es. Pagamento a 30 giorni dalla data di emissione del preventivo..."
+                    />
+                </div>
+
                 {error && <p className="text-sm text-red-500 text-center">{error}</p>}
 
                 <div className="flex justify-end space-x-3 pt-4 border-t border-slate-200 dark:border-slate-700">
@@ -401,6 +626,7 @@ const QuoteCreatorModal: React.FC<QuoteCreatorModalProps> = ({ isOpen, onClose, 
                         {isLoading ? <Loader2 size={18} className="animate-spin mr-2"/> : <Save size={16} className="mr-2"/>}
                         {isLoading ? "Salvataggio..." : "Salva Preventivo"}
                     </button>
+                </div>
                 </div>
             </div>
         </Modal>

@@ -2,7 +2,7 @@ import { supabase } from '../lib/supabase';
 
 // Chiama la Vercel API Route /api/send-email
 // Usa il JWT di Supabase per autenticarsi — nessuna password manuale
-async function sendEmail(payload: { to: string | string[]; subject: string; html: string }): Promise<void> {
+async function sendEmail(payload: { to: string | string[]; subject: string; html: string; attachments?: { filename: string; content: string }[] }): Promise<void> {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) throw new Error('Utente non autenticato.');
 
@@ -61,6 +61,29 @@ export async function sendQuoteToClient(params: {
         to: params.recipientEmail,
         subject: `Preventivo ${params.quoteNumber} — €${params.totalAmount.toFixed(2)}`,
         html: params.quoteHtml,
+    });
+}
+
+export async function sendQuotePdfEmail(params: {
+    recipientEmail: string;
+    recipientName: string;
+    quoteNumber: string;
+    totalAmount: number;
+    pdfBase64: string;
+    clientName: string;
+}): Promise<void> {
+    await sendEmail({
+        to: params.recipientEmail,
+        subject: `Preventivo ${params.quoteNumber} — ${params.clientName}`,
+        html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; background: #f9fafb; border-radius: 8px;">
+                <h2 style="color: #111827;">Preventivo ${params.quoteNumber}</h2>
+                <p style="color: #374151;">Ciao <strong>${params.recipientName}</strong>,</p>
+                <p style="color: #374151;">In allegato trovi il preventivo n. <strong>${params.quoteNumber}</strong> per un totale di <strong>€ ${params.totalAmount.toFixed(2)}</strong>.</p>
+                <p style="margin-top: 24px; color: #9ca3af; font-size: 12px;">${params.clientName}</p>
+            </div>
+        `,
+        attachments: [{ filename: `Preventivo_${params.quoteNumber}.pdf`, content: params.pdfBase64 }],
     });
 }
 

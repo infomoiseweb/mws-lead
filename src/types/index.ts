@@ -98,6 +98,7 @@ export interface Quote {
     total_amount: number;
     status: 'draft' | 'sent' | 'accepted' | 'rejected';
     items: QuoteItem[] | Record<string, string>;
+    terms_and_conditions?: string;
 }
 
 export interface QuoteWithDetails extends Quote {
@@ -142,6 +143,42 @@ export interface MessageTemplate {
     body: string;               // Testo con segnaposto {{nome}}, {{telefono}}, ecc.
 }
 
+export interface QuotePricePreset {
+    id: string;
+    service: string; // Nome del servizio o "*" per tutti
+    label: string;   // Es. "Irrorazione campi"
+    description: string; // Testo che finirà nella riga del preventivo
+    unit: string;    // Es. "ettaro", "mq", "ora"
+    price: number;
+    vat: number;
+}
+
+export interface QuoteNumberingSettings {
+    enabled: boolean;
+    next_number: string; // Valore alfanumerico completo, es. "C6"
+}
+
+export interface QuoteBranding {
+    logo_url?: string;
+    primary_color?: string;   // hex, es. "#2563eb" — usato per intestazioni/accenti
+    font?: 'sans' | 'serif' | 'mono'; // famiglia font del documento preventivo
+    company_details?: string; // testo libero multi-riga: indirizzo, P.IVA, contatti
+}
+
+export interface QuoteTermsPreset {
+    id: string;
+    service: string; // Nome del servizio o "*" per tutti
+    label: string;
+    text: string;
+}
+
+export interface QuoteSettings {
+    numbering?: QuoteNumberingSettings;
+    price_presets?: QuotePricePreset[];
+    branding?: QuoteBranding;
+    terms_presets?: QuoteTermsPreset[];
+}
+
 export interface Client {
     id: string;
     name: string;
@@ -152,6 +189,7 @@ export interface Client {
     mws_profit_percentage?: number;
     quote_webhook_url?: string;
     message_templates?: MessageTemplate[];
+    quote_settings?: QuoteSettings;
     lead_intake_mode?: 'form' | 'api';
     api_token?: string;
     // These are loaded separately
