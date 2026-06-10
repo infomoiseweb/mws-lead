@@ -4,7 +4,7 @@ import * as ApiService from '@api';
 import type { Client, Lead, LeadField } from '../types';
 import {
   Trash2, ChevronDown, RefreshCw, Plus, Search, Settings, Activity,
-  LayoutGrid, Megaphone, Plug, Wallet, DollarSign, CheckCircle2, Award, Zap, Pin
+  Megaphone, DollarSign, Pin
 } from 'lucide-react';
 import DateRangeFilter from '@components/ui/DateRangeFilter';
 import Modal from '@components/ui/Modal';
@@ -185,7 +185,7 @@ const ColumnManager: React.FC<{
 
 const ClientDashboard: React.FC = () => {
     const { userId } = useParams<{ userId: string }>();
-    const [searchParams, setSearchParams] = useSearchParams();
+    const [searchParams] = useSearchParams();
     const activeView = searchParams.get('view') || 'leads';
     const [client, setClient] = useState<Client | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -214,27 +214,6 @@ const ClientDashboard: React.FC = () => {
         leadCreationDate: string | null;
         updates: Partial<Lead> | null;
     }>({ isOpen: false, leadId: null, leadCreationDate: null, updates: null });
-
-    const clientNiche = useMemo(() => {
-        if (!client) return { icon: '💼', label: 'Business Client Hub', color: 'from-slate-700 to-slate-800 bg-slate-950', badgeColor: 'bg-slate-500/10 text-slate-400 border-slate-500/20' };
-        
-        const servicesString = client.services ? client.services.map(s => s.name.toLowerCase()).join(' ') : '';
-        const nameLower = client.name ? client.name.toLowerCase() : '';
-        
-        if (servicesString.includes('yoga') || servicesString.includes('benessere') || servicesString.includes('pilates') || servicesString.includes('meditazione')) {
-            return { icon: '🧘', label: 'Yoga & Benessere', color: 'from-emerald-600 to-teal-700 bg-emerald-950/20', badgeColor: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' };
-        }
-        
-        if (servicesString.includes('meccan') || servicesString.includes('tagliando') || servicesString.includes('auto') || servicesString.includes('cinghia') || nameLower.includes('autoripar') || nameLower.includes('auto')) {
-            return { icon: '🚗', label: 'Autoriparazioni & Meccanica Auto', color: 'from-amber-500 to-orange-600 bg-amber-950/20', badgeColor: 'bg-amber-500/10 text-amber-500 border-amber-500/20' };
-        }
-        
-        if (servicesString.includes('sito') || servicesString.includes('web') || servicesString.includes('seo') || servicesString.includes('dev') || servicesString.includes('it') || servicesString.includes('marketing')) {
-            return { icon: '💻', label: 'Sviluppo Web & Digital Marketing', color: 'from-blue-600 to-indigo-750 bg-indigo-950/20', badgeColor: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' };
-        }
-        
-        return { icon: '📈', label: 'Generazione Lead Professional', color: 'from-indigo-600 to-violet-750 bg-slate-950/20', badgeColor: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' };
-    }, [client]);
 
     const fetchClientData = useCallback(async () => {
         if (!userId) return;
@@ -325,10 +304,20 @@ const ClientDashboard: React.FC = () => {
     // tra il nome colonna e la chiave effettiva salvata (es. da lead arrivate via API/Make.com)
     const getLeadFieldValue = (data: Record<string, any> | undefined, fieldName: string): any => {
         if (!data) return undefined;
-        if (Object.prototype.hasOwnProperty.call(data, fieldName)) return data[fieldName];
         const norm = normalizeFieldKey(fieldName);
-        const matchKey = Object.keys(data).find(k => normalizeFieldKey(k) === norm);
-        return matchKey !== undefined ? data[matchKey] : undefined;
+        let fallback: any = undefined;
+        let fallbackSet = false;
+        for (const k of Object.keys(data)) {
+            if (normalizeFieldKey(k) !== norm) continue;
+            const v = data[k];
+            if (v !== undefined && v !== null && v !== '') return v;
+            // Tieni come riserva il primo valore trovato (anche se vuoto), preferendo la chiave esatta
+            if (!fallbackSet || k === fieldName) {
+                fallback = v;
+                fallbackSet = true;
+            }
+        }
+        return fallback;
     };
 
     // Tutti i campi disponibili come colonna: campi configurati nei servizi + qualsiasi campo
@@ -748,22 +737,6 @@ const ClientDashboard: React.FC = () => {
         return client?.adSpends?.reduce((sum, spend) => sum + spend.amount, 0) || 0;
     }, [client?.adSpends]);
 
-    const totalLeadsCount = useMemo(() => {
-        return client?.leads ? client.leads.filter(l => l.data?._is_historical !== 'true').length : 0;
-    }, [client?.leads]);
-
-    const wonLeadsCount = useMemo(() => {
-        return client?.leads ? client.leads.filter(l => l.status === 'Vinto' && l.data?._is_historical !== 'true').length : 0;
-    }, [client?.leads]);
-
-    const conversionRate = useMemo(() => {
-        return totalLeadsCount > 0 ? ((wonLeadsCount / totalLeadsCount) * 100).toFixed(1) + '%' : '0%';
-    }, [totalLeadsCount, wonLeadsCount]);
-
-    const totalRevenueValue = useMemo(() => {
-        return client?.leads ? client.leads.filter(l => l.status === 'Vinto' && l.data?._is_historical !== 'true').reduce((sum, l) => sum + (l.value || 0), 0) : 0;
-    }, [client?.leads]);
-
     if (isLoading) {
         return <div className="text-center p-8">Caricamento...</div>;
     }
@@ -1163,88 +1136,8 @@ const ClientDashboard: React.FC = () => {
         );
     };
 
-    const clientTabs = [
-        { id: 'leads', label: 'I Miei Lead', icon: <LayoutGrid size={16} /> },
-        { id: 'live', label: 'Panoramica Live', icon: <Activity size={16} /> },
-        { id: 'spese', label: 'Spese Pubblicitarie', icon: <Wallet size={16} /> },
-        { id: 'integrazioni', label: 'Integrazioni Form / API', icon: <Plug size={16} /> }
-    ];
-
-    const handleTabChange = (tabId: string) => {
-        setSearchParams({ view: tabId });
-    };
-
     return (
         <div className="space-y-6">
-            {/* Elegant Niche Dynamic Header */}
-            <div className={`p-6 rounded-2xl bg-gradient-to-br ${clientNiche.color} shadow-xl border border-white/10 text-white relative overflow-hidden backdrop-blur-md`}>
-                <div className="absolute right-0 top-0 translate-x-12 -translate-y-12 w-64 h-64 bg-white/5 rounded-full blur-2xl pointer-events-none"></div>
-                <div className="absolute left-1/3 bottom-0 w-44 h-44 bg-primary-500/10 rounded-full blur-3xl pointer-events-none"></div>
-                
-                <div className="relative flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-                    <div className="flex items-center space-x-4">
-                        <div className="text-4xl p-3 bg-white/10 rounded-2xl shadow-lg border border-white/10 flex items-center justify-center animate-bounce-slow">
-                            {clientNiche.icon}
-                        </div>
-                        <div>
-                            <div className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${clientNiche.badgeColor} backdrop-blur-md mb-2 uppercase tracking-wider`}>
-                                Niche: {clientNiche.label}
-                            </div>
-                            <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight flex items-center gap-2">
-                                {client.name} <span className="text-xs font-normal opacity-70">Client Hub</span>
-                            </h2>
-                            <p className="text-white/70 text-xs mt-1">
-                                Portale operativo abilitato per la ricezione automatizzata dei lead.
-                            </p>
-                        </div>
-                    </div>
-
-                    {/* Integrated mini 3D Stats Block */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 w-full md:w-auto">
-                        <div className="p-3 bg-white/5 dark:bg-slate-900/40 border border-white/5 rounded-xl text-center backdrop-blur-md transform hover:scale-105 transition-all">
-                            <span className="block text-[10px] text-white/60 font-bold uppercase tracking-wider">Lead Totali</span>
-                            <span className="text-xl font-bold font-mono text-white mt-1 block">{totalLeadsCount}</span>
-                        </div>
-                        <div className="p-3 bg-white/5 dark:bg-slate-900/40 border border-white/5 rounded-xl text-center backdrop-blur-md transform hover:scale-105 transition-all">
-                            <span className="block text-[10px] text-white/60 font-bold uppercase tracking-wider">Lead Vinti</span>
-                            <span className="text-xl font-bold font-mono text-white mt-1 block flex items-center justify-center gap-1">
-                                {wonLeadsCount} <CheckCircle2 size={14} className="text-emerald-400 inline" />
-                            </span>
-                        </div>
-                        <div className="p-3 bg-white/5 dark:bg-slate-900/40 border border-white/5 rounded-xl text-center backdrop-blur-md transform hover:scale-105 transition-all">
-                            <span className="block text-[10px] text-white/60 font-bold uppercase tracking-wider font-semibold">Tasso Conversione</span>
-                            <span className="text-xl font-bold font-mono text-white mt-1 block flex items-center justify-center gap-1">
-                                {conversionRate} <Zap size={14} className="text-yellow-400 inline" />
-                            </span>
-                        </div>
-                        <div className="p-3 bg-emerald-500/10 dark:bg-emerald-950/40 border border-emerald-500/20 rounded-xl text-center backdrop-blur-md transform hover:scale-105 transition-all">
-                            <span className="block text-[10px] text-emerald-300 font-bold uppercase tracking-wider">Entrate Chiuse</span>
-                            <span className="text-xl font-bold font-mono text-emerald-400 mt-1 block">
-                                {totalRevenueValue.toLocaleString('it-IT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Premium 3D Navigation Action Bar */}
-            <div className="flex border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 p-1 rounded-xl shadow-inner gap-1 overflow-x-auto">
-                {clientTabs.map(tab => (
-                    <button
-                        key={tab.id}
-                        onClick={() => handleTabChange(tab.id)}
-                        className={`flex items-center justify-center gap-2 px-4 py-2 text-xs font-bold rounded-lg tracking-wide uppercase transition-all whitespace-nowrap ${
-                            activeView === tab.id
-                                ? 'bg-primary-600 text-white shadow-lg shadow-primary-500/20 transform scale-[1.01]'
-                                : 'text-slate-650 hover:bg-slate-100 dark:text-gray-300 dark:hover:bg-slate-705'
-                        }`}
-                    >
-                        {tab.icon}
-                        <span>{tab.label}</span>
-                    </button>
-                ))}
-            </div>
-
             {/* Inside Content View Container */}
             <div className="min-h-[400px]">
                 {renderContent()}

@@ -50,8 +50,11 @@ export default {
     footer_hq: "Sede legale: București (RO)",
     language: "Lingua",
     online_users_tooltip: "{{count}} altri utenti online",
+    sidebar_collapse: "Comprimi menu",
+    sidebar_expand: "Espandi menu",
 
     // Admin Dashboard Nav
+    nav_overview: "Panoramica",
     nav_lead_management: "Gestione Lead",
     nav_calendar: "Calendario",
     nav_quotes: "Preventivi",
@@ -65,6 +68,7 @@ export default {
     // Client Dashboard Nav
     nav_my_leads: "I Miei Lead",
     nav_ad_expenses: "Spese Pubblicitarie",
+    nav_integrations: "Integrazioni Form / API",
     nav_data_analysis: "Analisi Dati",
     
     // Lead Status
@@ -75,7 +79,29 @@ export default {
         Perso: "Perso",
         Vinto: "Vinto"
     },
-    
+
+    overview: {
+        title: "Panoramica",
+        admin_subtitle: "Andamento generale della piattaforma",
+        client_subtitle: "Come sta andando la tua attività",
+        stat_total_leads: "Lead Totali",
+        stat_won_leads: "Lead Vinti",
+        stat_conversion_rate: "Tasso di Conversione",
+        stat_total_clients: "Clienti Attivi",
+        stat_revenue: "Fatturato Generato",
+        stat_ad_spend: "Spesa Pubblicitaria",
+        stat_roi: "ROI",
+        stat_open_leads: "Lead in Corso",
+        chart_status_breakdown: "Lead per Stato",
+        chart_monthly_trend: "Andamento Mensile",
+        chart_top_clients: "Top Clienti per Lead",
+        total_label: "Totale",
+        leads_label: "Lead",
+        won_label: "Vinti",
+        this_month: "Questo mese",
+        no_clients: "Nessun cliente registrato.",
+    },
+
     // Pages & Components
 
     // AdminDashboard

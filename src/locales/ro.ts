@@ -50,8 +50,11 @@ export default {
     footer_hq: "Sediu social: București (RO)",
     language: "Limbă",
     online_users_tooltip: "{{count}} alți utilizatori online",
-    
+    sidebar_collapse: "Restrânge meniul",
+    sidebar_expand: "Extinde meniul",
+
     // Admin Dashboard Nav
+    nav_overview: "Prezentare generală",
     nav_lead_management: "Management Lead-uri",
     nav_calendar: "Calendar",
     nav_quotes: "Oferte",
@@ -65,6 +68,7 @@ export default {
     // Client Dashboard Nav
     nav_my_leads: "Lead-urile Mele",
     nav_ad_expenses: "Cheltuieli Publicitate",
+    nav_integrations: "Integrări Formular / API",
     nav_data_analysis: "Analiză Date",
     
     // Lead Status
@@ -75,7 +79,29 @@ export default {
         Perso: "Pierdut",
         Vinto: "Câștigat"
     },
-    
+
+    overview: {
+        title: "Prezentare generală",
+        admin_subtitle: "Performanța generală a platformei",
+        client_subtitle: "Cum merge afacerea ta",
+        stat_total_leads: "Total Lead-uri",
+        stat_won_leads: "Lead-uri Câștigate",
+        stat_conversion_rate: "Rata de Conversie",
+        stat_total_clients: "Clienți Activi",
+        stat_revenue: "Venit Generat",
+        stat_ad_spend: "Cheltuieli Publicitate",
+        stat_roi: "ROI",
+        stat_open_leads: "Lead-uri în Lucru",
+        chart_status_breakdown: "Lead-uri pe Stare",
+        chart_monthly_trend: "Evoluție Lunară",
+        chart_top_clients: "Top Clienți după Lead-uri",
+        total_label: "Total",
+        leads_label: "Lead-uri",
+        won_label: "Câștigate",
+        this_month: "Luna aceasta",
+        no_clients: "Niciun client înregistrat.",
+    },
+
     // Pages & Components
 
     // AdminDashboard

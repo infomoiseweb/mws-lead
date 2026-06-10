@@ -50,8 +50,11 @@ export default {
     footer_hq: "Headquarters: București (RO)",
     language: "Language",
     online_users_tooltip: "{{count}} other users online",
-    
+    sidebar_collapse: "Collapse menu",
+    sidebar_expand: "Expand menu",
+
     // Admin Dashboard Nav
+    nav_overview: "Overview",
     nav_lead_management: "Lead Management",
     nav_calendar: "Calendar",
     nav_quotes: "Quotes",
@@ -65,6 +68,7 @@ export default {
     // Client Dashboard Nav
     nav_my_leads: "My Leads",
     nav_ad_expenses: "Ad Expenses",
+    nav_integrations: "Form / API Integrations",
     nav_data_analysis: "Data Analysis",
     
     // Lead Status
@@ -75,7 +79,29 @@ export default {
         Perso: "Lost",
         Vinto: "Won"
     },
-    
+
+    overview: {
+        title: "Overview",
+        admin_subtitle: "Overall platform performance",
+        client_subtitle: "How your business is doing",
+        stat_total_leads: "Total Leads",
+        stat_won_leads: "Won Leads",
+        stat_conversion_rate: "Conversion Rate",
+        stat_total_clients: "Active Clients",
+        stat_revenue: "Revenue Generated",
+        stat_ad_spend: "Ad Spend",
+        stat_roi: "ROI",
+        stat_open_leads: "Open Leads",
+        chart_status_breakdown: "Leads by Status",
+        chart_monthly_trend: "Monthly Trend",
+        chart_top_clients: "Top Clients by Leads",
+        total_label: "Total",
+        leads_label: "Leads",
+        won_label: "Won",
+        this_month: "This month",
+        no_clients: "No clients registered.",
+    },
+
     // Pages & Components
     
     // AdminDashboard

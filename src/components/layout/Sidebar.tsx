@@ -1,74 +1,234 @@
-
 import React from 'react';
-import { NavLink, useNavigate, useParams } from 'react-router-dom';
+import { NavLink, useNavigate, useLocation, useParams } from 'react-router-dom';
 import { useAuth } from '@contexts/AuthContext';
-import { LogOut, User as UserIcon, LayoutDashboard, BarChart3, Users, List } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import {
+    LogOut, User as UserIcon, LayoutGrid, List, Users, BarChart3, DollarSign,
+    FileCode, Activity, Calendar, FileText, ChevronsLeft, ChevronsRight, Plug
+} from 'lucide-react';
 
-const Sidebar: React.FC = () => {
+interface SidebarProps {
+    collapsed: boolean;
+    onToggle: () => void;
+    onNavigate?: () => void;
+}
+
+interface NavItem {
+    to: string;
+    icon: React.ReactNode;
+    label: string;
+    isActive: (pathname: string, search: string) => boolean;
+    end?: boolean;
+}
+
+const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle, onNavigate }) => {
     const { user, logout } = useAuth();
+    const { t } = useTranslation();
     const navigate = useNavigate();
+    const location = useLocation();
     const params = useParams();
+
+    const isAdmin = user?.role === 'admin';
+    const userId = user?.id || params.userId;
 
     const handleLogout = () => {
         logout();
         navigate('/login');
     };
 
-    const baseLinkClasses = "flex items-center px-4 py-3 text-gray-200 hover:bg-primary-700 hover:text-white transition-colors duration-200";
-    const activeLinkClasses = "bg-primary-700 text-white font-semibold";
-
-    const adminLinks = [
-        { path: '/admin/dashboard', icon: <Users size={20} />, label: 'Gestione Lead' },
-        { path: '/admin/analytics', icon: <BarChart3 size={20} />, label: 'Analisi Dati' },
+    const adminItems: NavItem[] = [
+        {
+            to: '/admin/overview',
+            icon: <LayoutGrid size={20} />,
+            label: t('nav_overview'),
+            isActive: (pathname) => pathname === '/admin/overview',
+        },
+        {
+            to: '/admin/dashboard',
+            icon: <List size={20} />,
+            label: t('nav_lead_management'),
+            isActive: (pathname, search) => pathname === '/admin/dashboard' && (search === '' || search.includes('view=leads')),
+        },
+        {
+            to: '/admin/calendar',
+            icon: <Calendar size={20} />,
+            label: t('nav_calendar'),
+            isActive: (pathname) => pathname === '/admin/calendar',
+        },
+        {
+            to: '/admin/quotes',
+            icon: <FileText size={20} />,
+            label: t('nav_quotes'),
+            isActive: (pathname) => pathname === '/admin/quotes',
+        },
+        {
+            to: '/admin/dashboard?view=live',
+            icon: <Activity size={20} />,
+            label: t('nav_live_overview'),
+            isActive: (pathname, search) => pathname === '/admin/dashboard' && search.includes('view=live'),
+        },
+        {
+            to: '/admin/dashboard?view=clients',
+            icon: <Users size={20} />,
+            label: t('nav_client_management'),
+            isActive: (pathname, search) => pathname === '/admin/dashboard' && search.includes('view=clients'),
+        },
+        {
+            to: '/admin/dashboard?view=forms',
+            icon: <FileCode size={20} />,
+            label: t('nav_form_generator'),
+            isActive: (pathname, search) => pathname === '/admin/dashboard' && search.includes('view=forms'),
+        },
+        {
+            to: '/admin/dashboard?view=spese',
+            icon: <DollarSign size={20} />,
+            label: t('nav_expense_management'),
+            isActive: (pathname, search) => pathname === '/admin/dashboard' && search.includes('view=spese'),
+        },
+        {
+            to: '/admin/analytics',
+            icon: <BarChart3 size={20} />,
+            label: t('nav_analysis'),
+            isActive: (pathname) => pathname === '/admin/analytics',
+        },
+        {
+            to: '/admin/revenue',
+            icon: <DollarSign size={20} />,
+            label: t('nav_mws_revenue'),
+            isActive: (pathname) => pathname === '/admin/revenue',
+        },
     ];
 
-    const clientLinks = [
-        { path: `/client/${params.userId}/dashboard`, icon: <List size={20} />, label: 'I Miei Lead' },
-        { path: `/client/${params.userId}/analytics`, icon: <BarChart3 size={20} />, label: 'Analisi Dati' },
+    const clientItems: NavItem[] = [
+        {
+            to: `/client/${userId}/overview`,
+            icon: <LayoutGrid size={20} />,
+            label: t('nav_overview'),
+            isActive: (pathname) => pathname === `/client/${userId}/overview`,
+        },
+        {
+            to: `/client/${userId}/dashboard`,
+            icon: <List size={20} />,
+            label: t('nav_my_leads'),
+            isActive: (pathname, search) => pathname === `/client/${userId}/dashboard` && !search.includes('view=live') && !search.includes('view=spese'),
+        },
+        {
+            to: `/client/${userId}/calendar`,
+            icon: <Calendar size={20} />,
+            label: t('nav_calendar'),
+            isActive: (pathname) => pathname === `/client/${userId}/calendar`,
+        },
+        {
+            to: `/client/${userId}/quotes`,
+            icon: <FileText size={20} />,
+            label: t('nav_quotes'),
+            isActive: (pathname) => pathname === `/client/${userId}/quotes`,
+        },
+        {
+            to: `/client/${userId}/dashboard?view=live`,
+            icon: <Activity size={20} />,
+            label: t('nav_live_overview'),
+            isActive: (pathname, search) => pathname === `/client/${userId}/dashboard` && search.includes('view=live'),
+        },
+        {
+            to: `/client/${userId}/dashboard?view=spese`,
+            icon: <DollarSign size={20} />,
+            label: t('nav_ad_expenses'),
+            isActive: (pathname, search) => pathname === `/client/${userId}/dashboard` && search.includes('view=spese'),
+        },
+        {
+            to: `/client/${userId}/dashboard?view=integrazioni`,
+            icon: <Plug size={20} />,
+            label: t('nav_integrations'),
+            isActive: (pathname, search) => pathname === `/client/${userId}/dashboard` && search.includes('view=integrazioni'),
+        },
+        {
+            to: `/client/${userId}/analytics`,
+            icon: <BarChart3 size={20} />,
+            label: t('nav_data_analysis'),
+            isActive: (pathname) => pathname === `/client/${userId}/analytics`,
+        },
+        {
+            to: `/client/${userId}/revenue`,
+            icon: <DollarSign size={20} />,
+            label: t('nav_mws_revenue'),
+            isActive: (pathname) => pathname === `/client/${userId}/revenue`,
+        },
     ];
-    
-    const links = user?.role === 'admin' ? adminLinks : clientLinks;
+
+    const items = isAdmin ? adminItems : clientItems;
+
+    const baseLinkClasses = "flex items-center rounded-lg text-sm font-medium transition-colors duration-150 text-slate-300 hover:bg-slate-800 hover:text-white";
+    const activeLinkClasses = "bg-primary-600 text-white shadow-sm hover:bg-primary-600";
 
     return (
-        <div className="w-64 bg-primary-900 text-white flex flex-col min-h-screen">
-            <div className="h-16 flex items-center justify-center px-4 border-b border-primary-800">
-                <LayoutDashboard className="text-white h-8 w-8 mr-3" />
-                <h1 className="text-xl font-bold text-white whitespace-nowrap">Gestione Lead</h1>
+        <aside className={`${collapsed ? 'w-[68px]' : 'w-64'} flex-shrink-0 bg-slate-900 text-white flex flex-col h-screen sticky top-0 transition-all duration-200 z-40`}>
+            {/* Logo */}
+            <div className={`h-16 flex items-center border-b border-slate-800 ${collapsed ? 'justify-center px-2' : 'px-4'}`}>
+                <img
+                    src="https://moise-web-srl.com/wp-content/uploads/2025/07/web-app-manifest-512x512-2.png"
+                    alt="MWS Gestione Lead Logo"
+                    className="h-10 w-10 flex-shrink-0 rounded-md"
+                />
+                {!collapsed && (
+                    <div className="ml-3 overflow-hidden">
+                        <h1 className="text-sm font-semibold text-white leading-tight whitespace-nowrap">{t('header_title')}</h1>
+                        <p className="text-xs text-slate-400 whitespace-nowrap">{t('header_version')}</p>
+                    </div>
+                )}
             </div>
 
-            <nav className="flex-1 mt-6 space-y-2">
-                {links.map(link => (
-                    <NavLink
-                        key={link.path}
-                        to={link.path}
-                        end
-                        className={({ isActive }) => `${baseLinkClasses} ${isActive ? activeLinkClasses : ''}`}
-                    >
-                        <span className="mr-3">{link.icon}</span>
-                        {link.label}
-                    </NavLink>
-                ))}
+            {/* Nav */}
+            <nav className="flex-1 overflow-y-auto overflow-x-hidden py-3 px-2 space-y-1">
+                {items.map((item) => {
+                    const active = item.isActive(location.pathname, location.search);
+                    return (
+                        <NavLink
+                            key={item.to}
+                            to={item.to}
+                            onClick={onNavigate}
+                            className={`${baseLinkClasses} ${active ? activeLinkClasses : ''} ${collapsed ? 'justify-center px-0 py-3' : 'px-3 py-2.5'}`}
+                            title={collapsed ? item.label : undefined}
+                        >
+                            <span className="flex-shrink-0">{item.icon}</span>
+                            {!collapsed && <span className="ml-3 truncate">{item.label}</span>}
+                        </NavLink>
+                    );
+                })}
             </nav>
 
-            <div className="p-4 border-t border-primary-800">
-                <div className="flex items-center mb-4">
-                    <div className="w-10 h-10 bg-primary-700 rounded-full flex items-center justify-center mr-3">
-                        <UserIcon className="w-6 h-6 text-white" />
+            {/* Collapse toggle */}
+            <button
+                onClick={onToggle}
+                className="flex items-center justify-center mx-2 mb-2 p-2 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+                title={collapsed ? t('sidebar_expand') : t('sidebar_collapse')}
+            >
+                {collapsed ? <ChevronsRight size={18} /> : <ChevronsLeft size={18} />}
+            </button>
+
+            {/* User info + logout */}
+            <div className={`border-t border-slate-800 p-3 ${collapsed ? 'flex flex-col items-center' : ''}`}>
+                <div className={`flex items-center ${collapsed ? '' : 'mb-3'}`}>
+                    <div className="w-9 h-9 bg-slate-700 rounded-full flex items-center justify-center flex-shrink-0">
+                        <UserIcon className="w-5 h-5 text-white" />
                     </div>
-                    <div>
-                        <p className="font-semibold">{user?.username}</p>
-                        <p className="text-xs text-gray-400 capitalize">{user?.role}</p>
-                    </div>
+                    {!collapsed && (
+                        <div className="ml-2.5 overflow-hidden">
+                            <p className="text-sm font-semibold truncate">{user?.username}</p>
+                            <p className="text-xs text-slate-400 capitalize">{user?.role}</p>
+                        </div>
+                    )}
                 </div>
-                 <button
+                <button
                     onClick={handleLogout}
-                    className="w-full flex items-center justify-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-red-100 bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-primary-900 focus:ring-red-500"
+                    title={t('menu_logout')}
+                    className={`flex items-center justify-center text-sm font-medium rounded-md text-red-100 bg-red-600/90 hover:bg-red-600 transition-colors ${collapsed ? 'w-9 h-9 mt-2' : 'w-full px-3 py-2 mt-0'}`}
                 >
-                    <LogOut className="w-4 h-4 mr-2" />
-                    Logout
+                    <LogOut className="w-4 h-4" />
+                    {!collapsed && <span className="ml-2">{t('menu_logout')}</span>}
                 </button>
             </div>
-        </div>
+        </aside>
     );
 };
 

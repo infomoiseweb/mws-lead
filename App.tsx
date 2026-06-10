@@ -5,7 +5,9 @@ import { AuthProvider, useAuth } from './src/contexts/AuthContext';
 import { ThemeProvider } from './src/contexts/ThemeContext';
 import LoginPage from './src/pages/LoginPage';
 import AdminDashboard from './src/pages/admin/AdminDashboard';
+import AdminOverview from './src/pages/admin/AdminOverview';
 import ClientDashboard from './src/pages/client/ClientDashboard';
+import ClientOverview from './src/pages/client/ClientOverview';
 import ApiHandlerPage from './src/pages/admin/ApiHandlerPage';
 import AnalyticsPage from './src/pages/AnalyticsPage';
 import Layout from './src/components/layout/Layout';
@@ -30,7 +32,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactElement; role: 'admin' | '
     }
 
     if (user.role !== role) {
-        const defaultPath = user.role === 'admin' ? '/admin/dashboard' : `/client/${user.id}/dashboard`;
+        const defaultPath = user.role === 'admin' ? '/admin/overview' : `/client/${user.id}/overview`;
         return <Navigate to={defaultPath} replace />;
     }
 
@@ -73,18 +75,19 @@ const AppRoutes: React.FC = () => {
     // This component handles redirection for the root path '/'.
     const RootRedirector: React.FC = () => {
         if (user) {
-            const dashboardPath = user.role === 'admin' ? '/admin/dashboard' : `/client/${user.id}/dashboard`;
+            const dashboardPath = user.role === 'admin' ? '/admin/overview' : `/client/${user.id}/overview`;
             return <Navigate to={dashboardPath} replace />;
         }
         return <Navigate to="/login" replace />;
     };
-    
+
     return (
         <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/api/lead/:clientId" element={<ApiHandlerPage />} />
-            
+
             <Route path="/admin" element={<AppLayout role="admin" />}>
+                <Route path="overview" element={<AdminOverview />} />
                 <Route path="dashboard" element={<AdminDashboard />} />
                 <Route path="calendar" element={<CalendarPage />} />
                 <Route path="quotes" element={<QuotesPage />} />
@@ -96,10 +99,11 @@ const AppRoutes: React.FC = () => {
                 <Route path="send-notification" element={<SendNotificationPage />} />
                 <Route path="manage-notifications" element={<ManageNotificationsPage />} />
                 <Route path="notifications" element={<NotificationsPage />} />
-                <Route index element={<Navigate to="dashboard" replace />} />
+                <Route index element={<Navigate to="overview" replace />} />
             </Route>
 
             <Route path="/client/:userId" element={<AppLayout role="client" />}>
+                <Route path="overview" element={<ClientOverview />} />
                 <Route path="dashboard" element={<ClientDashboard />} />
                 <Route path="calendar" element={<CalendarPage />} />
                 <Route path="quotes" element={<QuotesPage />} />
@@ -109,7 +113,7 @@ const AppRoutes: React.FC = () => {
                 <Route path="terms" element={<TermsPage />} />
                 <Route path="chat" element={<ChatPage />} />
                 <Route path="notifications" element={<NotificationsPage />} />
-                <Route index element={<Navigate to="dashboard" replace />} />
+                <Route index element={<Navigate to="overview" replace />} />
             </Route>
             
             {/* Redirect from root path. This has lower precedence than specific routes. */}

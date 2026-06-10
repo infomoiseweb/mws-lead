@@ -322,15 +322,7 @@ const Header: React.FC = () => {
     return (
         <>
             <header className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-30">
-                <div className="px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-                    <div className="flex items-center">
-                        <img src="https://moise-web-srl.com/wp-content/uploads/2025/07/web-app-manifest-512x512-2.png" alt="MWS Gestione Lead Logo" className="h-14 w-14" />
-                        <div className="ml-3">
-                            <h1 className="text-lg font-semibold text-slate-900 dark:text-white leading-tight">{t('header_title')}</h1>
-                            <p className="text-xs text-slate-500 dark:text-slate-400">{t('header_version')}</p>
-                        </div>
-                    </div>
-                    
+                <div className="px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-end">
                     <div className="flex items-center space-x-2 sm:space-x-4">
                         {user?.role === 'admin' && (
                             <>
