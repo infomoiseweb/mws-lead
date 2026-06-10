@@ -36,7 +36,7 @@ const QuoteDetailModal: React.FC<QuoteDetailModalProps> = ({ isOpen, onClose, qu
             price: item.price,
             vat: item.vat,
         }))
-        : Object.entries(quote.items as Record<string, string>).map(([key, value]) => ({
+        : Object.entries((quote.items || {}) as Record<string, string>).map(([key, value]) => ({
             description: `${key}: ${value}`,
             quantity: 1,
             price: 0,
@@ -136,7 +136,7 @@ const QuoteDetailModal: React.FC<QuoteDetailModalProps> = ({ isOpen, onClose, qu
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
-                    {Object.entries(quote.items).map(([key, value], index) => (
+                    {Object.entries(quote.items || {}).map(([key, value], index) => (
                         <tr key={index}>
                             <td className="p-2 font-medium">{key}</td>
                             <td className="p-2">{value}</td>
@@ -176,7 +176,7 @@ const QuoteDetailModal: React.FC<QuoteDetailModalProps> = ({ isOpen, onClose, qu
                 </div>
 
                 {/* Vehicle Details */}
-                {Object.keys(quote.vehicle_details).length > 0 && (
+                {Object.keys(quote.vehicle_details || {}).length > 0 && (
                      <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700">
                         <h3 className="text-md font-semibold mb-2 flex items-center"><Truck size={16} className="mr-2" /> Dettagli Veicolo</h3>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-2">
