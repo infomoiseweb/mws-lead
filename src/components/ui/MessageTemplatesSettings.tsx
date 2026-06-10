@@ -30,7 +30,7 @@ const MessageTemplatesSettings: React.FC<Props> = ({ client, onSave }) => {
     const [isSaving, setIsSaving] = useState(false);
     const [saved, setSaved] = useState(false);
 
-    const services = client.services || [];
+    const services = (client.services || []).filter(s => s.name !== '__default_fields__');
 
     const startEdit = (tpl: MessageTemplate) => {
         setEditingId(tpl.id);

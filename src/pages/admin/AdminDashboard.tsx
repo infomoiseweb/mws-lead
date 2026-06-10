@@ -189,7 +189,7 @@ const AdSpendForm: React.FC<AdSpendFormProps> = ({ client, editingSpend, onSucce
     const [month, setMonth] = useState(''); // YYYY-MM
 
     const isEditing = !!editingSpend;
-    const availableServices = useMemo(() => client.services.map(s => s.name), [client]);
+    const availableServices = useMemo(() => client.services.filter(s => s.name !== '__default_fields__').map(s => s.name), [client]);
 
     useEffect(() => {
         if (isEditing && editingSpend) {
@@ -811,9 +811,9 @@ const ClientCard: React.FC<{
                  <div className="p-4 bg-slate-50 dark:bg-slate-800/50 space-y-4">
                      <div>
                         <h4 className="font-semibold text-slate-700 dark:text-gray-300 mb-2">Webhook URLs per Servizio</h4>
-                        {client.services && client.services.length > 0 ? (
+                        {client.services && client.services.filter(s => s.name !== '__default_fields__').length > 0 ? (
                             <div className="space-y-2">
-                                {client.services.map(service => (
+                                {client.services.filter(s => s.name !== '__default_fields__').map(service => (
                                     <WebhookUrlItem key={service.id} clientId={client.id} service={service.name} fields={service.fields || []} />
                                 ))}
                             </div>
@@ -823,8 +823,8 @@ const ClientCard: React.FC<{
                     </div>
                     <div>
                         <h4 className="font-semibold text-slate-700 dark:text-gray-300 mb-2">Campi per Servizio</h4>
-                        {client.services && client.services.length > 0 ? (
-                             client.services.map(service => (
+                        {client.services && client.services.filter(s => s.name !== '__default_fields__').length > 0 ? (
+                             client.services.filter(s => s.name !== '__default_fields__').map(service => (
                                 <div key={service.id} className="mb-3 last:mb-0">
                                     <h5 className="font-semibold text-slate-600 dark:text-gray-400 text-sm">{service.name}</h5>
                                     {service.fields && service.fields.length > 0 ? (

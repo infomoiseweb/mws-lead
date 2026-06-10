@@ -85,17 +85,19 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
                 setDefaultFields(initialDefaultFields);
             }
 
+            // Lead intake mode (default/fallback mode)
+            const leadModeEntry = rawServices.find((s: any) => s.name === '__lead_mode__');
+            const fallbackIntakeMode: 'form' | 'api' = leadModeEntry?.mode || client.lead_intake_mode || 'form';
+            setLeadIntakeMode(fallbackIntakeMode);
+
             // Other actual user-facing services
             const otherServices = rawServices.filter(s => s.name !== '__default_fields__' && s.name !== '__lead_mode__');
             setServices(otherServices.map(s => ({
                 ...s,
                 isExpanded: false,
+                intake_mode: s.intake_mode || fallbackIntakeMode,
                 fields: (s.fields || []).map(f => ({ ...f, type: f.type || 'text' }))
             })));
-
-            // Lead intake mode
-            const leadModeEntry = rawServices.find((s: any) => s.name === '__lead_mode__');
-            setLeadIntakeMode(leadModeEntry?.mode || client.lead_intake_mode || 'form');
 
             setMwsFixedFee(String(client.mws_fixed_fee || ''));
             setMwsProfitPercentage(String(client.mws_profit_percentage || ''));
@@ -174,12 +176,19 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
     };
 
     const handleAddService = () => {
-        setServices([...services, { 
-            name: '', 
-            id: `new_${Date.now()}_${Math.random()}`, 
+        setServices([...services, {
+            name: '',
+            id: `new_${Date.now()}_${Math.random()}`,
             fields: [], // No fields required initially since they inherit default fields!
-            isExpanded: true 
+            intake_mode: leadIntakeMode || 'form',
+            isExpanded: true
         }]);
+    };
+
+    const handleServiceIntakeModeChange = (index: number, mode: 'form' | 'api') => {
+        const updatedServices = [...services];
+        updatedServices[index].intake_mode = mode;
+        setServices(updatedServices);
     };
     
     const handleRemoveService = (index: number) => {
@@ -311,18 +320,17 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
 
                 return {
                     ...serviceForApi,
+                    intake_mode: serviceForApi.intake_mode || leadIntakeMode || 'form',
                     fields: validFields,
                 };
             })
             .filter(Boolean);
 
-        // Lead mode entry (stored as special service in JSONB)
+        // Lead mode entry (stored as special service in JSONB) — fallback/default mode
         const leadModeObj = { id: 'service_lead_mode', name: '__lead_mode__', mode: leadIntakeMode, fields: [] };
 
-        // Combine: default fields + lead mode + (services only if form mode)
-        const mergedServices = leadIntakeMode === 'api'
-            ? [defaultServiceObj, leadModeObj]
-            : [defaultServiceObj, leadModeObj, ...finalServices];
+        // Combine: default fields + lead mode + all user-defined services (each with its own intake_mode)
+        const mergedServices = [defaultServiceObj, leadModeObj, ...finalServices];
 
         setIsLoading(true);
         
@@ -441,10 +449,10 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
                 {/* LEAD INTAKE MODE SELECTOR */}
                 <fieldset className="border-t border-slate-200 dark:border-slate-700 pt-5">
                     <div className="flex items-center space-x-2 mb-3">
-                        <h3 className="text-sm font-semibold text-slate-700 dark:text-gray-200">Modalità Ricezione Lead</h3>
+                        <h3 className="text-sm font-semibold text-slate-700 dark:text-gray-200">Modalità Ricezione Lead di Default</h3>
                     </div>
                     <p className="text-xs text-slate-500 dark:text-gray-400 mb-3">
-                        Scegli come questo cliente riceverà le lead. Puoi cambiarlo in qualsiasi momento.
+                        Modalità preimpostata per i nuovi servizi e per le lead senza un servizio specifico. Ogni servizio (sezione 2) può comunque avere una propria modalità diversa.
                     </p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <label className={`flex items-start gap-3 p-4 rounded-lg border-2 cursor-pointer transition-colors ${
@@ -593,8 +601,7 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
                     </button>
                 </fieldset>
 
-                {/* SECTION 2: Specific Services and custom extra fields — shown only in form mode */}
-                {leadIntakeMode === 'form' && (
+                {/* SECTION 2: Specific Services and custom extra fields */}
                 <fieldset className="border-t border-slate-200 dark:border-slate-700 pt-5">
                     <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center space-x-2 text-primary-600 dark:text-primary-400">
@@ -635,7 +642,45 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
                                             <Sparkles size={14} />
                                             <span>Questo servizio includerà automaticamente tutti i campi di default configurati nella sezione 1.</span>
                                         </div>
-                                        
+
+                                        <div>
+                                            <label className={fieldLabelClasses}>Modalità Ricezione Lead per questo servizio</label>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1">
+                                                <label className={`flex items-center gap-2 px-3 py-2 rounded-md border cursor-pointer text-sm transition-colors ${
+                                                    (service.intake_mode || 'form') === 'form'
+                                                        ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
+                                                        : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                                                }`}>
+                                                    <input
+                                                        type="radio"
+                                                        name={`service-intake-mode-${serviceIndex}`}
+                                                        value="form"
+                                                        checked={(service.intake_mode || 'form') === 'form'}
+                                                        onChange={() => handleServiceIntakeModeChange(serviceIndex, 'form')}
+                                                        className="h-4 w-4 text-primary-600 border-gray-300 focus:ring-primary-500"
+                                                    />
+                                                    <Globe size={14} className="text-primary-500" />
+                                                    <span>Formulario HTML</span>
+                                                </label>
+                                                <label className={`flex items-center gap-2 px-3 py-2 rounded-md border cursor-pointer text-sm transition-colors ${
+                                                    service.intake_mode === 'api'
+                                                        ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
+                                                        : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                                                }`}>
+                                                    <input
+                                                        type="radio"
+                                                        name={`service-intake-mode-${serviceIndex}`}
+                                                        value="api"
+                                                        checked={service.intake_mode === 'api'}
+                                                        onChange={() => handleServiceIntakeModeChange(serviceIndex, 'api')}
+                                                        className="h-4 w-4 text-primary-600 border-gray-300 focus:ring-primary-500"
+                                                    />
+                                                    <FileCode size={14} className="text-primary-500" />
+                                                    <span>API / Integrazione Esterna</span>
+                                                </label>
+                                            </div>
+                                        </div>
+
                                         <h4 className="text-xs font-bold text-slate-500 dark:text-gray-400 uppercase tracking-wider">Campi extra unici per "{service.name || 'Filtro vuoto'}":</h4>
                                         {service.fields.map((field, fieldIndex) => (
                                            <div
@@ -748,7 +793,6 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
                         Aggiungi Nuovo Servizio Specifico
                     </button>
                 </fieldset>
-                )}
 
                 {error && <p className="text-sm text-red-500 dark:text-red-400 mt-4 font-semibold">{error}</p>}
                 

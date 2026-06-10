@@ -80,7 +80,7 @@ const ClientLiveOverview: React.FC<{ client: Client }> = ({ client }) => {
                                 className="mt-1 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md py-2 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500 w-full"
                             >
                                 <option value="all">Tutti i Servizi</option>
-                                {client.services.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                                {client.services.filter(s => s.name !== '__default_fields__').map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
                             </select>
                         </div>
                         <div>
@@ -918,7 +918,7 @@ const ClientDashboard: React.FC = () => {
                                 className="bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md py-2 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500 w-full"
                             >
                                 <option value="all">Tutti i Servizi</option>
-                                {client.services.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                                {client.services.filter(s => s.name !== '__default_fields__').map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
                             </select>
                         </div>
                         <div className="relative">

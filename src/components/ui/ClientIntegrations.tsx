@@ -1,9 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import * as ApiService from '@api';
-import type { Client } from '../types';
-import { 
-  Code, Copy, Check, CheckCircle2, Terminal, 
-  Settings2, ExternalLink, FileCode, Sparkles, AlertCircle
+import type { Client, Service, LeadField } from '../types';
+import {
+  Code, Copy, Check, CheckCircle2,
+  ExternalLink, FileCode, Sparkles, AlertCircle, Globe, Tag
 } from 'lucide-react';
 
 interface ClientIntegrationsProps {
@@ -12,16 +12,28 @@ interface ClientIntegrationsProps {
 }
 
 export const ClientIntegrations: React.FC<ClientIntegrationsProps> = ({ client, onLeadAdded }) => {
-  const [activeSubTab, setActiveSubTab] = useState<'wordpress' | 'html' | 'webhook'>('wordpress');
+  const [activeSubTab, setActiveSubTab] = useState<'services' | 'token'>('services');
   const [copiedText, setCopiedText] = useState<string | null>(null);
-  
+  const [expandedServiceId, setExpandedServiceId] = useState<string | null>(null);
+
+  // Servizi reali del cliente (esclude il marker tecnico __default_fields__)
+  const realServices = useMemo(
+    () => client.services.filter(s => s.name !== '__default_fields__'),
+    [client.services]
+  );
+
+  const defaultFields = useMemo(
+    () => client.services.find(s => s.name === '__default_fields__')?.fields || [],
+    [client.services]
+  );
+
   // Test lead form states
   const [testNome, setTestNome] = useState('');
   const [testEmail, setTestEmail] = useState('');
   const [testTelefono, setTestTelefono] = useState('');
-  const [testService, setTestService] = useState(client.services[0]?.name || '');
+  const [testService, setTestService] = useState(realServices[0]?.name || '');
   const [testNote, setTestNote] = useState('Lead di test inviato dal Portale Integrazione');
-  
+
   const [testStatus, setTestStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [testError, setTestError] = useState('');
 
@@ -84,50 +96,67 @@ export const ClientIntegrations: React.FC<ClientIntegrationsProps> = ({ client, 
     }
   };
 
-  // Codice HTML generato dinamicamente con i servizi reali del cliente
-  const htmlEmbedCode = `<!-- Modulo Contatti Modificabile per ${client.name} -->
+  // Renderizza un singolo campo come HTML per il modulo embeddabile
+  const renderFieldHtml = (field: LeadField): string => {
+    const requiredAttr = field.required ? ' required' : '';
+    const labelHtml = `    <label style="display: block; margin-bottom: 6px; font-size: 13px; font-weight: 600; color: #475569;">${field.label}${field.required ? ' *' : ''}</label>`;
+    let inputHtml: string;
+
+    switch (field.type) {
+      case 'textarea':
+        inputHtml = `    <textarea name="${field.name}"${requiredAttr} placeholder="" rows="3" style="width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; resize: none;"></textarea>`;
+        break;
+      case 'select':
+        inputHtml = `    <select name="${field.name}"${requiredAttr} style="width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; background: #fff;">\n${(field.options || []).map(o => `      <option value="${o}">${o}</option>`).join('\n')}\n    </select>`;
+        break;
+      case 'radio':
+        return `  <div style="margin-bottom: 16px;">\n${labelHtml}\n${(field.options || []).map(o => `    <label style="margin-right: 12px; font-size: 14px; font-weight: normal;"><input type="radio" name="${field.name}" value="${o}"${requiredAttr} /> ${o}</label>`).join('\n')}\n  </div>`;
+      case 'checkbox':
+        return `  <div style="margin-bottom: 16px;">\n    <label style="font-size: 14px; font-weight: normal; display: flex; align-items: center; gap: 6px;"><input type="checkbox" name="${field.name}" value="si"${requiredAttr} /> ${field.label}${field.required ? ' *' : ''}</label>\n  </div>`;
+      case 'file':
+        inputHtml = `    <input type="file" name="${field.name}"${requiredAttr} style="width: 100%;" />`;
+        break;
+      default:
+        inputHtml = `    <input type="${field.type}" name="${field.name}"${requiredAttr} placeholder="" style="width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px;" />`;
+    }
+
+    return `  <div style="margin-bottom: 16px;">\n${labelHtml}\n${inputHtml}\n  </div>`;
+  };
+
+  // Codice HTML generato dinamicamente per un servizio specifico (campi suoi + campi base)
+  const buildHtmlEmbedCode = (service: Service | null): string => {
+    const allFields = [...(service?.fields || []), ...defaultFields];
+    const fieldsHtml = allFields.map(renderFieldHtml).join('\n\n');
+    const title = service?.name || client.name;
+
+    return `<!-- Modulo "${title}" per ${client.name} -->
 <form action="${endpointUrl}" method="GET" style="max-width: 450px; margin: 20px auto; font-family: sans-serif; background: #fff; padding: 24px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); border: 1px solid #f0f0f0;">
-  <h3 style="margin-top: 0; margin-bottom: 20px; color: #1e293b; text-align: center; font-size: 1.25rem;">Richiedi Servizio</h3>
-  
-  <div style="margin-bottom: 16px;">
-    <label style="display: block; margin-bottom: 6px; font-size: 13px; font-weight: 600; color: #475569;">Nome e Cognome *</label>
-    <input type="text" name="nome" required placeholder="Es. Mario Rossi" style="width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; outline: none;" />
-  </div>
-
-  <div style="margin-bottom: 16px;">
-    <label style="display: block; margin-bottom: 6px; font-size: 13px; font-weight: 600; color: #475569;">Indirizzo Email</label>
-    <input type="email" name="email" placeholder="Es. mario@example.com" style="width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px;" />
-  </div>
-
-  <div style="margin-bottom: 16px;">
-    <label style="display: block; margin-bottom: 6px; font-size: 13px; font-weight: 600; color: #475569;">Numero Telefono *</label>
-    <input type="tel" name="telefono" required placeholder="Es. 3471234567" style="width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px;" />
-  </div>
-
-  <div style="margin-bottom: 20px;">
-    <label style="display: block; margin-bottom: 6px; font-size: 13px; font-weight: 600; color: #475569;">Servizio Desiderato *</label>
-    <select name="service" style="width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; background: #fff;">
-      ${client.services.map(s => `<option value="${s.name}">${s.name}</option>`).join('\n      ')}
-    </select>
-  </div>
-
-  <div style="margin-bottom: 20px;">
-    <label style="display: block; margin-bottom: 6px; font-size: 13px; font-weight: 600; color: #475569;">Messaggio o Note</label>
-    <textarea name="note" placeholder="Descrivi brevemente la tua richiesta..." rows="3" style="width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; resize: none;"></textarea>
-  </div>
+  <h3 style="margin-top: 0; margin-bottom: 20px; color: #1e293b; text-align: center; font-size: 1.25rem;">${title}</h3>
+${service ? `\n  <input type="hidden" name="service" value="${service.name}" />\n` : ''}
+${fieldsHtml}
 
   <button type="submit" style="width: 100%; padding: 12px; background: #2563eb; color: #fff; font-size: 14px; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; transition: background 0.2s;">
     Invia Richiesta
   </button>
 </form>`;
+  };
 
-  const webhookJsonSnippet = `{
-  "nome": "Luca Rossi",
-  "email": "luca@rossi.it",
-  "telefono": "3331234567",
-  "service": "${client.services[0]?.name || 'Generico'}",
-  "note": "Richiesta preventivo inoltrata dal sistema"
-}`;
+  // Esempio JSON per l'invio via API per un servizio specifico (campi suoi + campi base)
+  const buildApiJsonSnippet = (service: Service | null): string => {
+    const allFields = [...defaultFields, ...(service?.fields || [])];
+    const sample: Record<string, string> = {};
+
+    allFields.forEach(f => {
+      if (f.type === 'email') sample[f.name] = 'mario@esempio.it';
+      else if (f.type === 'tel') sample[f.name] = '3331234567';
+      else if (f.name === 'nome') sample[f.name] = 'Mario Rossi';
+      else sample[f.name] = `Valore ${f.label}`;
+    });
+
+    if (service) sample['service'] = service.name;
+
+    return JSON.stringify(sample, null, 2);
+  };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:items-start anim-fade-in">
@@ -193,49 +222,151 @@ export const ClientIntegrations: React.FC<ClientIntegrationsProps> = ({ client, 
         {/* Sub Tab Switcher */}
         <div className="flex border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40">
           <button
-            onClick={() => setActiveSubTab('wordpress')}
+            onClick={() => setActiveSubTab('services')}
             className={`flex-1 py-4 text-center text-sm font-semibold border-b-2 transition-all ${
-              activeSubTab === 'wordpress'
+              activeSubTab === 'services'
                 ? 'border-primary-500 text-primary-600 dark:text-primary-400 bg-white dark:bg-slate-800'
                 : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-gray-400 dark:hover:text-gray-200'
             }`}
           >
-            WordPress / Elementor
+            Per Servizio
           </button>
           <button
-            onClick={() => setActiveSubTab('html')}
+            onClick={() => setActiveSubTab('token')}
             className={`flex-1 py-4 text-center text-sm font-semibold border-b-2 transition-all ${
-              activeSubTab === 'html'
+              activeSubTab === 'token'
                 ? 'border-primary-500 text-primary-600 dark:text-primary-400 bg-white dark:bg-slate-800'
                 : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-gray-400 dark:hover:text-gray-200'
             }`}
           >
-            Form HTML Personalizzato
-          </button>
-          <button
-            onClick={() => setActiveSubTab('webhook')}
-            className={`flex-1 py-4 text-center text-sm font-semibold border-b-2 transition-all ${
-              activeSubTab === 'webhook'
-                ? 'border-primary-500 text-primary-600 dark:text-primary-400 bg-white dark:bg-slate-800'
-                : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-gray-400 dark:hover:text-gray-200'
-            }`}
-          >
-            API webhook JSON
+            Token API & Endpoint
           </button>
         </div>
 
         <div className="p-6">
-          {activeSubTab === 'wordpress' && (
+          {activeSubTab === 'services' && (
+            <div className="space-y-4">
+              <p className="text-sm text-slate-600 dark:text-gray-400">
+                Ogni servizio può ricevere le lead in modo indipendente: tramite un <strong>modulo HTML dedicato</strong> oppure via <strong>API</strong>. La modalità si configura in "Gestione Clienti".
+              </p>
+
+              {realServices.length === 0 && (
+                <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
+                  <div className="p-3 bg-slate-50 dark:bg-slate-900/50 flex items-center gap-2">
+                    <Globe size={16} className="text-primary-500" />
+                    <span className="font-semibold text-sm text-slate-800 dark:text-white">Modulo Generico (Campi Base)</span>
+                  </div>
+                  <div className="p-4 space-y-3">
+                    <p className="text-xs text-slate-500 dark:text-gray-400">
+                      Nessun servizio specifico configurato: usa questo modulo HTML basato sui campi base.
+                    </p>
+                    <div className="relative">
+                      <div className="absolute right-3 top-3">
+                        <button
+                          onClick={() => triggerCopy(buildHtmlEmbedCode(null), 'html-generic')}
+                          type="button"
+                          className="p-1 px-2.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 rounded-md text-xs font-semibold text-slate-700 dark:text-white flex items-center space-x-1 transition"
+                        >
+                          {copiedText === 'html-generic' ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+                          <span>{copiedText === 'html-generic' ? 'Copiato!' : 'Copia'}</span>
+                        </button>
+                      </div>
+                      <pre className="p-4 bg-slate-950 text-slate-200 dark:text-green-400 rounded-xl overflow-x-auto text-[11px] font-mono leading-relaxed h-72 border border-slate-800">
+                        {buildHtmlEmbedCode(null)}
+                      </pre>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {realServices.map(service => {
+                const isExpanded = expandedServiceId === service.id;
+                const isApi = service.intake_mode === 'api';
+                return (
+                  <div key={service.id} className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setExpandedServiceId(isExpanded ? null : service.id)}
+                      className="w-full p-3 bg-slate-50 dark:bg-slate-900/50 flex items-center justify-between gap-2 text-left"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Tag size={16} className="text-primary-500" />
+                        <span className="font-semibold text-sm text-slate-800 dark:text-white">{service.name}</span>
+                        <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${isApi ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'}`}>
+                          {isApi ? 'API' : 'Form HTML'}
+                        </span>
+                      </span>
+                      <ExternalLink size={14} className="text-slate-400" />
+                    </button>
+
+                    {isExpanded && (
+                      <div className="p-4 space-y-3 bg-white dark:bg-slate-950/40">
+                        {!isApi ? (
+                          <>
+                            <p className="text-xs text-slate-500 dark:text-gray-400">
+                              Incolla questo modulo dedicato (campi del servizio + campi base, con il servizio già preimpostato) in una pagina HTML o widget di qualsiasi CMS.
+                            </p>
+                            <div className="relative">
+                              <div className="absolute right-3 top-3">
+                                <button
+                                  onClick={() => triggerCopy(buildHtmlEmbedCode(service), `html-${service.id}`)}
+                                  type="button"
+                                  className="p-1 px-2.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 rounded-md text-xs font-semibold text-slate-700 dark:text-white flex items-center space-x-1 transition"
+                                >
+                                  {copiedText === `html-${service.id}` ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+                                  <span>{copiedText === `html-${service.id}` ? 'Copiato!' : 'Copia'}</span>
+                                </button>
+                              </div>
+                              <pre className="p-4 bg-slate-950 text-slate-200 dark:text-green-400 rounded-xl overflow-x-auto text-[11px] font-mono leading-relaxed h-72 border border-slate-800">
+                                {buildHtmlEmbedCode(service)}
+                              </pre>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-xs text-slate-500 dark:text-gray-400">
+                              Invia un <code className="bg-slate-100 dark:bg-slate-900 px-1 rounded text-red-500 dark:text-red-400 font-mono">POST</code> a <code className="bg-slate-100 dark:bg-slate-900 px-1 rounded font-mono">{apiEndpointUrl}</code> con lo stesso API Token del cliente. Usa il campo <code className="bg-slate-100 dark:bg-slate-900 px-1 rounded font-mono">service</code> con valore <code className="bg-slate-100 dark:bg-slate-900 px-1 rounded font-mono">"{service.name}"</code> per assegnare la lead a questo servizio.
+                            </p>
+                            <div className="relative">
+                              <div className="absolute right-3 top-3">
+                                <button
+                                  onClick={() => triggerCopy(buildApiJsonSnippet(service), `json-${service.id}`)}
+                                  type="button"
+                                  className="p-1 px-2.5 bg-slate-700 hover:bg-slate-600 rounded-md text-xs font-semibold text-white flex items-center space-x-1"
+                                >
+                                  {copiedText === `json-${service.id}` ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+                                  <span>{copiedText === `json-${service.id}` ? 'Copiato!' : 'Copia'}</span>
+                                </button>
+                              </div>
+                              <pre className="p-4 bg-slate-950 text-green-400 rounded-xl overflow-x-auto text-xs font-mono">
+{`// Header
+Authorization: Bearer ${apiToken || '<api_token>'}
+Content-Type: application/json
+
+// Body
+${buildApiJsonSnippet(service)}`}
+                              </pre>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {activeSubTab === 'token' && (
             <div className="space-y-4">
               <div className="flex items-start space-x-3">
                 <div className="bg-primary-100 dark:bg-primary-950/50 p-2 rounded-lg text-primary-600">
                   <CheckCircle2 size={18} />
                 </div>
                 <div>
-                  <h4 className="font-semibold text-slate-800 dark:text-white">Passo 1: Copia URL Integrazione</h4>
+                  <h4 className="font-semibold text-slate-800 dark:text-white">URL Integrazione (redirect form GET)</h4>
                   <p className="text-sm text-slate-600 dark:text-gray-400 mt-1">Usa questo URL unico per il tuo account cliente:</p>
-                  
-                  {/* Link copiatile */}
+
                   <div className="mt-2 flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg font-mono text-xs text-slate-700 dark:text-gray-300">
                     <span className="truncate pr-4">{endpointUrl}</span>
                     <button
@@ -250,78 +381,8 @@ export const ClientIntegrations: React.FC<ClientIntegrationsProps> = ({ client, 
                 </div>
               </div>
 
-              <div className="flex items-start space-x-3 pt-2">
-                <div className="bg-primary-100 dark:bg-primary-950/50 p-2 rounded-lg text-primary-600">
-                  <CheckCircle2 size={18} />
-                </div>
-                <div>
-                  <h4 className="font-semibold text-slate-800 dark:text-white">Passo 2: Mappa i Campi del Form</h4>
-                  <p className="text-sm text-slate-600 dark:text-gray-400 mt-1">
-                    Nel tuo plugin preferito di WordPress (Elementor Forms, Contact Form 7, WPForms, Gravity Forms, ecc.), imposta un’azione dopo l'invio di tipo <strong>Webhook</strong> o <strong>Redirect</strong> all'URL fornito sopra.
-                  </p>
-                  <p className="text-sm text-slate-600 dark:text-gray-400 mt-2">
-                    Assicurati che i nomi/chiavi (IDs) dei moduli corrispondano a questi elementi chiave:
-                  </p>
-
-                  <div className="grid grid-cols-2 gap-2 mt-3 font-mono text-xs">
-                    <div className="p-2 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800/80 rounded">
-                      <span className="text-blue-500 font-bold">nome</span>: Nome contatto
-                    </div>
-                    <div className="p-2 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800/80 rounded">
-                      <span className="text-blue-500 font-bold">email</span>: Indirizzo mail
-                    </div>
-                    <div className="p-2 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800/80 rounded">
-                      <span className="text-blue-500 font-bold">telefono</span>: Cellulare
-                    </div>
-                    <div className="p-2 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800/80 rounded">
-                      <span className="text-blue-500 font-bold">service</span>: Nome servizio
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 rounded-xl mt-4">
-                <div className="flex">
-                  <AlertCircle className="text-amber-600 dark:text-amber-400 mr-2 flex-shrink-0" size={18} />
-                  <div>
-                    <h5 className="text-xs font-bold text-amber-800 dark:text-amber-300 uppercase tracking-wide">💡 Consiglio dell'Amministratore</h5>
-                    <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
-                      Puoi anche scegliere di far atterrare i lead sul tuo modulo di selezione servizio impostando il parametro <code className="bg-amber-100 dark:bg-amber-900 px-1 py-0.5 rounded text-amber-900 dark:text-white font-mono">service</code> statico all'interno dell'URL di tracciamento.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeSubTab === 'html' && (
-            <div className="space-y-4">
               <p className="text-sm text-slate-600 dark:text-gray-400">
-                Incolla questo blocco di codice in una pagina HTML o in un widget personalizzato di qualsiasi CMS (Webflow, Shopify, WordPress) per visualizzare un modulo nativo ottimizzato.
-              </p>
-
-              <div className="relative">
-                <div className="absolute right-3 top-3">
-                  <button
-                    onClick={() => triggerCopy(htmlEmbedCode, 'htmlembed')}
-                    type="button"
-                    className="p-1 px-2.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 rounded-md text-xs font-semibold text-slate-700 dark:text-white flex items-center space-x-1 transition"
-                  >
-                    {copiedText === 'htmlembed' ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
-                    <span>{copiedText === 'htmlembed' ? 'Copiato!' : 'Copia'}</span>
-                  </button>
-                </div>
-                <pre className="p-4 bg-slate-950 text-slate-200 dark:text-green-400 rounded-xl overflow-x-auto text-[11px] font-mono leading-relaxed h-72 border border-slate-800">
-                  {htmlEmbedCode}
-                </pre>
-              </div>
-            </div>
-          )}
-
-          {activeSubTab === 'webhook' && (
-            <div className="space-y-4">
-              <p className="text-sm text-slate-600 dark:text-gray-400">
-                Invia lead via <code className="bg-slate-100 dark:bg-slate-900 px-1.5 py-0.5 rounded text-red-500 dark:text-red-400 font-mono text-xs">POST</code> all'endpoint qui sotto usando il tuo API Token univoco. Compatibile con Zapier, Make, n8n, o codice backend custom.
+                Per le integrazioni via API, invia lead via <code className="bg-slate-100 dark:bg-slate-900 px-1.5 py-0.5 rounded text-red-500 dark:text-red-400 font-mono text-xs">POST</code> all'endpoint qui sotto usando il tuo API Token univoco. Compatibile con Zapier, Make, n8n, o codice backend custom. Lo stesso token vale per tutti i servizi: usa il campo <code className="bg-slate-100 dark:bg-slate-900 px-1 rounded font-mono">service</code> nel payload per indicare a quale servizio assegnare la lead.
               </p>
 
               {/* Endpoint URL */}
@@ -352,28 +413,15 @@ export const ClientIntegrations: React.FC<ClientIntegrationsProps> = ({ client, 
                 )}
               </div>
 
-              {/* Esempio cURL */}
-              <div>
-                <p className="text-xs font-semibold text-slate-500 dark:text-gray-400 mb-1">ESEMPIO RICHIESTA (cURL / Zapier body)</p>
-                <div className="relative">
-                  <div className="absolute right-3 top-3">
-                    <button
-                      onClick={() => triggerCopy(webhookJsonSnippet, 'json')}
-                      type="button"
-                      className="p-1 px-2.5 bg-slate-700 hover:bg-slate-600 rounded-md text-xs font-semibold text-white flex items-center space-x-1"
-                    >
-                      {copiedText === 'json' ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
-                      <span>{copiedText === 'json' ? 'Copiato!' : 'Copia'}</span>
-                    </button>
+              <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 rounded-xl">
+                <div className="flex">
+                  <AlertCircle className="text-amber-600 dark:text-amber-400 mr-2 flex-shrink-0" size={18} />
+                  <div>
+                    <h5 className="text-xs font-bold text-amber-800 dark:text-amber-300 uppercase tracking-wide">💡 Consiglio dell'Amministratore</h5>
+                    <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
+                      Vai nella tab "Per Servizio" per ottenere il modulo HTML dedicato o l'esempio JSON specifico di ogni servizio.
+                    </p>
                   </div>
-                  <pre className="p-4 bg-slate-950 text-green-400 rounded-xl overflow-x-auto text-xs font-mono">
-{`// Header
-Authorization: Bearer ${apiToken || '<api_token>'}
-Content-Type: application/json
-
-// Body
-${webhookJsonSnippet}`}
-                  </pre>
                 </div>
               </div>
             </div>
@@ -433,7 +481,7 @@ ${webhookJsonSnippet}`}
                 onChange={(e) => setTestService(e.target.value)}
                 className="w-full px-3 py-2 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-sm"
               >
-                {client.services.map(s => (
+                {realServices.map(s => (
                   <option key={s.id} value={s.name}>{s.name}</option>
                 ))}
               </select>

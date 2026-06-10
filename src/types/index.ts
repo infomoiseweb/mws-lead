@@ -67,6 +67,7 @@ export interface Service {
     id:string;
     name: string;
     fields: LeadField[];
+    intake_mode?: 'form' | 'api';
 }
 
 export interface QuoteItem {
