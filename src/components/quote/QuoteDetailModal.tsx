@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import Modal from '@components/ui/Modal';
 import type { Client, QuoteItem, QuoteWithDetails } from '../types';
-import { FileText, Calendar, User, Truck, Hash, Download, Send, Loader2, MessageCircle, Eye } from 'lucide-react';
+import { FileText, Calendar, User, Truck, Hash, Download, Send, Loader2, MessageCircle, Eye, Maximize2 } from 'lucide-react';
 import QuotePreviewDocument from './QuotePreviewDocument';
 import { generateQuotePdfBlob, blobToBase64, downloadPdf } from '@lib/generateQuotePdf';
 import { sendQuotePdfEmail } from '@api/email';
@@ -23,6 +23,7 @@ const QuoteDetailModal: React.FC<QuoteDetailModalProps> = ({ isOpen, onClose, qu
     const [isSendingEmail, setIsSendingEmail] = useState(false);
     const [isSendingWhatsApp, setIsSendingWhatsApp] = useState(false);
     const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+    const [isFullPreviewOpen, setIsFullPreviewOpen] = useState(false);
 
     if (!isOpen || !quote) return null;
 
@@ -92,6 +93,20 @@ const QuoteDetailModal: React.FC<QuoteDetailModalProps> = ({ isOpen, onClose, qu
         } finally {
             setIsSendingWhatsApp(false);
         }
+    };
+
+    const previewData = {
+        quoteNumber: quote.quote_number_display || quote.id.substring(0, 6),
+        quoteDate: quote.quote_date,
+        dueDate: quote.due_date,
+        recipientName: quote.recipient_name,
+        vehicleDetails: quote.vehicle_details,
+        items: previewItems,
+        notes: quote.notes,
+        termsAndConditions: quote.terms_and_conditions,
+        taxableAmount: quote.taxable_amount,
+        vatAmount: quote.vat_amount,
+        totalAmount: quote.total_amount,
     };
 
     const renderItems = () => {
@@ -225,29 +240,35 @@ const QuoteDetailModal: React.FC<QuoteDetailModalProps> = ({ isOpen, onClose, qu
 
                 {/* Anteprima documento */}
                 <div>
-                    <h3 className="text-md font-semibold mb-2 flex items-center"><Eye size={16} className="mr-2" /> Anteprima Documento</h3>
+                    <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-md font-semibold flex items-center"><Eye size={16} className="mr-2" /> Anteprima Documento</h3>
+                        <button
+                            type="button"
+                            onClick={() => setIsFullPreviewOpen(true)}
+                            className="flex items-center gap-1.5 text-xs text-primary-600 dark:text-primary-400 hover:text-primary-500"
+                        >
+                            <Maximize2 size={14} /> Ingrandisci
+                        </button>
+                    </div>
                     <div className="overflow-auto border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-100 dark:bg-slate-900/50" style={{ maxHeight: '400px' }}>
                         <div style={{ width: '794px', transform: 'scale(0.45)', transformOrigin: 'top left' }}>
                             <QuotePreviewDocument
-                                ref={previewRef}
                                 clientName={client?.name || ''}
                                 branding={client?.quote_settings?.branding}
-                                data={{
-                                    quoteNumber: quote.quote_number_display || quote.id.substring(0, 6),
-                                    quoteDate: quote.quote_date,
-                                    dueDate: quote.due_date,
-                                    recipientName: quote.recipient_name,
-                                    vehicleDetails: quote.vehicle_details,
-                                    items: previewItems,
-                                    notes: quote.notes,
-                                    termsAndConditions: quote.terms_and_conditions,
-                                    taxableAmount: quote.taxable_amount,
-                                    vatAmount: quote.vat_amount,
-                                    totalAmount: quote.total_amount,
-                                }}
+                                data={previewData}
                             />
                         </div>
                     </div>
+                </div>
+
+                {/* Copia nascosta a dimensione reale, usata per generare il PDF */}
+                <div style={{ position: 'fixed', top: 0, left: '-9999px', zIndex: -1 }} aria-hidden="true">
+                    <QuotePreviewDocument
+                        ref={previewRef}
+                        clientName={client?.name || ''}
+                        branding={client?.quote_settings?.branding}
+                        data={previewData}
+                    />
                 </div>
 
                 {!recipientEmail && !recipientPhone && (
@@ -291,6 +312,18 @@ const QuoteDetailModal: React.FC<QuoteDetailModalProps> = ({ isOpen, onClose, qu
                     )}
                 </div>
             </div>
+
+            {isFullPreviewOpen && (
+                <Modal isOpen={isFullPreviewOpen} onClose={() => setIsFullPreviewOpen(false)} title="Anteprima Preventivo" size="extra-large">
+                    <div className="overflow-auto" style={{ maxHeight: '80vh' }}>
+                        <QuotePreviewDocument
+                            clientName={client?.name || ''}
+                            branding={client?.quote_settings?.branding}
+                            data={previewData}
+                        />
+                    </div>
+                </Modal>
+            )}
         </Modal>
     );
 };
