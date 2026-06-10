@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import * as ApiService from '@api';
 import type { Client } from '../types';
 import { 
@@ -24,6 +24,17 @@ export const ClientIntegrations: React.FC<ClientIntegrationsProps> = ({ client, 
   
   const [testStatus, setTestStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [testError, setTestError] = useState('');
+
+  // Gruppi di campi disponibili per la mappatura API/form (chiave tecnica da usare nel payload)
+  const fieldGroups = useMemo(() => {
+    const groups: { label: string; fields: { id: string; name: string; label: string }[] }[] = [];
+    client.services.forEach(s => {
+      if (!s.fields?.length) return;
+      const label = s.name === '__default_fields__' ? 'Campi Base (sempre presenti)' : s.name;
+      groups.push({ label, fields: s.fields });
+    });
+    return groups;
+  }, [client.services]);
 
   const endpointUrl = `${window.location.origin}/#/api/lead/${client.id}`;
   const apiEndpointUrl = `${window.location.origin.replace('/#', '')}/api/leads`;
@@ -134,6 +145,50 @@ export const ClientIntegrations: React.FC<ClientIntegrationsProps> = ({ client, 
           <h2 className="text-2xl font-bold mt-2 text-white">Configura l'Arrivo Automatico dei Lead</h2>
           <p className="text-white/80 text-sm mt-1">Connetti qualsiasi sito WordPress, landing page, Facebook form o API custom.</p>
         </div>
+
+        {/* Campi disponibili per la mappatura (chiavi tecniche da usare nel payload API/form) */}
+        {fieldGroups.length > 0 && (
+          <div className="p-6 border-b border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/30">
+            <h4 className="font-semibold text-slate-800 dark:text-white flex items-center gap-2">
+              <FileCode size={16} className="text-primary-500" />
+              Campi disponibili
+            </h4>
+            <p className="text-sm text-slate-600 dark:text-gray-400 mt-1 mb-3">
+              Usa questi nomi chiave (non le etichette) come chiavi del payload quando invii lead via API o form. Clicca per copiare.
+            </p>
+            <div className="space-y-3">
+              {fieldGroups.map(group => (
+                <div key={group.label}>
+                  <p className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-gray-400 mb-1.5">{group.label}</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {group.fields.map(field => {
+                      const copyId = `field-${group.label}-${field.name}`;
+                      return (
+                        <button
+                          key={field.id || field.name}
+                          type="button"
+                          onClick={() => triggerCopy(field.name, copyId)}
+                          title="Copia il nome chiave"
+                          className="flex items-center justify-between gap-2 p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-left hover:border-primary-400 dark:hover:border-primary-600 transition"
+                        >
+                          <span className="min-w-0">
+                            <span className="block text-xs text-slate-500 dark:text-gray-400 truncate">{field.label}</span>
+                            <span className="block font-mono text-xs font-bold text-primary-600 dark:text-primary-400 truncate">{field.name}</span>
+                          </span>
+                          {copiedText === copyId ? (
+                            <Check size={15} className="text-green-500 shrink-0" />
+                          ) : (
+                            <Copy size={15} className="text-slate-400 shrink-0" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Sub Tab Switcher */}
         <div className="flex border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40">
