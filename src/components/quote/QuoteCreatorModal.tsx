@@ -407,8 +407,8 @@ const QuoteCreatorModal: React.FC<QuoteCreatorModalProps> = ({ isOpen, onClose, 
                             )}
                         </div>
                         ) : (
-                        <div className="overflow-auto" style={{ maxHeight: '70vh' }}>
-                            <div style={{ width: '794px', transform: 'scale(0.37)', transformOrigin: 'top left' }}>
+                        <div className="overflow-auto" style={{ maxHeight: '75vh' }}>
+                            <div style={{ zoom: 0.6 } as React.CSSProperties}>
                                 <QuotePreviewDocument
                                     clientName={client.name}
                                     branding={client.quote_settings?.branding}

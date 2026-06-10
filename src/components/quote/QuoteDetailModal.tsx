@@ -250,8 +250,8 @@ const QuoteDetailModal: React.FC<QuoteDetailModalProps> = ({ isOpen, onClose, qu
                             <Maximize2 size={14} /> Ingrandisci
                         </button>
                     </div>
-                    <div className="overflow-auto border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-100 dark:bg-slate-900/50" style={{ maxHeight: '400px' }}>
-                        <div style={{ width: '794px', transform: 'scale(0.45)', transformOrigin: 'top left' }}>
+                    <div className="overflow-auto border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-100 dark:bg-slate-900/50" style={{ maxHeight: '600px' }}>
+                        <div style={{ zoom: 0.75 } as React.CSSProperties}>
                             <QuotePreviewDocument
                                 clientName={client?.name || ''}
                                 branding={client?.quote_settings?.branding}
