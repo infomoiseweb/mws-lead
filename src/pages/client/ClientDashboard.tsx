@@ -317,6 +317,20 @@ const ClientDashboard: React.FC = () => {
     // Campi tecnici da non mostrare mai come colonna
     const TECHNICAL_FIELDS = ['ip_address', 'user_agent', '_is_historical', '_revenue_attribution_date'];
 
+    // Normalizza un nome campo per confronti case/spazi/underscore-insensitive
+    // (es. "Cognome" e "cognome" o "tipo_di_richiesta" e "Tipo di richiesta" sono lo stesso campo)
+    const normalizeFieldKey = (key: string) => key.toLowerCase().trim().replace(/[\s_]+/g, '');
+
+    // Recupera il valore di un campo dalla lead, ignorando differenze di maiuscole/spazi/underscore
+    // tra il nome colonna e la chiave effettiva salvata (es. da lead arrivate via API/Make.com)
+    const getLeadFieldValue = (data: Record<string, any> | undefined, fieldName: string): any => {
+        if (!data) return undefined;
+        if (Object.prototype.hasOwnProperty.call(data, fieldName)) return data[fieldName];
+        const norm = normalizeFieldKey(fieldName);
+        const matchKey = Object.keys(data).find(k => normalizeFieldKey(k) === norm);
+        return matchKey !== undefined ? data[matchKey] : undefined;
+    };
+
     // Tutti i campi disponibili come colonna: campi configurati nei servizi + qualsiasi campo
     // effettivamente presente nei dati delle lead (es. arrivati via API con chiavi non registrate)
     const allFilterableFields = useMemo<LeadField[]>(() => {
@@ -326,8 +340,9 @@ const ClientDashboard: React.FC = () => {
 
         client.services.forEach(s => {
             (s.fields || []).forEach(f => {
-                if (!seen.has(f.name)) {
-                    seen.add(f.name);
+                const norm = normalizeFieldKey(f.name);
+                if (!seen.has(norm)) {
+                    seen.add(norm);
                     fields.push(f);
                 }
             });
@@ -339,7 +354,7 @@ const ClientDashboard: React.FC = () => {
                 { id: 'default-email', name: 'email', label: 'Email', type: 'email' as const },
                 { id: 'default-telefono', name: 'telefono', label: 'Telefono', type: 'tel' as const },
             ].forEach(f => {
-                seen.add(f.name);
+                seen.add(normalizeFieldKey(f.name));
                 fields.push(f);
             });
         }
@@ -347,8 +362,9 @@ const ClientDashboard: React.FC = () => {
         // Aggiungi i campi extra trovati nei dati reali delle lead (es. da API/Make.com)
         (client.leads || []).forEach(lead => {
             Object.keys(lead.data || {}).forEach(key => {
-                if (seen.has(key) || TECHNICAL_FIELDS.includes(key)) return;
-                seen.add(key);
+                const norm = normalizeFieldKey(key);
+                if (seen.has(norm) || TECHNICAL_FIELDS.includes(key)) return;
+                seen.add(norm);
                 const label = key
                     .replace(/_/g, ' ')
                     .replace(/^\w/, c => c.toUpperCase());
@@ -1030,15 +1046,16 @@ const ClientDashboard: React.FC = () => {
                                             styles.left = `${leftStickyOffsets[col.name]}px`;
                                         }
 
+                                        const cellValue = getLeadFieldValue(lead.data, col.name);
                                         return (
                                             <td key={col.id} className={`${tdClasses} ${currentBg}`} style={styles}>
                                                  {(col.name === 'nome' && selectedService === 'all') ? (
                                                     <>
-                                                        <div className="font-semibold text-slate-900 dark:text-white">{lead.data[col.name] || 'N/D'}</div>
+                                                        <div className="font-semibold text-slate-900 dark:text-white">{cellValue || 'N/D'}</div>
                                                         <div className="text-xs text-gray-500 dark:text-gray-400">{lead.service || 'N/D'}</div>
                                                     </>
                                                 ) : (
-                                                    <span className={col.name === 'nome' ? 'font-semibold text-slate-900 dark:text-white' : ''}>{lead.data[col.name] || '-'}</span>
+                                                    <span className={col.name === 'nome' ? 'font-semibold text-slate-900 dark:text-white' : ''}>{cellValue || '-'}</span>
                                                 )}
                                             </td>
                                         );
@@ -1083,15 +1100,16 @@ const ClientDashboard: React.FC = () => {
                             <div key={lead.id} onClick={() => handleViewLeadDetails(lead)} className={`p-4 rounded-lg shadow border ${lead.status === 'Nuovo' ? 'border-l-4 border-primary-500' : ''} bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 space-y-3`}>
                                 <div className="flex justify-between items-start">
                                     <div>
-                                        <div className="font-bold text-slate-900 dark:text-white">{lead.data.nome || 'N/D'}</div>
+                                        <div className="font-bold text-slate-900 dark:text-white">{getLeadFieldValue(lead.data, 'nome') || 'N/D'}</div>
                                         <div className="text-xs text-gray-500 dark:text-gray-400">{lead.service || 'N/D'}</div>
                                     </div>
                                     <button onClick={(e) => { e.stopPropagation(); handleDeleteLead(lead.id); }} className="text-gray-400 hover:text-red-500 p-1"><Trash2 size={16}/></button>
                                 </div>
                                 <div className="text-sm text-slate-600 dark:text-gray-300 space-y-1 pt-2 mt-2 border-t border-slate-200 dark:border-slate-700">
-                                    {dynamicColumns.filter(c => c.name !== 'nome').slice(0, 2).map(col => (
-                                        lead.data[col.name] && <div key={col.id} className="flex text-xs"><span className="w-1/3 text-gray-500">{col.label}:</span><span className="w-2/3 font-medium">{lead.data[col.name]}</span></div>
-                                    ))}
+                                    {dynamicColumns.filter(c => c.name !== 'nome').slice(0, 2).map(col => {
+                                        const value = getLeadFieldValue(lead.data, col.name);
+                                        return value && <div key={col.id} className="flex text-xs"><span className="w-1/3 text-gray-500">{col.label}:</span><span className="w-2/3 font-medium">{value}</span></div>;
+                                    })}
                                 </div>
                                 <div className="text-xs text-gray-500 dark:text-gray-400 pt-2 border-t border-slate-200 dark:border-slate-700">
                                     Data: {new Date(lead.created_at).toLocaleDateString('it-IT')}
