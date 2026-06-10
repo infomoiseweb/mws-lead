@@ -2,9 +2,9 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom';
 import * as ApiService from '@api';
 import type { Client, Lead, LeadField } from '../types';
-import { 
+import {
   Trash2, ChevronDown, RefreshCw, Plus, Search, Settings, Activity,
-  LayoutGrid, Megaphone, Plug, Wallet, DollarSign, CheckCircle2, Award, Zap
+  LayoutGrid, Megaphone, Plug, Wallet, DollarSign, CheckCircle2, Award, Zap, Pin
 } from 'lucide-react';
 import DateRangeFilter from '@components/ui/DateRangeFilter';
 import Modal from '@components/ui/Modal';
@@ -122,12 +122,14 @@ const StatusSelect: React.FC<{ status: Lead['status'], onChange: (newStatus: Lea
 );
 
 const ColumnManager: React.FC<{
-    columns: LeadField[];
+    allFields: LeadField[];
+    visibleColumns: Set<string>;
+    onToggleVisible: (columnName: string) => void;
     stickyColumns: Set<string>;
     onToggleSticky: (columnName: string) => void;
     isOpen: boolean;
     onClose: () => void;
-}> = ({ columns, stickyColumns, onToggleSticky, isOpen, onClose }) => {
+}> = ({ allFields, visibleColumns, onToggleVisible, stickyColumns, onToggleSticky, isOpen, onClose }) => {
     const menuRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -143,20 +145,38 @@ const ColumnManager: React.FC<{
     if (!isOpen) return null;
 
     return (
-        <div ref={menuRef} className="absolute right-0 mt-2 w-64 bg-white dark:bg-slate-800 rounded-md shadow-lg border border-slate-200 dark:border-slate-700 z-50 p-4">
-            <p className="text-sm font-semibold text-slate-900 dark:text-white mb-2">Blocca Colonne a Sinistra</p>
-            <div className="space-y-2 max-h-60 overflow-y-auto">
-                {columns.map(col => (
-                    <label key={col.id} className="flex items-center space-x-3 p-2 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer">
-                        <input
-                            type="checkbox"
-                            checked={stickyColumns.has(col.name)}
-                            onChange={() => onToggleSticky(col.name)}
-                            className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                        />
-                        <span className="text-sm text-slate-700 dark:text-gray-300">{col.label}</span>
-                    </label>
-                ))}
+        <div ref={menuRef} className="absolute right-0 mt-2 w-72 bg-white dark:bg-slate-800 rounded-md shadow-lg border border-slate-200 dark:border-slate-700 z-50 p-4">
+            <p className="text-sm font-semibold text-slate-900 dark:text-white mb-1">Colonne visibili</p>
+            <p className="text-xs text-slate-400 dark:text-gray-500 mb-2">Spunta i campi da mostrare in tabella. Usa la spilla per bloccarli a sinistra.</p>
+            <div className="space-y-1 max-h-72 overflow-y-auto">
+                {allFields.map(col => {
+                    const isVisible = visibleColumns.has(col.name);
+                    const isSticky = stickyColumns.has(col.name);
+                    return (
+                        <div key={col.id || col.name} className="flex items-center justify-between p-2 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700">
+                            <label className="flex items-center space-x-3 cursor-pointer flex-1 min-w-0">
+                                <input
+                                    type="checkbox"
+                                    checked={isVisible}
+                                    onChange={() => onToggleVisible(col.name)}
+                                    className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 shrink-0"
+                                />
+                                <span className="text-sm text-slate-700 dark:text-gray-300 truncate">{col.label}</span>
+                            </label>
+                            <button
+                                type="button"
+                                onClick={() => isVisible && onToggleSticky(col.name)}
+                                disabled={!isVisible}
+                                title={isVisible ? 'Blocca a sinistra' : 'Rendi visibile per poterla bloccare'}
+                                className={`ml-2 p-1 rounded shrink-0 transition-colors ${
+                                    isSticky ? 'text-primary-500' : 'text-slate-300 dark:text-slate-600'
+                                } ${!isVisible ? 'opacity-30 cursor-not-allowed' : 'hover:text-primary-500'}`}
+                            >
+                                <Pin size={14} />
+                            </button>
+                        </div>
+                    );
+                })}
             </div>
         </div>
     );
@@ -185,6 +205,7 @@ const ClientDashboard: React.FC = () => {
     const [leadsPerPage, setLeadsPerPage] = useState(25);
     const [currentPage, setCurrentPage] = useState(1);
     const [stickyColumns, setStickyColumns] = useState<Set<string>>(new Set());
+    const [visibleColumns, setVisibleColumns] = useState<Set<string>>(new Set());
     const [isColumnManagerOpen, setIsColumnManagerOpen] = useState(false);
     const [fieldFilters, setFieldFilters] = useState<Record<string, string>>({});
     const [isFieldFiltersOpen, setIsFieldFiltersOpen] = useState(false);
@@ -243,11 +264,19 @@ const ClientDashboard: React.FC = () => {
 
     // Salva le colonne bloccate nel localStorage
     useEffect(() => {
-        if (userId && selectedService !== 'all') {
-            const storageKey = `clientDashboard_stickyColumns_${userId}_${selectedService}`;
+        if (userId) {
+            const storageKey = `clientDashboard_stickyColumns_${userId}`;
             localStorage.setItem(storageKey, JSON.stringify(Array.from(stickyColumns)));
         }
-    }, [stickyColumns, userId, selectedService]);
+    }, [stickyColumns, userId]);
+
+    // Salva le colonne visibili nel localStorage
+    useEffect(() => {
+        if (userId && visibleColumns.size > 0) {
+            const storageKey = `clientDashboard_visibleColumns_${userId}`;
+            localStorage.setItem(storageKey, JSON.stringify(Array.from(visibleColumns)));
+        }
+    }, [visibleColumns, userId]);
 
     const handleRefresh = useCallback(async () => {
         setIsRefreshing(true);
@@ -331,30 +360,60 @@ const ClientDashboard: React.FC = () => {
 
     const clearFieldFilters = () => setFieldFilters({});
 
-    const dynamicColumns = useMemo<LeadField[]>(() => {
-        if (!client) return [];
-
+    // Campi base mostrati di default (definiti dal cliente in __default_fields__, oppure fallback)
+    const defaultFieldNames = useMemo<string[]>(() => {
+        if (!client) return ['nome', 'email', 'telefono'];
         const defaultFieldService = client.services.find(s => s.name === '__default_fields__');
-        const defaultFields: LeadField[] = defaultFieldService?.fields?.length
-            ? defaultFieldService.fields
-            : [
-                { id: 'default-nome', name: 'nome', label: 'Nome', type: 'text' },
-                { id: 'default-email', name: 'email', label: 'Email', type: 'email' },
-                { id: 'default-telefono', name: 'telefono', label: 'Telefono', type: 'tel' },
-            ];
+        if (defaultFieldService?.fields?.length) {
+            return defaultFieldService.fields.map(f => f.name);
+        }
+        return ['nome', 'email', 'telefono'];
+    }, [client]);
 
-        if (selectedService === 'all') {
-            return defaultFields;
+    // Inizializza le colonne visibili dal localStorage o dai campi base predefiniti
+    useEffect(() => {
+        if (!userId || allFilterableFields.length === 0) return;
+        const storageKey = `clientDashboard_visibleColumns_${userId}`;
+        const savedJson = localStorage.getItem(storageKey);
+
+        if (savedJson) {
+            try {
+                const saved: string[] = JSON.parse(savedJson);
+                const valid = saved.filter(name => allFilterableFields.some(f => f.name === name));
+                if (valid.length > 0) {
+                    setVisibleColumns(new Set(valid));
+                    return;
+                }
+            } catch (e) {
+                console.error("Failed to parse visible columns from localStorage", e);
+            }
         }
 
-        const service = client.services.find(s => s.name === selectedService);
-        const extraFields = service ? service.fields : [];
+        const validDefaults = defaultFieldNames.filter(name => allFilterableFields.some(f => f.name === name));
+        setVisibleColumns(new Set(validDefaults.length > 0 ? validDefaults : [allFilterableFields[0].name]));
+    }, [allFilterableFields, defaultFieldNames, userId]);
 
-        // Merge: default fields + campi extra del servizio (evita duplicati per nome chiave)
-        const defaultNames = new Set(defaultFields.map(f => f.name));
-        const uniqueExtra = extraFields.filter(f => !defaultNames.has(f.name));
-        return [...defaultFields, ...uniqueExtra];
-    }, [client, selectedService]);
+    const handleToggleVisible = (columnName: string) => {
+        setVisibleColumns(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(columnName)) {
+                newSet.delete(columnName);
+                setStickyColumns(stickyPrev => {
+                    if (!stickyPrev.has(columnName)) return stickyPrev;
+                    const newSticky = new Set(stickyPrev);
+                    newSticky.delete(columnName);
+                    return newSticky;
+                });
+            } else {
+                newSet.add(columnName);
+            }
+            return newSet;
+        });
+    };
+
+    const dynamicColumns = useMemo<LeadField[]>(() => {
+        return allFilterableFields.filter(f => visibleColumns.has(f.name));
+    }, [allFilterableFields, visibleColumns]);
 
     const orderedColumns = useMemo(() => {
         if (!dynamicColumns) return [];
@@ -363,32 +422,20 @@ const ClientDashboard: React.FC = () => {
         return [...sticky, ...nonSticky];
     }, [dynamicColumns, stickyColumns]);
 
+    // Carica le colonne bloccate dal localStorage
     useEffect(() => {
-        // Carica le colonne bloccate dal localStorage o imposta i valori predefiniti
-        if (userId && selectedService !== 'all' && dynamicColumns.length > 0) {
-            const storageKey = `clientDashboard_stickyColumns_${userId}_${selectedService}`;
-            const savedColumnsJson = localStorage.getItem(storageKey);
-
-            if (savedColumnsJson) {
-                try {
-                    const savedColumns = JSON.parse(savedColumnsJson);
-                    const validSavedColumns = savedColumns.filter((colName: string) => 
-                        dynamicColumns.some(field => field.name === colName)
-                    );
-                    setStickyColumns(new Set(validSavedColumns));
-                } catch (e) {
-                    console.error("Failed to parse sticky columns from localStorage", e);
-                    setStickyColumns(new Set([dynamicColumns[0].name])); // Fallback
-                }
-            } else {
-                // Imposta un default se non c'è nulla di salvato
-                setStickyColumns(new Set([dynamicColumns[0].name]));
+        if (!userId) return;
+        const storageKey = `clientDashboard_stickyColumns_${userId}`;
+        const savedColumnsJson = localStorage.getItem(storageKey);
+        if (savedColumnsJson) {
+            try {
+                const savedColumns = JSON.parse(savedColumnsJson);
+                setStickyColumns(new Set(savedColumns));
+            } catch (e) {
+                console.error("Failed to parse sticky columns from localStorage", e);
             }
-        } else {
-            setStickyColumns(new Set());
         }
-        setIsColumnManagerOpen(false);
-    }, [dynamicColumns, userId, selectedService]);
+    }, [userId]);
 
     const handleToggleSticky = (columnName: string) => {
         setStickyColumns(prev => {
@@ -887,8 +934,7 @@ const ClientDashboard: React.FC = () => {
                         <div className="relative">
                             <button
                                 onClick={() => setIsColumnManagerOpen(prev => !prev)}
-                                disabled={selectedService === 'all'}
-                                className="flex items-center gap-2 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md py-2 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="flex items-center gap-2 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md py-2 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
                             >
                                 <Settings size={16} />
                                 <span>Colonne</span>
@@ -896,7 +942,9 @@ const ClientDashboard: React.FC = () => {
                              <ColumnManager
                                 isOpen={isColumnManagerOpen}
                                 onClose={() => setIsColumnManagerOpen(false)}
-                                columns={dynamicColumns}
+                                allFields={allFilterableFields}
+                                visibleColumns={visibleColumns}
+                                onToggleVisible={handleToggleVisible}
                                 stickyColumns={stickyColumns}
                                 onToggleSticky={handleToggleSticky}
                             />
