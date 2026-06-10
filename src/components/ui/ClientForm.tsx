@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import type { Client, Service, LeadField, LeadFieldType } from '../types';
 import * as ApiService from '@api';
-import { PlusCircle, Trash2, Tag, ChevronDown, ChevronUp, GripVertical, Webhook, Layers, Sparkles, FileCode, Globe } from 'lucide-react';
+import { PlusCircle, Trash2, Tag, ChevronDown, ChevronUp, GripVertical, Webhook, Layers, Sparkles, FileCode, Globe, Copy, Check } from 'lucide-react';
 import Modal from './Modal';
 import { useTranslation } from 'react-i18next';
 
@@ -45,6 +45,13 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
     const [quoteWebhookUrl, setQuoteWebhookUrl] = useState('');
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [copiedFieldName, setCopiedFieldName] = useState<string | null>(null);
+
+    const copyFieldName = (name: string, id: string) => {
+        navigator.clipboard.writeText(name);
+        setCopiedFieldName(id);
+        setTimeout(() => setCopiedFieldName(prev => (prev === id ? null : prev)), 1500);
+    };
     
     // Drag and drop states
     const [draggedField, setDraggedField] = useState<{ serviceIndex: number; fieldIndex: number } | null>(null);
@@ -542,12 +549,22 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
                                     
                                     <div className="col-span-12 md:col-span-5">
                                         <label className={fieldLabelClasses}>Nome Chiave (API)</label>
-                                        <input
-                                            type="text"
-                                            value={field.name}
-                                            readOnly
-                                            className="w-full px-2 py-1 bg-slate-200 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600 rounded-md text-gray-500 dark:text-gray-400 text-xs"
-                                        />
+                                        <div className="relative">
+                                            <input
+                                                type="text"
+                                                value={field.name}
+                                                readOnly
+                                                className="w-full px-2 py-1 pr-7 bg-slate-200 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600 rounded-md text-gray-500 dark:text-gray-400 text-xs"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => copyFieldName(field.name, `default-${field.id}`)}
+                                                title="Copia nome chiave"
+                                                className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-primary-500 transition"
+                                            >
+                                                {copiedFieldName === `default-${field.id}` ? <Check size={13} className="text-green-500" /> : <Copy size={13} />}
+                                            </button>
+                                        </div>
                                     </div>
                                     {(field.type === 'select' || field.type === 'radio') && (
                                         <div className="col-span-12 md:col-span-7">
@@ -675,12 +692,22 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
                                                     
                                                     <div className="col-span-12 md:col-span-5">
                                                         <label className={fieldLabelClasses}>Nome Chiave (API)</label>
-                                                        <input
-                                                            type="text"
-                                                            value={field.name}
-                                                            readOnly
-                                                            className="w-full px-2 py-1 bg-slate-200 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600 rounded-md text-gray-500 dark:text-gray-400 text-xs"
-                                                        />
+                                                        <div className="relative">
+                                                            <input
+                                                                type="text"
+                                                                value={field.name}
+                                                                readOnly
+                                                                className="w-full px-2 py-1 pr-7 bg-slate-200 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600 rounded-md text-gray-500 dark:text-gray-400 text-xs"
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => copyFieldName(field.name, `service-${field.id}`)}
+                                                                title="Copia nome chiave"
+                                                                className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-primary-500 transition"
+                                                            >
+                                                                {copiedFieldName === `service-${field.id}` ? <Check size={13} className="text-green-500" /> : <Copy size={13} />}
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                     {(field.type === 'select' || field.type === 'radio') && (
                                                         <div className="col-span-12 md:col-span-7">
