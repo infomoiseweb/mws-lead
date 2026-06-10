@@ -57,6 +57,7 @@ const QuoteCreatorModal: React.FC<QuoteCreatorModalProps> = ({ isOpen, onClose, 
     const [notes, setNotes] = useState('');
     const [manualQuoteNumber, setManualQuoteNumber] = useState('');
     const [termsAndConditions, setTermsAndConditions] = useState('');
+    const [selectedExtraFieldKeys, setSelectedExtraFieldKeys] = useState<string[]>([]);
     const [leftTab, setLeftTab] = useState<'lead' | 'preview'>('lead');
 
     const [isLoading, setIsLoading] = useState(false);
@@ -71,9 +72,10 @@ const QuoteCreatorModal: React.FC<QuoteCreatorModalProps> = ({ isOpen, onClose, 
 
     const getDefaultTerms = (svc: string): string => {
         const presets = client.quote_settings?.terms_presets || [];
+        if (presets.length === 0) return '';
         const matching = presets.find(p => p.service !== '*' && p.service === svc);
         const fallback = presets.find(p => p.service === '*');
-        return (matching || fallback)?.text || '';
+        return (matching || fallback || presets[0])?.text || '';
     };
 
     useEffect(() => {
@@ -121,6 +123,12 @@ const QuoteCreatorModal: React.FC<QuoteCreatorModalProps> = ({ isOpen, onClose, 
                 setNotes(quoteToEdit.notes || '');
                 setTermsAndConditions(quoteToEdit.terms_and_conditions || '');
 
+                const savedExtraFields = quoteToEdit.extra_fields || {};
+                setSelectedExtraFieldKeys(Object.keys(lead.data || {}).filter(key => {
+                    const label = getFieldLabel(key);
+                    return label in savedExtraFields && String(lead.data[key]) === savedExtraFields[label];
+                }));
+
             } else {
                 // Set defaults for new quote
                 setQuoteDate(new Date().toISOString().split('T')[0]);
@@ -149,6 +157,9 @@ const QuoteCreatorModal: React.FC<QuoteCreatorModalProps> = ({ isOpen, onClose, 
                 setItems([{ id: crypto.randomUUID(), description: '', quantity: '1', price: '0', vat: '22' }]);
                 setNotes('');
                 setTermsAndConditions(getDefaultTerms(getServiceFromLead(lead)));
+
+                const defaultExtraFields = client.quote_settings?.default_extra_fields || [];
+                setSelectedExtraFieldKeys(defaultExtraFields.filter(key => key in (lead.data || {}) && lead.data[key] !== '' && lead.data[key] != null));
             }
             setLeftTab('lead');
         }
@@ -240,6 +251,21 @@ const QuoteCreatorModal: React.FC<QuoteCreatorModalProps> = ({ isOpen, onClose, 
         setVehicleDetails(prev => ({...prev, [key]: value}));
     };
 
+    const toggleExtraFieldKey = (key: string) => {
+        setSelectedExtraFieldKeys(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
+    };
+
+    const extraFieldsForSubmit = useMemo(() => {
+        const result: Record<string, string> = {};
+        selectedExtraFieldKeys.forEach(key => {
+            const value = lead.data?.[key];
+            if (value !== undefined && value !== null && value !== '') {
+                result[getFieldLabel(key)] = String(value);
+            }
+        });
+        return result;
+    }, [selectedExtraFieldKeys, lead, client.services]);
+
     const handleServiceSourceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const fieldName = e.target.value;
         if (fieldName) { // If a field is selected
@@ -281,6 +307,7 @@ const QuoteCreatorModal: React.FC<QuoteCreatorModalProps> = ({ isOpen, onClose, 
                 vehicle_details: finalVehicleDetails,
                 notes,
                 terms_and_conditions: termsAndConditions,
+                extra_fields: extraFieldsForSubmit,
                 quote_number_display: finalQuoteNumber,
                 taxable_amount: taxableAmount,
                 vat_amount: vatAmount,
@@ -426,6 +453,7 @@ const QuoteCreatorModal: React.FC<QuoteCreatorModalProps> = ({ isOpen, onClose, 
                                         })),
                                         notes,
                                         termsAndConditions,
+                                        extraFields: extraFieldsForSubmit,
                                         taxableAmount,
                                         vatAmount,
                                         totalAmount,
@@ -480,6 +508,30 @@ const QuoteCreatorModal: React.FC<QuoteCreatorModalProps> = ({ isOpen, onClose, 
                          <label className="block text-sm font-medium text-slate-700 dark:text-gray-300">Destinatario</label>
                          <input type="text" value={recipientName} onChange={e => setRecipientName(e.target.value)} required className="mt-1 w-full p-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md text-sm"/>
                     </div>
+                    {leadDataEntries.filter(([key]) => !['nome', 'telefono', 'mail', 'email'].includes(key)).length > 0 && (
+                        <div className="md:col-span-3">
+                            <label className="block text-sm font-medium text-slate-700 dark:text-gray-300">Altri dati da includere nel preventivo</label>
+                            <div className="mt-1 flex flex-wrap gap-2">
+                                {leadDataEntries
+                                    .filter(([key]) => !['nome', 'telefono', 'mail', 'email'].includes(key))
+                                    .map(([key, value]) => (
+                                    <label key={key} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border cursor-pointer select-none transition-colors ${
+                                        selectedExtraFieldKeys.includes(key)
+                                            ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
+                                            : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-gray-300'
+                                    }`}>
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedExtraFieldKeys.includes(key)}
+                                            onChange={() => toggleExtraFieldKey(key)}
+                                            className="w-3.5 h-3.5 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+                                        />
+                                        {getFieldLabel(key)}: {String(value)}
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Service and Vehicle Details */}

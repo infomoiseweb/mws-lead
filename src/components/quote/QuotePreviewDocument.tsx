@@ -17,6 +17,7 @@ export interface QuotePreviewData {
     items: QuotePreviewItem[];
     notes?: string;
     termsAndConditions?: string;
+    extraFields?: Record<string, string>;
     taxableAmount: number;
     vatAmount: number;
     totalAmount: number;
@@ -70,6 +71,11 @@ const QuotePreviewDocument = React.forwardRef<HTMLDivElement, QuotePreviewDocume
             <div style={{ marginBottom: '20px' }}>
                 <p style={{ margin: 0, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '1px', color: '#94a3b8' }}>Destinatario</p>
                 <p style={{ margin: '4px 0 0', fontSize: '14px', fontWeight: 'bold' }}>{data.recipientName || '—'}</p>
+                {data.extraFields && Object.entries(data.extraFields).filter(([, v]) => v).map(([key, value]) => (
+                    <p key={key} style={{ margin: '2px 0 0', fontSize: '11px', color: '#475569' }}>
+                        <span style={{ color: '#94a3b8' }}>{key}: </span>{value}
+                    </p>
+                ))}
             </div>
 
             {/* Vehicle / extra details */}

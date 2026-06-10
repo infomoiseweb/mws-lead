@@ -104,6 +104,7 @@ const QuoteDetailModal: React.FC<QuoteDetailModalProps> = ({ isOpen, onClose, qu
         items: previewItems,
         notes: quote.notes,
         termsAndConditions: quote.terms_and_conditions,
+        extraFields: quote.extra_fields,
         taxableAmount: quote.taxable_amount,
         vatAmount: quote.vat_amount,
         totalAmount: quote.total_amount,
@@ -189,6 +190,16 @@ const QuoteDetailModal: React.FC<QuoteDetailModalProps> = ({ isOpen, onClose, qu
                         </div>
                     </div>
                 </div>
+
+                {quote.extra_fields && Object.entries(quote.extra_fields).filter(([, v]) => v).length > 0 && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-2 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700 -mt-2">
+                        {Object.entries(quote.extra_fields).filter(([, v]) => v).map(([key, value]) => (
+                            <div key={key}>
+                                <span className="text-slate-500 dark:text-gray-400">{key}:</span> <span className="font-semibold">{value}</span>
+                            </div>
+                        ))}
+                    </div>
+                )}
 
                 {/* Vehicle Details */}
                 {Object.keys(quote.vehicle_details || {}).length > 0 && (

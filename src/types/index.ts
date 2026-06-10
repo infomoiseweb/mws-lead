@@ -99,6 +99,7 @@ export interface Quote {
     status: 'draft' | 'sent' | 'accepted' | 'rejected';
     items: QuoteItem[] | Record<string, string>;
     terms_and_conditions?: string;
+    extra_fields?: Record<string, string>;
 }
 
 export interface QuoteWithDetails extends Quote {
@@ -177,6 +178,8 @@ export interface QuoteSettings {
     price_presets?: QuotePricePreset[];
     branding?: QuoteBranding;
     terms_presets?: QuoteTermsPreset[];
+    // Nomi dei campi lead (lead.data) da includere automaticamente nei nuovi preventivi
+    default_extra_fields?: string[];
 }
 
 export interface Client {

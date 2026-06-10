@@ -19,9 +19,9 @@ const emptyPreset = (services: { name: string }[]): QuotePricePreset => ({
     vat: 22,
 });
 
-const emptyTermsPreset = (services: { name: string }[]): QuoteTermsPreset => ({
+const emptyTermsPreset = (): QuoteTermsPreset => ({
     id: `terms_${Date.now()}_${Math.random()}`,
-    service: services[0]?.name || '*',
+    service: '*',
     label: '',
     text: '',
 });
@@ -64,11 +64,31 @@ const QuoteSettingsEditor: React.FC<Props> = ({ client, onSave }) => {
     const [editingTermsId, setEditingTermsId] = useState<string | null>(null);
     const [editTermsBuffer, setEditTermsBuffer] = useState<QuoteTermsPreset | null>(null);
 
+    const [defaultExtraFields, setDefaultExtraFields] = useState<string[]>(client.quote_settings?.default_extra_fields || []);
+
     const [isSaving, setIsSaving] = useState(false);
     const [saved, setSaved] = useState(false);
     const [error, setError] = useState('');
 
     const services = (client.services || []).filter(s => s.name !== '__default_fields__');
+
+    // Tutti i campi lead disponibili (deduplicati per nome) tra tutti i servizi del cliente
+    const availableLeadFields = (() => {
+        const seen = new Map<string, string>();
+        const excluded = ['nome', 'telefono', 'mail', 'email'];
+        services.forEach(s => {
+            (s.fields || []).forEach(f => {
+                if (!excluded.includes(f.name) && !seen.has(f.name)) {
+                    seen.set(f.name, f.label);
+                }
+            });
+        });
+        return Array.from(seen.entries()).map(([name, label]) => ({ name, label }));
+    })();
+
+    const toggleDefaultExtraField = (name: string) => {
+        setDefaultExtraFields(prev => prev.includes(name) ? prev.filter(f => f !== name) : [...prev, name]);
+    };
 
     const startEdit = (preset: QuotePricePreset) => {
         setEditingId(preset.id);
@@ -104,7 +124,7 @@ const QuoteSettingsEditor: React.FC<Props> = ({ client, onSave }) => {
     };
 
     const startNewTerms = () => {
-        const preset = emptyTermsPreset(services);
+        const preset = emptyTermsPreset();
         setTermsPresets(prev => [...prev, preset]);
         setEditingTermsId(preset.id);
         setEditTermsBuffer({ ...preset });
@@ -152,7 +172,7 @@ const QuoteSettingsEditor: React.FC<Props> = ({ client, onSave }) => {
         setIsSaving(true);
         setError('');
         try {
-            await onSave({ numbering, price_presets: presets, branding, terms_presets: termsPresets });
+            await onSave({ numbering, price_presets: presets, branding, terms_presets: termsPresets, default_extra_fields: defaultExtraFields });
             setSaved(true);
             setTimeout(() => setSaved(false), 2000);
         } catch (err: any) {
@@ -511,6 +531,36 @@ const QuoteSettingsEditor: React.FC<Props> = ({ client, onSave }) => {
                         </div>
                     ))}
                 </div>
+            </div>
+
+            {/* Campi aggiuntivi nel preventivo */}
+            <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-700">
+                <div>
+                    <h3 className="text-sm font-semibold text-slate-700 dark:text-gray-200">Campi aggiuntivi nel preventivo</h3>
+                    <p className="text-xs text-slate-500 dark:text-gray-400 mt-0.5">
+                        Scegli quali dati arrivati con la lead vuoi mostrare automaticamente nel preventivo, accanto al "Destinatario". Potrai comunque modificare la selezione in ogni singolo preventivo.
+                    </p>
+                </div>
+
+                {availableLeadFields.length === 0 ? (
+                    <p className="text-sm text-slate-400 dark:text-gray-500 text-center py-4 border border-dashed border-slate-200 dark:border-slate-700 rounded-lg">
+                        Nessun campo aggiuntivo disponibile.
+                    </p>
+                ) : (
+                    <div className="flex flex-wrap gap-2">
+                        {availableLeadFields.map(field => (
+                            <label key={field.name} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-gray-300 cursor-pointer select-none">
+                                <input
+                                    type="checkbox"
+                                    checked={defaultExtraFields.includes(field.name)}
+                                    onChange={() => toggleDefaultExtraField(field.name)}
+                                    className="w-3.5 h-3.5 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+                                />
+                                {field.label}
+                            </label>
+                        ))}
+                    </div>
+                )}
             </div>
 
             {error && <p className="text-sm text-red-500 dark:text-red-400">{error}</p>}
