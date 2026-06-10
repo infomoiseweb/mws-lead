@@ -207,8 +207,6 @@ const ClientDashboard: React.FC = () => {
     const [stickyColumns, setStickyColumns] = useState<Set<string>>(new Set());
     const [visibleColumns, setVisibleColumns] = useState<Set<string>>(new Set());
     const [isColumnManagerOpen, setIsColumnManagerOpen] = useState(false);
-    const [fieldFilters, setFieldFilters] = useState<Record<string, string>>({});
-    const [isFieldFiltersOpen, setIsFieldFiltersOpen] = useState(false);
 
     const [revenueDateModalState, setRevenueDateModalState] = useState<{
         isOpen: boolean;
@@ -313,25 +311,19 @@ const ClientDashboard: React.FC = () => {
             leads = leads.filter(lead => lead.service === selectedService);
         }
 
-        // Filtri per campo (creati dinamicamente da Default Fields + servizi/API)
-        Object.entries(fieldFilters).forEach(([fieldName, filterValue]) => {
-            if (!filterValue.trim()) return;
-            const normalizedFilter = filterValue.toLowerCase().trim();
-            leads = leads.filter(lead => {
-                const value = lead.data?.[fieldName];
-                if (value === null || value === undefined) return false;
-                return String(value).toLowerCase().includes(normalizedFilter);
-            });
-        });
-
         return [...leads].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-    }, [client?.leads, searchQuery, dateRange, statusFilter, selectedService, fieldFilters]);
+    }, [client?.leads, searchQuery, dateRange, statusFilter, selectedService]);
 
-    // Tutti i campi unici disponibili per il filtro (default fields + campi extra di tutti i servizi)
+    // Campi tecnici da non mostrare mai come colonna
+    const TECHNICAL_FIELDS = ['ip_address', 'user_agent', '_is_historical', '_revenue_attribution_date'];
+
+    // Tutti i campi disponibili come colonna: campi configurati nei servizi + qualsiasi campo
+    // effettivamente presente nei dati delle lead (es. arrivati via API con chiavi non registrate)
     const allFilterableFields = useMemo<LeadField[]>(() => {
         if (!client) return [];
         const seen = new Set<string>();
         const fields: LeadField[] = [];
+
         client.services.forEach(s => {
             (s.fields || []).forEach(f => {
                 if (!seen.has(f.name)) {
@@ -340,34 +332,43 @@ const ClientDashboard: React.FC = () => {
                 }
             });
         });
+
         if (fields.length === 0) {
-            return [
-                { id: 'default-nome', name: 'nome', label: 'Nome', type: 'text' },
-                { id: 'default-email', name: 'email', label: 'Email', type: 'email' },
-                { id: 'default-telefono', name: 'telefono', label: 'Telefono', type: 'tel' },
-            ];
+            [
+                { id: 'default-nome', name: 'nome', label: 'Nome', type: 'text' as const },
+                { id: 'default-email', name: 'email', label: 'Email', type: 'email' as const },
+                { id: 'default-telefono', name: 'telefono', label: 'Telefono', type: 'tel' as const },
+            ].forEach(f => {
+                seen.add(f.name);
+                fields.push(f);
+            });
         }
+
+        // Aggiungi i campi extra trovati nei dati reali delle lead (es. da API/Make.com)
+        (client.leads || []).forEach(lead => {
+            Object.keys(lead.data || {}).forEach(key => {
+                if (seen.has(key) || TECHNICAL_FIELDS.includes(key)) return;
+                seen.add(key);
+                const label = key
+                    .replace(/_/g, ' ')
+                    .replace(/^\w/, c => c.toUpperCase());
+                fields.push({ id: `dynamic-${key}`, name: key, label, type: 'text' });
+            });
+        });
+
         return fields;
     }, [client]);
 
-    const handleFieldFilterChange = (fieldName: string, value: string) => {
-        setFieldFilters(prev => {
-            const updated = { ...prev, [fieldName]: value };
-            if (!value.trim()) delete updated[fieldName];
-            return updated;
-        });
-    };
-
-    const clearFieldFilters = () => setFieldFilters({});
-
-    // Campi base mostrati di default (definiti dal cliente in __default_fields__, oppure fallback)
+    // Campi base mostrati di default: nome, cognome, telefono, mail/email (solo se presenti)
     const defaultFieldNames = useMemo<string[]>(() => {
-        if (!client) return ['nome', 'email', 'telefono'];
-        const defaultFieldService = client.services.find(s => s.name === '__default_fields__');
-        if (defaultFieldService?.fields?.length) {
-            return defaultFieldService.fields.map(f => f.name);
-        }
-        return ['nome', 'email', 'telefono'];
+        const defaultFieldService = client?.services.find(s => s.name === '__default_fields__');
+        const configured = defaultFieldService?.fields?.length
+            ? defaultFieldService.fields.map(f => f.name)
+            : ['nome', 'email', 'telefono'];
+
+        const candidates = ['nome', 'cognome', 'telefono', 'mail', 'email'];
+        const merged = [...new Set([...configured, ...candidates])];
+        return merged;
     }, [client]);
 
     // Inizializza le colonne visibili dal localStorage o dai campi base predefiniti
@@ -950,56 +951,6 @@ const ClientDashboard: React.FC = () => {
                             />
                         </div>
                         <DateRangeFilter onDateChange={setDateRange} />
-                        <div className="relative">
-                            <button
-                                onClick={() => setIsFieldFiltersOpen(prev => !prev)}
-                                className={`flex items-center gap-2 border rounded-md py-2 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500 transition-colors ${
-                                    Object.keys(fieldFilters).length > 0
-                                        ? 'bg-primary-100 dark:bg-primary-900/30 border-primary-300 dark:border-primary-700 text-primary-700 dark:text-primary-300 font-semibold'
-                                        : 'bg-slate-100 dark:bg-slate-700 border-slate-300 dark:border-slate-600'
-                                }`}
-                            >
-                                <Search size={16} />
-                                <span>Filtri Campi{Object.keys(fieldFilters).length > 0 ? ` (${Object.keys(fieldFilters).length})` : ''}</span>
-                            </button>
-                            {isFieldFiltersOpen && (
-                                <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-slate-800 rounded-md shadow-lg border border-slate-200 dark:border-slate-700 z-50 p-4 max-h-96 overflow-y-auto">
-                                    <div className="flex items-center justify-between mb-3">
-                                        <p className="text-sm font-semibold text-slate-900 dark:text-white">Filtra per campo</p>
-                                        {Object.keys(fieldFilters).length > 0 && (
-                                            <button onClick={clearFieldFilters} className="text-xs text-primary-600 dark:text-primary-400 hover:underline">
-                                                Pulisci tutto
-                                            </button>
-                                        )}
-                                    </div>
-                                    <div className="space-y-3">
-                                        {allFilterableFields.map(field => (
-                                            <div key={field.id || field.name}>
-                                                <label className="block text-xs font-medium text-slate-500 dark:text-gray-400 mb-1">{field.label}</label>
-                                                {(field.type === 'select' || field.type === 'radio') && field.options?.length ? (
-                                                    <select
-                                                        value={fieldFilters[field.name] || ''}
-                                                        onChange={e => handleFieldFilterChange(field.name, e.target.value)}
-                                                        className="w-full bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md py-1.5 px-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
-                                                    >
-                                                        <option value="">Tutti</option>
-                                                        {field.options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                                                    </select>
-                                                ) : (
-                                                    <input
-                                                        type="text"
-                                                        value={fieldFilters[field.name] || ''}
-                                                        onChange={e => handleFieldFilterChange(field.name, e.target.value)}
-                                                        placeholder={`Cerca per ${field.label.toLowerCase()}...`}
-                                                        className="w-full bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md py-1.5 px-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
-                                                    />
-                                                )}
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
                     </div>
                 </div>
                 <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex flex-wrap items-center gap-2">
