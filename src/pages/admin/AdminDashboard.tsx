@@ -774,7 +774,7 @@ const WebhookUrlItem: React.FC<{ clientId: string, service: string, fields: Lead
 };
 
 // Anteprima dell'integrazione API per un servizio (endpoint, token e payload JSON di esempio), copiabile con un click
-const ApiServiceItem: React.FC<{ apiToken?: string, service: Service, fields: LeadField[] }> = ({ apiToken, service, fields }) => {
+const ApiServiceItem: React.FC<{ apiToken?: string, service: Service, fields: LeadField[], isBase?: boolean }> = ({ apiToken, service, fields, isBase }) => {
     const [copied, setCopied] = useState(false);
 
     const apiEndpointUrl = `${window.location.origin.replace(/\/#.*$/, '')}/api/leads`;
@@ -800,7 +800,7 @@ ${JSON.stringify(sample, null, 2)}`;
 
     const handleCopyToClipboard = async (e: React.MouseEvent) => {
         e.stopPropagation();
-        const success = await copyTextToClipboard(apiSnippet);
+        const success = await copyTextToClipboard(isBase ? apiEndpointUrl : apiSnippet);
         if (success) {
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
@@ -818,7 +818,11 @@ ${JSON.stringify(sample, null, 2)}`;
                     <span className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">API</span>
                 </span>
             </div>
-            <pre className="font-mono text-[11px] text-slate-600 dark:text-gray-300 overflow-x-auto whitespace-pre-wrap break-all pr-16">{apiSnippet}</pre>
+            {isBase ? (
+                <p className="font-mono text-[11px] text-slate-600 dark:text-gray-300 break-all pr-16">{apiEndpointUrl}</p>
+            ) : (
+                <pre className="font-mono text-[11px] text-slate-600 dark:text-gray-300 overflow-x-auto whitespace-pre-wrap break-all pr-16">{apiSnippet}</pre>
+            )}
             <button onClick={handleCopyToClipboard} className="absolute top-2 right-2 p-1 px-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded text-xs font-semibold text-slate-700 dark:text-white flex items-center gap-1">
                 {copied ? <><Check size={14} className="text-green-500" /> Copiato!</> : <><Clipboard size={14} /> Copia</>}
             </button>
@@ -838,7 +842,17 @@ const ClientCard: React.FC<{
     onToggleExpand: () => void
 }> = ({ client, userStatus, onEdit, onDelete, onEditUser, onToggleStatus, isExpanded, onToggleExpand }) => {
     const isSuspended = userStatus === 'suspended';
-    
+    const [copiedFieldKey, setCopiedFieldKey] = useState<string | null>(null);
+
+    const handleCopyFieldName = async (e: React.MouseEvent, key: string, fieldName: string) => {
+        e.stopPropagation();
+        const success = await copyTextToClipboard(fieldName);
+        if (success) {
+            setCopiedFieldKey(key);
+            setTimeout(() => setCopiedFieldKey(prev => (prev === key ? null : prev)), 1500);
+        }
+    };
+
     return (
         <div className={`bg-white dark:bg-slate-800 rounded-lg shadow-lg overflow-hidden transition-all duration-300 hover:shadow-primary-500/10 dark:hover:shadow-primary-500/20 border border-slate-200 dark:border-slate-700 ${isSuspended ? 'opacity-60' : ''}`}>
             <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center cursor-pointer relative" onClick={onToggleExpand}>
@@ -871,7 +885,7 @@ const ClientCard: React.FC<{
                                     const baseFields = client.services?.find(isBaseService)?.fields || [];
                                     const allFields = isBaseService(service) ? (service.fields || []) : [...baseFields, ...(service.fields || [])];
                                     return service.intake_mode === 'api' ? (
-                                        <ApiServiceItem key={service.id} apiToken={client.api_token} service={service} fields={allFields} />
+                                        <ApiServiceItem key={service.id} apiToken={client.api_token} service={service} fields={allFields} isBase={isBaseService(service)} />
                                     ) : (
                                         <WebhookUrlItem key={service.id} clientId={client.id} service={service.name} fields={allFields} />
                                     );
@@ -888,8 +902,24 @@ const ClientCard: React.FC<{
                                 <div key={service.id} className="mb-3 last:mb-0">
                                     <h5 className="font-semibold text-slate-600 dark:text-gray-400 text-sm">{service.name}</h5>
                                     {service.fields && service.fields.length > 0 ? (
-                                        <ul className="list-disc list-inside text-sm text-gray-500 dark:text-gray-400 pl-2">
-                                            {service.fields.map(f => <li key={f.id}>{f.label} <span className="text-gray-400 dark:text-gray-500">({f.name})</span></li>)}
+                                        <ul className="space-y-1 pl-2">
+                                            {service.fields.map(f => {
+                                                const copyKey = `${service.id}-${f.id}`;
+                                                return (
+                                                    <li key={f.id} className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                                                        <span>{f.label}</span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => handleCopyFieldName(e, copyKey, f.name)}
+                                                            title="Copia nome chiave per API"
+                                                            className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:border-primary-400 dark:hover:border-primary-600 transition font-mono text-xs text-primary-600 dark:text-primary-400"
+                                                        >
+                                                            {f.name}
+                                                            {copiedFieldKey === copyKey ? <Check size={12} className="text-green-500" /> : <Clipboard size={12} />}
+                                                        </button>
+                                                    </li>
+                                                );
+                                            })}
                                         </ul>
                                     ) : (
                                         <p className="text-sm text-gray-500 pl-2">Nessun campo per questo servizio.</p>
