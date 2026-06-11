@@ -254,6 +254,20 @@ const QuoteSettingsEditor: React.FC<Props> = ({ client, onSave }) => {
                             </div>
                         </div>
 
+                        <div>
+                            <label className="text-xs font-medium text-slate-500 dark:text-gray-400">Nome del brand</label>
+                            <input
+                                type="text"
+                                value={branding.brand_name || ''}
+                                onChange={e => setBranding(prev => ({ ...prev, brand_name: e.target.value }))}
+                                placeholder={client.name}
+                                className={inputCls}
+                            />
+                            <p className="text-xs text-slate-400 dark:text-gray-500 mt-0.5">
+                                Mostrato al posto del logo nell'intestazione del preventivo, se non carichi un logo. Se vuoto verrà usato "{client.name}".
+                            </p>
+                        </div>
+
                         <div className="grid grid-cols-2 gap-3">
                             <div>
                                 <label className="text-xs font-medium text-slate-500 dark:text-gray-400">Colore principale</label>

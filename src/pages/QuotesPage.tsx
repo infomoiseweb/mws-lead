@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import * as ApiService from '@api';
 import { useAuth } from '@contexts/AuthContext';
-import type { Client, QuoteWithDetails, Lead, Quote } from '../types';
-import { FileText, Loader2, Search, Edit, Trash2, Eye, ChevronDown, RefreshCw, Send } from 'lucide-react';
+import type { Client, QuoteWithDetails, Lead, Quote, QuoteSettings } from '../types';
+import { FileText, Loader2, Search, Edit, Trash2, Eye, ChevronDown, RefreshCw, Send, Settings as SettingsIcon, List } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import DateRangeFilter from '@components/ui/DateRangeFilter';
 import QuoteDetailModal from '@components/quote/QuoteDetailModal';
 import QuoteCreatorModal from '@components/quote/QuoteCreatorModal';
 import Modal from '@components/ui/Modal';
 import Pagination from '@components/ui/Pagination';
+import QuoteSettingsEditor from '@components/ui/QuoteSettingsEditor';
 
 const quoteStatusColors: Record<Quote['status'], string> = {
     'draft': 'bg-slate-400 dark:bg-slate-500 text-white',
@@ -49,7 +50,20 @@ const QuotesPage: React.FC = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [quotesPerPage, setQuotesPerPage] = useState(25);
 
+    const [view, setView] = useState<'list' | 'settings'>('list');
+
     const isAdmin = user?.role === 'admin';
+
+    const ownClient = useMemo(() => {
+        if (isAdmin || !user) return null;
+        return clients.find(c => c.user_id === user.id) || null;
+    }, [clients, isAdmin, user]);
+
+    const handleSaveQuoteSettings = async (settings: QuoteSettings) => {
+        if (!ownClient) return;
+        const updated = await ApiService.updateClient(ownClient.id, { quote_settings: settings });
+        setClients(prev => prev.map(c => c.id === ownClient.id ? { ...c, quote_settings: updated.quote_settings } : c));
+    };
 
     const fetchData = useCallback(async () => {
         setError('');
@@ -336,15 +350,35 @@ const QuotesPage: React.FC = () => {
                                 </span>
                             </div>
                         </div>
-                        <button
-                            onClick={handleRefresh}
-                            disabled={isRefreshing}
-                            className="p-2 text-gray-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white disabled:opacity-50 disabled:cursor-wait transition-colors rounded-full hover:bg-slate-200 dark:hover:bg-slate-700"
-                            title="Aggiorna"
-                        >
-                            <RefreshCw size={20} className={isRefreshing ? 'animate-spin' : ''} />
-                        </button>
+                        <div className="flex items-center gap-2">
+                            {ownClient && (
+                                <button
+                                    onClick={() => setView(prev => prev === 'list' ? 'settings' : 'list')}
+                                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                        view === 'settings'
+                                        ? 'bg-primary-600 text-white hover:bg-primary-700'
+                                        : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-gray-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+                                    }`}
+                                >
+                                    {view === 'settings' ? (
+                                        <><List size={16} /> Torna ai preventivi</>
+                                    ) : (
+                                        <><SettingsIcon size={16} /> Impostazioni Preventivi</>
+                                    )}
+                                </button>
+                            )}
+                            <button
+                                onClick={handleRefresh}
+                                disabled={isRefreshing}
+                                className="p-2 text-gray-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white disabled:opacity-50 disabled:cursor-wait transition-colors rounded-full hover:bg-slate-200 dark:hover:bg-slate-700"
+                                title="Aggiorna"
+                            >
+                                <RefreshCw size={20} className={isRefreshing ? 'animate-spin' : ''} />
+                            </button>
+                        </div>
                     </div>
+                    {view === 'list' && (
+                    <>
                     <div className="flex flex-col md:flex-row items-center gap-4 flex-wrap">
                         <div className="relative w-full md:w-auto">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
@@ -401,8 +435,15 @@ const QuotesPage: React.FC = () => {
                             </button>
                         ))}
                     </div>
+                    </>
+                    )}
                 </div>
-                
+
+                {view === 'settings' && ownClient ? (
+                <div className="p-6">
+                    <QuoteSettingsEditor client={ownClient} onSave={handleSaveQuoteSettings} />
+                </div>
+                ) : (
                 <div className="overflow-x-auto">
                     {filteredQuotes.length > 0 ? (
                         <>
@@ -507,12 +548,13 @@ const QuotesPage: React.FC = () => {
                         <p className="text-center py-12 text-slate-500">{t('page_quotes.no_quotes_found')}</p>
                     )}
                 </div>
-                 {filteredQuotes.length > 0 && (
+                )}
+                 {view === 'list' && filteredQuotes.length > 0 && (
                     <div className="p-4 border-t border-slate-200 dark:border-slate-700 flex flex-col md:flex-row justify-between items-center gap-4">
                         <div className="flex items-center gap-2 text-sm">
                             <span className="text-gray-500 dark:text-gray-400">{t('pagination.show')}</span>
-                            <select 
-                                value={quotesPerPage} 
+                            <select
+                                value={quotesPerPage}
                                 onChange={(e) => setQuotesPerPage(Number(e.target.value))}
                                 className="bg-slate-100 dark:bg-slate-700 border-slate-300 dark:border-slate-600 rounded-md py-1 px-2 text-sm focus:outline-none"
                             >
@@ -522,7 +564,7 @@ const QuotesPage: React.FC = () => {
                             </select>
                             <span className="text-gray-500 dark:text-gray-400">{t('pagination.results')}</span>
                         </div>
-                        <Pagination 
+                        <Pagination
                             currentPage={currentPage}
                             totalPages={totalPages}
                             onPageChange={setCurrentPage}

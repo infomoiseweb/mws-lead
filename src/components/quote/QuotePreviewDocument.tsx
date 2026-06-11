@@ -53,7 +53,7 @@ const QuotePreviewDocument = React.forwardRef<HTMLDivElement, QuotePreviewDocume
                     {branding?.logo_url ? (
                         <img src={branding.logo_url} alt={clientName} style={{ maxHeight: '70px', maxWidth: '260px', objectFit: 'contain', marginBottom: '8px' }} crossOrigin="anonymous" />
                     ) : (
-                        <h1 style={{ margin: 0, fontSize: '22px', color: primaryColor }}>{clientName}</h1>
+                        <h1 style={{ margin: 0, fontSize: '22px', color: primaryColor }}>{branding?.brand_name || clientName}</h1>
                     )}
                     {branding?.company_details && (
                         <p style={{ margin: '6px 0 0', fontSize: '11px', color: '#64748b', whiteSpace: 'pre-line', lineHeight: 1.5 }}>{branding.company_details}</p>

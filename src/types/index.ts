@@ -161,6 +161,7 @@ export interface QuoteNumberingSettings {
 
 export interface QuoteBranding {
     logo_url?: string;
+    brand_name?: string;      // nome azienda mostrato nell'intestazione quando manca il logo
     primary_color?: string;   // hex, es. "#2563eb" — usato per intestazioni/accenti
     font?: 'sans' | 'serif' | 'mono'; // famiglia font del documento preventivo
     company_details?: string; // testo libero multi-riga: indirizzo, P.IVA, contatti
