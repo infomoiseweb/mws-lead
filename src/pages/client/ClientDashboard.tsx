@@ -1157,7 +1157,7 @@ const ClientDashboard: React.FC = () => {
                 lead={selectedLead?.lead || null}
                 client={client}
                 historicalLeads={selectedLead?.historicalLeads}
-                onAddNote={(leadId, note) => handleAddNote(leadId, note)}
+                onAddNote={(clientId, leadId, note) => handleAddNote(leadId, note)}
                 onUpdateNote={(clientId, leadId, noteId, content) => handleUpdateNote(client?.id || '', leadId, noteId, content)}
                 onDeleteNote={(clientId, leadId, noteId) => handleDeleteNote(client?.id || '', leadId, noteId)}
                 onHistoricalLeadAdded={handleHistoricalLeadAdded}
