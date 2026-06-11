@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Modal from '@components/ui/Modal';
 import * as ApiService from '@api';
 import type { Client, Lead, Quote, QuoteItem, QuotePricePreset } from '../types';
-import { Plus, Trash2, Save, Loader2, X, ChevronDown, User, Phone, Mail, Tag, Calendar, Eye, RotateCcw } from 'lucide-react';
+import { Plus, Trash2, Save, Loader2, X, ChevronDown, User, Phone, Mail, Tag, Calendar, Eye, RotateCcw, MessageCircle } from 'lucide-react';
 import { incrementQuoteNumber } from '@lib/quoteNumbering';
 import QuotePreviewDocument from './QuotePreviewDocument';
 
@@ -430,6 +430,23 @@ const QuoteCreatorModal: React.FC<QuoteCreatorModalProps> = ({ isOpen, onClose, 
                                             <p className="text-sm font-semibold text-slate-800 dark:text-white break-words">{String(value)}</p>
                                         </div>
                                     ))}
+                                </div>
+                            )}
+
+                            {lead.notes && lead.notes.length > 0 && (
+                                <div className="pt-2 mt-2 border-t border-slate-200 dark:border-slate-700 space-y-2">
+                                    <p className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-gray-400">
+                                        <MessageCircle size={12} /> Note
+                                    </p>
+                                    {lead.notes
+                                        .slice()
+                                        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                                        .map(note => (
+                                            <div key={note.id} className="bg-slate-100 dark:bg-slate-800 p-2 rounded-md border border-slate-200 dark:border-slate-700/50">
+                                                <p className="text-sm text-slate-700 dark:text-gray-300 whitespace-pre-wrap break-words">{note.content}</p>
+                                                <p className="text-[10px] text-slate-400 dark:text-gray-500 text-right mt-1">{new Date(note.created_at).toLocaleString('it-IT')}</p>
+                                            </div>
+                                        ))}
                                 </div>
                             )}
                         </div>
