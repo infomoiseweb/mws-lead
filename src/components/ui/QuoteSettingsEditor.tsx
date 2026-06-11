@@ -3,6 +3,7 @@ import type { Client, QuoteSettings, QuotePricePreset, QuoteBranding, QuoteTerms
 import { PlusCircle, Trash2, Edit2, Save, X, Upload, Image as ImageIcon } from 'lucide-react';
 import { uploadClientLogo } from '@api/storage';
 import QuotePreviewDocument from '@components/quote/QuotePreviewDocument';
+import { DEFAULT_EMAIL_SUBJECT_TEMPLATE, DEFAULT_EMAIL_BODY_TEMPLATE, DEFAULT_WHATSAPP_MESSAGE_TEMPLATE } from '@lib/quoteShareTemplates';
 
 interface Props {
     client: Client;
@@ -89,6 +90,9 @@ const QuoteSettingsEditor: React.FC<Props> = ({ client, onSave }) => {
     const [defaultExtraFields, setDefaultExtraFields] = useState<string[]>(client.quote_settings?.default_extra_fields || []);
 
     const [includePdfLink, setIncludePdfLink] = useState<boolean>(client.quote_settings?.share_message?.include_pdf_link !== false);
+    const [emailSubjectTemplate, setEmailSubjectTemplate] = useState<string>(client.quote_settings?.share_message?.email_subject_template || DEFAULT_EMAIL_SUBJECT_TEMPLATE);
+    const [emailBodyTemplate, setEmailBodyTemplate] = useState<string>(client.quote_settings?.share_message?.email_body_template || DEFAULT_EMAIL_BODY_TEMPLATE);
+    const [whatsappMessageTemplate, setWhatsappMessageTemplate] = useState<string>(client.quote_settings?.share_message?.whatsapp_message_template || DEFAULT_WHATSAPP_MESSAGE_TEMPLATE);
 
     const [isSaving, setIsSaving] = useState(false);
     const [saved, setSaved] = useState(false);
@@ -196,7 +200,7 @@ const QuoteSettingsEditor: React.FC<Props> = ({ client, onSave }) => {
         setIsSaving(true);
         setError('');
         try {
-            await onSave({ numbering, price_presets: presets, branding, terms_presets: termsPresets, default_extra_fields: defaultExtraFields, share_message: { include_pdf_link: includePdfLink } });
+            await onSave({ numbering, price_presets: presets, branding, terms_presets: termsPresets, default_extra_fields: defaultExtraFields, share_message: { include_pdf_link: includePdfLink, email_subject_template: emailSubjectTemplate, email_body_template: emailBodyTemplate, whatsapp_message_template: whatsappMessageTemplate } });
             setSaved(true);
             setTimeout(() => setSaved(false), 2000);
         } catch (err: any) {
@@ -618,6 +622,34 @@ const QuoteSettingsEditor: React.FC<Props> = ({ client, onSave }) => {
                     />
                     <span className="text-sm text-slate-700 dark:text-gray-200">Includi nel messaggio "Puoi scaricarlo da qui: [link al PDF]"</span>
                 </label>
+
+                <p className="text-xs text-slate-400 dark:text-gray-500">
+                    Placeholder disponibili: <code>{'{{nome}}'}</code> (destinatario), <code>{'{{numero}}'}</code> (numero preventivo), <code>{'{{azienda}}'}</code> (nome/brand), <code>{'{{link_pdf}}'}</code> (riga con link al PDF, vuota se disattivato sopra).
+                </p>
+
+                <div>
+                    <div className="flex items-center justify-between">
+                        <label className="text-xs font-medium text-slate-500 dark:text-gray-400">Oggetto Email</label>
+                        <button type="button" onClick={() => setEmailSubjectTemplate(DEFAULT_EMAIL_SUBJECT_TEMPLATE)} className="text-xs text-primary-600 dark:text-primary-400 hover:underline">Ripristina predefinito</button>
+                    </div>
+                    <input type="text" value={emailSubjectTemplate} onChange={e => setEmailSubjectTemplate(e.target.value)} className={inputCls} />
+                </div>
+
+                <div>
+                    <div className="flex items-center justify-between">
+                        <label className="text-xs font-medium text-slate-500 dark:text-gray-400">Messaggio Email</label>
+                        <button type="button" onClick={() => setEmailBodyTemplate(DEFAULT_EMAIL_BODY_TEMPLATE)} className="text-xs text-primary-600 dark:text-primary-400 hover:underline">Ripristina predefinito</button>
+                    </div>
+                    <textarea value={emailBodyTemplate} onChange={e => setEmailBodyTemplate(e.target.value)} rows={5} className={inputCls} />
+                </div>
+
+                <div>
+                    <div className="flex items-center justify-between">
+                        <label className="text-xs font-medium text-slate-500 dark:text-gray-400">Messaggio WhatsApp</label>
+                        <button type="button" onClick={() => setWhatsappMessageTemplate(DEFAULT_WHATSAPP_MESSAGE_TEMPLATE)} className="text-xs text-primary-600 dark:text-primary-400 hover:underline">Ripristina predefinito</button>
+                    </div>
+                    <textarea value={whatsappMessageTemplate} onChange={e => setWhatsappMessageTemplate(e.target.value)} rows={3} className={inputCls} />
+                </div>
             </div>
 
             {error && <p className="text-sm text-red-500 dark:text-red-400">{error}</p>}

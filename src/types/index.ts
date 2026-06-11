@@ -177,6 +177,10 @@ export interface QuoteTermsPreset {
 export interface QuoteShareMessageSettings {
     // Se false, il messaggio WhatsApp/Email non includerà il link per scaricare il PDF
     include_pdf_link?: boolean;
+    // Template personalizzabili per l'invio del preventivo (placeholder: {{nome}}, {{numero}}, {{azienda}}, {{link_pdf}})
+    email_subject_template?: string;
+    email_body_template?: string;
+    whatsapp_message_template?: string;
 }
 
 export interface QuoteSettings {
