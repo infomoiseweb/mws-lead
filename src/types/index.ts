@@ -120,6 +120,9 @@ export interface Appointment {
     notes?: string;
     labor_cost?: number;
     parts_cost?: number;
+    location_address?: string;
+    location_lat?: number;
+    location_lng?: number;
 }
 
 export interface Lead {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Modal from '@components/ui/Modal';
-import type { Lead, Client, Quote, QuoteWithDetails } from '../types';
+import type { Lead, Client, Quote, QuoteWithDetails, CalendarAppointment } from '../types';
 import * as ApiService from '@api';
 // FIX: Cannot find name 'CheckCircle'. Import it from lucide-react.
 import { Tag, Calendar, Info, DollarSign, Briefcase, MessageCircle, History, Sparkles, Copy, Loader2, Check, Phone, Edit, Trash2, Mail, Save, X, Database, FileText, PlusCircle, Clock, CheckCircle, Eye, Send, ChevronDown } from 'lucide-react';
@@ -8,6 +8,8 @@ import { useTranslation } from 'react-i18next';
 import QuoteCreatorModal from '@components/quote/QuoteCreatorModal';
 import { useAuth } from '@contexts/AuthContext';
 import QuoteDetailModal from '@components/quote/QuoteDetailModal';
+import AppointmentsMap from './AppointmentsMap';
+import { geocodeAddress } from '@lib/geocoding';
 
 // Funzione di copia robusta con fallback
 const copyTextToClipboard = async (text: string): Promise<boolean> => {
@@ -412,6 +414,11 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
     const [isSavingAppointment, setIsSavingAppointment] = useState(false);
     const [appointmentSaveSuccess, setAppointmentSaveSuccess] = useState(false);
     const [appointmentError, setAppointmentError] = useState('');
+    const [appointmentAddress, setAppointmentAddress] = useState('');
+    const [appointmentCoords, setAppointmentCoords] = useState<{ lat: number; lng: number } | null>(null);
+    const [isGeocoding, setIsGeocoding] = useState(false);
+    const [geocodeError, setGeocodeError] = useState('');
+    const [futureAppointments, setFutureAppointments] = useState<CalendarAppointment[]>([]);
 
     const [deleteModalState, setDeleteModalState] = useState<{ isOpen: boolean, quoteId: string | null }>({ isOpen: false, quoteId: null });
     const [deleteConfirmationText, setDeleteConfirmationText] = useState('');
@@ -423,6 +430,8 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
         leadCreationDate: string | null;
         updates: Partial<Lead> | null;
     }>({ isOpen: false, leadId: null, leadCreationDate: null, updates: null });
+
+    const [quoteSentModalState, setQuoteSentModalState] = useState<{ isOpen: boolean; selectedQuoteId: string }>({ isOpen: false, selectedQuoteId: '' });
 
     const completeLeadUpdate = async (attributionChoice: 'creation' | 'current') => {
         const { leadId, updates } = revenueDateModalState;
@@ -479,6 +488,14 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
             setCurrentStatus(lead.status === 'Nuovo' ? 'Contattato' : lead.status);
         }
     }, [isOpen, lead, fetchQuotesForLead]);
+
+    useEffect(() => {
+        if (isOpen && activeTab === 'fissa_appuntamento' && lead?.client_id) {
+            ApiService.getFutureAppointmentsForClient(lead.client_id)
+                .then(setFutureAppointments)
+                .catch(err => console.error('Errore caricamento appuntamenti futuri:', err));
+        }
+    }, [isOpen, activeTab, lead?.client_id]);
 
     useEffect(() => {
         if (isOpen) {
@@ -842,21 +859,54 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
                 appointment_time: appointmentTime,
                 duration_hours: Number(appointmentDuration),
                 notes: appointmentNotes,
+                location_address: appointmentAddress || undefined,
+                location_lat: appointmentCoords?.lat,
+                location_lng: appointmentCoords?.lng,
             };
             const updatedLead = await ApiService.addAppointment(appointmentPayload);
             onLeadUpdate(updatedLead);
-    
+
             setAppointmentSaveSuccess(true);
             setAppointmentDate('');
             setAppointmentTime('');
             setAppointmentDuration('1');
             setAppointmentNotes('');
+            setAppointmentAddress('');
+            setAppointmentCoords(null);
+            setGeocodeError('');
+            if (lead.client_id) {
+                ApiService.getFutureAppointmentsForClient(lead.client_id).then(setFutureAppointments).catch(() => {});
+            }
             setTimeout(() => setAppointmentSaveSuccess(false), 3000);
         } catch (err: any) {
             // FIX: Explicitly cast error message to string to satisfy type checking.
             setAppointmentError(String(err?.message || t('generic_error')));
         } finally {
             setIsSavingAppointment(false);
+        }
+    };
+
+    const handleAddressBlur = async () => {
+        if (!appointmentAddress.trim()) {
+            setAppointmentCoords(null);
+            setGeocodeError('');
+            return;
+        }
+        setIsGeocoding(true);
+        setGeocodeError('');
+        try {
+            const result = await geocodeAddress(appointmentAddress);
+            if (result) {
+                setAppointmentCoords({ lat: result.lat, lng: result.lng });
+            } else {
+                setAppointmentCoords(null);
+                setGeocodeError('Indirizzo non trovato sulla mappa, ma verrà comunque salvato.');
+            }
+        } catch (err) {
+            setAppointmentCoords(null);
+            setGeocodeError('Errore durante la ricerca dell\'indirizzo sulla mappa.');
+        } finally {
+            setIsGeocoding(false);
         }
     };
 
@@ -910,18 +960,29 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
             return;
         }
 
+        if (currentStatus === 'Preventivo Inviato' && quotes.length > 0) {
+            const mostRecentDraft = [...quotes]
+                .filter(q => q.status === 'draft')
+                .sort((a, b) => new Date(b.quote_date || b.created_at).getTime() - new Date(a.quote_date || a.created_at).getTime())[0];
+            setQuoteSentModalState({ isOpen: true, selectedQuoteId: mostRecentDraft?.id || quotes[0].id });
+            return;
+        }
+
+        await completeStatusSave(null);
+    };
+
+    const completeStatusSave = async (selectedQuoteId: string | null) => {
+        if (!lead || !client || !onLeadUpdate || !currentStatus) return;
         setIsSavingStatus(true);
         try {
             const updatedLead = await ApiService.updateLead(client.id, lead.id, { status: currentStatus });
             onLeadUpdate(updatedLead);
 
-            if (currentStatus === 'Preventivo Inviato' && quotes.length > 0) {
-                const mostRecentQuote = [...quotes].sort((a, b) =>
-                    new Date(b.quote_date || b.created_at).getTime() - new Date(a.quote_date || a.created_at).getTime()
-                )[0];
-                if (mostRecentQuote.status === 'draft') {
+            if (selectedQuoteId) {
+                const selectedQuote = quotes.find(q => q.id === selectedQuoteId);
+                if (selectedQuote && selectedQuote.status === 'draft') {
                     try {
-                        await ApiService.updateQuoteStatus(mostRecentQuote.id, 'sent');
+                        await ApiService.updateQuoteStatus(selectedQuoteId, 'sent');
                         fetchQuotesForLead(lead.id);
                     } catch (err) {
                         console.error("Errore aggiornamento stato preventivo a 'Inviato':", err);
@@ -997,6 +1058,49 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
                     <div className="mt-6 flex justify-end space-x-3 pt-4 border-t border-slate-200 dark:border-slate-700">
                         <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium rounded-md bg-slate-200 dark:bg-slate-600 text-slate-800 dark:text-white hover:bg-slate-300 dark:hover:bg-slate-500">Annulla</button>
                         <button type="button" onClick={() => onSubmit(choice)} className="px-4 py-2 text-sm font-medium rounded-md bg-primary-600 text-white hover:bg-primary-700">Conferma</button>
+                    </div>
+                </div>
+            </Modal>
+        );
+    };
+
+    const QuoteSentModal: React.FC<{
+        state: typeof quoteSentModalState;
+        onClose: () => void;
+        onSubmit: (selectedQuoteId: string | null) => void;
+    }> = ({ state, onClose, onSubmit }) => {
+        const [choice, setChoice] = useState(state.selectedQuoteId);
+
+        useEffect(() => {
+            setChoice(state.selectedQuoteId);
+        }, [state.isOpen, state.selectedQuoteId]);
+
+        if (!state.isOpen) return null;
+
+        return (
+            <Modal isOpen={state.isOpen} onClose={onClose} title="Quale preventivo è stato inviato?">
+                <div className="space-y-4">
+                    <p className="text-slate-600 dark:text-gray-300">Seleziona il preventivo da segnare come "Inviato" nella sezione Preventivi.</p>
+                    <div className="space-y-2">
+                        {[...quotes]
+                            .sort((a, b) => new Date(b.quote_date || b.created_at).getTime() - new Date(a.quote_date || a.created_at).getTime())
+                            .map(quote => (
+                                <label key={quote.id} className="flex items-center space-x-3 p-3 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer border border-slate-200 dark:border-slate-600">
+                                    <input type="radio" name="quoteSent" value={quote.id} checked={choice === quote.id} onChange={() => setChoice(quote.id)} className="h-4 w-4 border-gray-300 text-primary-600 focus:ring-primary-500"/>
+                                    <span className="text-sm font-medium text-slate-700 dark:text-gray-300">
+                                        Preventivo n. {quote.quote_number_display || quote.id.substring(0, 6)} — €{Number(quote.total_amount).toFixed(2)}
+                                        {quote.status !== 'draft' && <span className="ml-2 text-xs text-gray-400">(stato: {quote.status})</span>}
+                                    </span>
+                                </label>
+                            ))}
+                        <label className="flex items-center space-x-3 p-3 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer border border-slate-200 dark:border-slate-600">
+                            <input type="radio" name="quoteSent" value="" checked={choice === ''} onChange={() => setChoice('')} className="h-4 w-4 border-gray-300 text-primary-600 focus:ring-primary-500"/>
+                            <span className="text-sm font-medium text-slate-700 dark:text-gray-300">Nessuno / non aggiornare alcun preventivo</span>
+                        </label>
+                    </div>
+                    <div className="mt-6 flex justify-end space-x-3 pt-4 border-t border-slate-200 dark:border-slate-700">
+                        <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium rounded-md bg-slate-200 dark:bg-slate-600 text-slate-800 dark:text-white hover:bg-slate-300 dark:hover:bg-slate-500">Annulla</button>
+                        <button type="button" onClick={() => onSubmit(choice || null)} className="px-4 py-2 text-sm font-medium rounded-md bg-primary-600 text-white hover:bg-primary-700">Conferma</button>
                     </div>
                 </div>
             </Modal>
@@ -1468,10 +1572,17 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
                                 <input type="number" id="appointmentDuration" value={appointmentDuration} onChange={e => setAppointmentDuration(e.target.value)} min="0.5" step="0.5" className="w-full p-2 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-sm"/>
                             </div>
                             <div>
+                                <label htmlFor="appointmentAddress" className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-1">Luogo / Indirizzo</label>
+                                <input type="text" id="appointmentAddress" value={appointmentAddress} onChange={e => setAppointmentAddress(e.target.value)} onBlur={handleAddressBlur} placeholder="Es. Via Roma 1, Milano" className="w-full p-2 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-sm"/>
+                                {isGeocoding && <p className="text-xs text-gray-400 mt-1 flex items-center"><Loader2 size={12} className="animate-spin mr-1"/> Ricerca posizione sulla mappa...</p>}
+                                {!isGeocoding && geocodeError && <p className="text-xs text-amber-500 mt-1">{geocodeError}</p>}
+                                {!isGeocoding && appointmentCoords && <p className="text-xs text-green-600 mt-1">Posizione trovata sulla mappa.</p>}
+                            </div>
+                            <div>
                                 <label htmlFor="appointmentNotes" className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-1">{t('component_leadDetailModal.appointment_form.notes')}</label>
                                 <textarea id="appointmentNotes" value={appointmentNotes} onChange={e => setAppointmentNotes(e.target.value)} rows={3} placeholder="Note sull'intervento o sul cliente..." className="w-full p-2 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-sm"/>
                             </div>
-                            
+
                             {appointmentError && <p className="text-sm text-red-500">{appointmentError}</p>}
                             {appointmentSaveSuccess && <p className="text-sm text-green-600 flex items-center"><CheckCircle size={16} className="mr-2"/>{t('component_leadDetailModal.appointment_form.success_message')}</p>}
 
@@ -1481,6 +1592,17 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
                                 </button>
                             </div>
                         </form>
+
+                        <div className="mt-6">
+                            <h4 className="text-md font-semibold text-slate-800 dark:text-white mb-2">Altri appuntamenti già fissati</h4>
+                            <p className="text-xs text-slate-500 dark:text-gray-400 mb-2">Le bandierine blu mostrano gli appuntamenti futuri già fissati per questo cliente; quella rossa mostra l'indirizzo appena inserito sopra.</p>
+                            <div className="h-80 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700">
+                                <AppointmentsMap
+                                    appointments={futureAppointments}
+                                    previewLocation={appointmentCoords ? { ...appointmentCoords, label: appointmentAddress } : null}
+                                />
+                            </div>
+                        </div>
                     </div>
                 );
             case 'appuntamenti':
@@ -1772,6 +1894,19 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
                     completeLeadUpdate(choice);
                 }}
             />
+
+            <QuoteSentModal
+                state={quoteSentModalState}
+                onClose={() => {
+                    setQuoteSentModalState({ isOpen: false, selectedQuoteId: '' });
+                    setCurrentStatus(lead.status);
+                }}
+                onSubmit={(selectedQuoteId) => {
+                    setQuoteSentModalState({ isOpen: false, selectedQuoteId: '' });
+                    completeStatusSave(selectedQuoteId);
+                }}
+            />
+
              <Modal
                 isOpen={deleteModalState.isOpen}
                 onClose={() => {

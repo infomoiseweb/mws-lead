@@ -35,6 +35,20 @@ export async function deleteAppointment(appointmentId: string): Promise<void> {
     if (error) throw new Error(error.message);
 }
 
+export async function getFutureAppointmentsForClient(clientId: string): Promise<CalendarAppointment[]> {
+    const today = new Date().toISOString().split('T')[0];
+    const { data, error } = await supabase
+        .from('appointments')
+        .select('*, leads(id, data)')
+        .eq('client_id', clientId)
+        .gte('appointment_date', today)
+        .not('location_lat', 'is', null)
+        .order('appointment_date', { ascending: true });
+
+    if (error) throw new Error(error.message);
+    return data as CalendarAppointment[];
+}
+
 export async function getAppointmentsForCalendar(): Promise<CalendarAppointment[]> {
     const { data, error } = await supabase
         .from('appointments')
