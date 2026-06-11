@@ -998,6 +998,7 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
         switch (activeTab) {
             case 'dati':
                 return (
+                    <div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 max-h-96 overflow-y-auto pr-2">
                         {allSortedEntries.map(([key, value]) => {
                              if (isFacchetti && key === 'targa') {
@@ -1060,6 +1061,66 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
                                 </div>
                             )
                         })}
+                    </div>
+
+                    {/* Note */}
+                    <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+                        <h4 className="text-sm font-semibold text-slate-700 dark:text-gray-200 mb-2 flex items-center">
+                            <MessageCircle size={16} className="mr-2" /> Note
+                        </h4>
+                        {onAddNote && (
+                            <form onSubmit={handleAddNote} className="mb-3">
+                                <textarea
+                                    value={newNote}
+                                    onChange={(e) => setNewNote(e.target.value)}
+                                    placeholder="Aggiungi una nuova nota..."
+                                    className="w-full h-20 p-2 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
+                                    disabled={isSubmittingNote}
+                                />
+                                <div className="text-right mt-2">
+                                    <button type="submit" disabled={isSubmittingNote || !newNote.trim()} className="bg-primary-600 text-white px-4 py-2 text-sm rounded-lg shadow hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                                        {isSubmittingNote ? 'Aggiungendo...' : 'Aggiungi Nota'}
+                                    </button>
+                                </div>
+                            </form>
+                        )}
+                        <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
+                            {lead.notes && lead.notes.length > 0 ? (
+                                lead.notes.slice().sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).map(note => (
+                                    <div key={note.id} className="bg-slate-100 dark:bg-slate-800 p-3 rounded-md text-sm border border-slate-200 dark:border-slate-700/50">
+                                        {editingNoteId === note.id ? (
+                                            <>
+                                                <textarea
+                                                    value={editingNoteContent}
+                                                    onChange={(e) => setEditingNoteContent(e.target.value)}
+                                                    className="w-full h-20 p-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
+                                                />
+                                                <div className="flex items-center justify-end space-x-2 mt-2">
+                                                    <button onClick={handleCancelEditNote} className="p-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 rounded-full" aria-label="Annulla modifica"><X size={16} /></button>
+                                                    <button onClick={() => handleSaveNote(note.id)} className="p-2 text-primary-500 hover:text-primary-600 rounded-full" aria-label="Salva modifica"><Save size={16} /></button>
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <div className="flex justify-between items-start">
+                                                    <p className="text-slate-700 dark:text-gray-300 whitespace-pre-wrap flex-grow">{note.content}</p>
+                                                    {onUpdateNote && onDeleteNote && (
+                                                        <div className="flex items-center space-x-1 flex-shrink-0 ml-2">
+                                                            <button onClick={() => handleStartEditNote(note)} className="p-1.5 text-gray-400 hover:text-primary-500 rounded-full" aria-label="Modifica nota"><Edit size={14} /></button>
+                                                            <button onClick={() => handleDeleteNote(note.id)} className="p-1.5 text-gray-400 hover:text-red-500 rounded-full" aria-label="Elimina nota"><Trash2 size={14} /></button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <p className="text-xs text-gray-500 text-right mt-1">{new Date(note.created_at).toLocaleString('it-IT')}</p>
+                                            </>
+                                        )}
+                                    </div>
+                                ))
+                            ) : (
+                                <p className="text-sm text-gray-500 text-center py-4">Nessuna nota presente.</p>
+                            )}
+                        </div>
+                    </div>
                     </div>
                 );
             case 'riepilogo':
