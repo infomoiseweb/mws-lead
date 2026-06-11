@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Modal from '@components/ui/Modal';
-import type { Lead, Client, Quote } from '../types';
+import type { Lead, Client, Quote, QuoteWithDetails } from '../types';
 import * as ApiService from '@api';
 // FIX: Cannot find name 'CheckCircle'. Import it from lucide-react.
 import { Tag, Calendar, Info, DollarSign, Briefcase, MessageCircle, History, Sparkles, Copy, Loader2, Check, Phone, Edit, Trash2, Mail, Save, X, Database, FileText, PlusCircle, Clock, CheckCircle, Eye, Send, ChevronDown } from 'lucide-react';
@@ -69,6 +69,7 @@ const statusColors: Record<Lead['status'], string> = {
     'In Lavorazione': 'bg-purple-400 dark:bg-purple-500 text-white',
     'Perso': 'bg-red-500 text-white',
     'Vinto': 'bg-green-500 text-white',
+    'Preventivo Inviato': 'bg-blue-500 dark:bg-blue-600 text-white',
 };
 
 const WhatsAppIcon: React.FC<{className?: string}> = ({className}) => (
@@ -401,9 +402,6 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
     const [selectedQuoteId, setSelectedQuoteId] = useState('');
     const [isQuoteDetailModalOpen, setIsQuoteDetailModalOpen] = useState(false);
     const [selectedQuoteForViewing, setSelectedQuoteForViewing] = useState<Quote | null>(null);
-    const [sendingQuoteId, setSendingQuoteId] = useState<string | null>(null);
-    const [selectedQuoteIdsInModal, setSelectedQuoteIdsInModal] = useState<Set<string>>(new Set());
-    const [isSendingMultiple, setIsSendingMultiple] = useState(false);
 
 
     // Appointment states
@@ -516,9 +514,6 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
             // Reset quote states
             setIsQuoteModalOpen(false);
             setQuoteToEdit(null);
-            setSelectedQuoteIdsInModal(new Set());
-            setIsSendingMultiple(false);
-            setSendingQuoteId(null);
 
             // Reset appointment form
             setAppointmentDate('');
@@ -919,6 +914,20 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
         try {
             const updatedLead = await ApiService.updateLead(client.id, lead.id, { status: currentStatus });
             onLeadUpdate(updatedLead);
+
+            if (currentStatus === 'Preventivo Inviato' && quotes.length > 0) {
+                const mostRecentQuote = [...quotes].sort((a, b) =>
+                    new Date(b.quote_date || b.created_at).getTime() - new Date(a.quote_date || a.created_at).getTime()
+                )[0];
+                if (mostRecentQuote.status === 'draft') {
+                    try {
+                        await ApiService.updateQuoteStatus(mostRecentQuote.id, 'sent');
+                        fetchQuotesForLead(lead.id);
+                    } catch (err) {
+                        console.error("Errore aggiornamento stato preventivo a 'Inviato':", err);
+                    }
+                }
+            }
         } catch (error) {
             console.error("Failed to update status:", error);
             alert('Errore durante il salvataggio dello stato.');
@@ -1168,20 +1177,6 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
                                 <PlusCircle size={18} className="mr-2" />
                                 Crea Nuovo Preventivo
                             </button>
-                            {selectedQuoteIdsInModal.size > 0 && (
-                                <button
-                                    onClick={()=>{/* handleSendMultipleInModal */}}
-                                    disabled={isSendingMultiple}
-                                    className="flex items-center text-sm font-semibold bg-green-600 text-white hover:bg-green-700 px-3 py-1.5 rounded-lg disabled:opacity-50"
-                                >
-                                    {isSendingMultiple ? (
-                                        <Loader2 size={16} className="animate-spin mr-2" />
-                                    ) : (
-                                        <Send size={16} className="mr-2" />
-                                    )}
-                                    Invia ({selectedQuoteIdsInModal.size})
-                                </button>
-                            )}
                         </div>
                         <div className="space-y-3 max-h-80 overflow-y-auto pr-2">
                             {isLoadingQuotes ? (
@@ -1190,28 +1185,22 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
                                 </div>
                             ) : quotes.length > 0 ? (
                                 quotes.map(quote => (
-                                    <div key={quote.id} className={`bg-slate-100 dark:bg-slate-800 p-3 rounded-lg text-sm border border-slate-200 dark:border-slate-700/50 space-y-2 ${selectedQuoteIdsInModal.has(quote.id) ? 'ring-2 ring-primary-500' : ''}`}>
+                                    <div key={quote.id} className="bg-slate-100 dark:bg-slate-800 p-3 rounded-lg text-sm border border-slate-200 dark:border-slate-700/50 space-y-2">
                                         <div className="flex justify-between items-start">
-                                            <div className="flex items-start gap-3">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={selectedQuoteIdsInModal.has(quote.id)}
-                                                    onChange={() => {/* handleSelectQuoteInModal(quote.id) */}}
-                                                    className="h-4 w-4 rounded bg-white dark:bg-slate-700 border-slate-400 dark:border-slate-500 text-primary-600 focus:ring-primary-500 mt-1 flex-shrink-0"
-                                                />
-                                                <div>
-                                                    <p className="font-semibold text-slate-800 dark:text-white">Preventivo #{quote.quote_number_display || quote.id.substring(0,6)}</p>
-                                                    <p className="text-xs text-gray-500 dark:text-gray-400">{new Date(quote.quote_date).toLocaleDateString('it-IT')}</p>
-                                                </div>
+                                            <div>
+                                                <p className="font-semibold text-slate-800 dark:text-white">Preventivo #{quote.quote_number_display || quote.id.substring(0,6)}</p>
+                                                <p className="text-xs text-gray-500 dark:text-gray-400">{new Date(quote.quote_date).toLocaleDateString('it-IT')}</p>
                                             </div>
                                             <div className="flex items-center space-x-1 flex-shrink-0">
                                                 <button onClick={() => handleEditQuote(quote)} className="p-1.5 text-gray-400 hover:text-primary-500 rounded-full" aria-label="Modifica"><Edit size={14} /></button>
-                                                <button 
-                                                    onClick={() => {/* handleSendQuote(quote.id) */}}
-                                                    disabled={sendingQuoteId === quote.id}
-                                                    className="p-1.5 text-gray-400 hover:text-green-500 rounded-full disabled:opacity-50 disabled:cursor-wait" 
-                                                    aria-label="Invia per mail">
-                                                    {sendingQuoteId === quote.id ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                                                <button
+                                                    onClick={() => {
+                                                        setSelectedQuoteForViewing(quote);
+                                                        setIsQuoteDetailModalOpen(true);
+                                                    }}
+                                                    className="p-1.5 text-gray-400 hover:text-green-500 rounded-full"
+                                                    aria-label="Invia preventivo">
+                                                    <Send size={14} />
                                                 </button>
                                                 <button onClick={() => handleDeleteQuote(quote.id)} className="p-1.5 text-gray-400 hover:text-red-500 rounded-full" aria-label="Elimina"><Trash2 size={14} /></button>
                                             </div>
@@ -1725,6 +1714,7 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
                                         <option value="In Lavorazione">{t('lead_status.In Lavorazione')}</option>
                                         <option value="Perso">{t('lead_status.Perso')}</option>
                                         <option value="Vinto">{t('lead_status.Vinto')}</option>
+                                        <option value="Preventivo Inviato">{t('lead_status.Preventivo Inviato')}</option>
                                     </select>
                                     <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-white pointer-events-none" />
                                 </div>
@@ -1759,7 +1749,9 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
             <QuoteDetailModal
                 isOpen={isQuoteDetailModalOpen}
                 onClose={() => setIsQuoteDetailModalOpen(false)}
-                quote={selectedQuoteForViewing}
+                quote={selectedQuoteForViewing ? { ...selectedQuoteForViewing, leads: { id: lead.id, data: lead.data }, clients: null } as QuoteWithDetails : null}
+                client={client}
+                onSent={() => { fetchQuotesForLead(lead.id); }}
             />
 
             <RevenueDateModal

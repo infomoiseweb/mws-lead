@@ -77,7 +77,8 @@ export default {
         Contattato: "Contattato",
         "In Lavorazione": "In Lavorazione",
         Perso: "Perso",
-        Vinto: "Vinto"
+        Vinto: "Vinto",
+        "Preventivo Inviato": "Preventivo Inviato"
     },
 
     overview: {

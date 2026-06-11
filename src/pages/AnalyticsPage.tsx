@@ -6,7 +6,7 @@ import { DollarSign, Trophy, Percent, FilterX, BarChart3, RefreshCw, MinusCircle
 import { useTranslation } from 'react-i18next';
 import DateRangeFilter from '@components/ui/DateRangeFilter';
 
-const statusOrder: Lead['status'][] = ['Nuovo', 'Contattato', 'In Lavorazione', 'Vinto', 'Perso'];
+const statusOrder: Lead['status'][] = ['Nuovo', 'Contattato', 'In Lavorazione', 'Preventivo Inviato', 'Vinto', 'Perso'];
 
 const statusColors: Record<Lead['status'], string> = {
     'Nuovo': 'bg-slate-500',
@@ -14,6 +14,7 @@ const statusColors: Record<Lead['status'], string> = {
     'In Lavorazione': 'bg-purple-400',
     'Perso': 'bg-red-500',
     'Vinto': 'bg-green-500',
+    'Preventivo Inviato': 'bg-blue-500',
 };
 
 const StatCard: React.FC<{ title: string; value: string; icon: React.ReactNode }> = ({ title, value, icon }) => (
@@ -185,7 +186,7 @@ const AnalyticsPage: React.FC = () => {
         const leadsByStatus = filteredLeads.reduce((acc: Record<Lead['status'], number>, lead) => {
             acc[lead.status] = (acc[lead.status] || 0) + 1;
             return acc;
-        }, { 'Nuovo': 0, 'Contattato': 0, 'In Lavorazione': 0, 'Perso': 0, 'Vinto': 0 });
+        }, { 'Nuovo': 0, 'Contattato': 0, 'In Lavorazione': 0, 'Perso': 0, 'Vinto': 0, 'Preventivo Inviato': 0 });
 
         return {
             totalRevenue,

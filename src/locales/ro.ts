@@ -77,7 +77,8 @@ export default {
         Contattato: "Contactat",
         "In Lavorazione": "În Lucru",
         Perso: "Pierdut",
-        Vinto: "Câștigat"
+        Vinto: "Câștigat",
+        "Preventivo Inviato": "Ofertă Trimisă"
     },
 
     overview: {

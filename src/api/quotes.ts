@@ -37,22 +37,6 @@ export async function updateQuoteStatus(quoteId: string, status: Quote['status']
     }
 }
 
-export async function sendQuoteByWebhook(quoteId: string): Promise<void> {
-    const webhookInfo = await _getWebhookInfo(quoteId);
-
-    const response = await fetch(webhookInfo.webhook_url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ event: 'quote_sent_by_email', quote: { ...webhookInfo.quote_data, items: webhookInfo.quote_data.items || [] } }),
-    });
-
-    if (!response.ok) throw new Error(`Il server webhook ha risposto con un errore: ${response.status}`);
-
-    if (webhookInfo.quote_data.status !== 'accepted') {
-        await updateQuoteStatus(quoteId, 'sent');
-    }
-}
-
 export async function deleteQuote(quoteId: string): Promise<void> {
     const { error } = await supabase.rpc('delete_quote', { p_quote_id: quoteId });
     if (error) throw new Error(`Errore RPC: ${error.message}`);

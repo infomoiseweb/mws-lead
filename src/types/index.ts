@@ -127,7 +127,7 @@ export interface Lead {
     client_id?: string;
     created_at: string;
     data: Record<string, string>;
-    status: 'Nuovo' | 'Contattato' | 'In Lavorazione' | 'Perso' | 'Vinto';
+    status: 'Nuovo' | 'Contattato' | 'In Lavorazione' | 'Perso' | 'Vinto' | 'Preventivo Inviato';
     value?: number;
     service?: string;
     notes?: Note[];

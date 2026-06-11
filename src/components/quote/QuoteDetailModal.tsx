@@ -5,6 +5,7 @@ import { FileText, Calendar, User, Truck, Hash, Download, Send, Loader2, Message
 import QuotePreviewDocument from './QuotePreviewDocument';
 import { generateQuotePdfBlob, downloadPdf } from '@lib/generateQuotePdf';
 import { uploadQuotePdf, getQuoteShareUrl } from '@api/storage';
+import { updateQuoteStatus } from '@api/quotes';
 import { findLeadEmail, findLeadPhone, normalizePhoneForWhatsApp } from '@lib/leadFields';
 
 interface QuoteDetailModalProps {
@@ -12,11 +13,12 @@ interface QuoteDetailModalProps {
     onClose: () => void;
     quote: QuoteWithDetails | null;
     client: Client | null;
+    onSent?: () => void;
 }
 
 const formatCurrency = (value: number) => value.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' });
 
-const QuoteDetailModal: React.FC<QuoteDetailModalProps> = ({ isOpen, onClose, quote, client }) => {
+const QuoteDetailModal: React.FC<QuoteDetailModalProps> = ({ isOpen, onClose, quote, client, onSent }) => {
     const previewRef = useRef<HTMLDivElement>(null);
     const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
     const [isSendingEmail, setIsSendingEmail] = useState(false);
@@ -56,6 +58,16 @@ const QuoteDetailModal: React.FC<QuoteDetailModalProps> = ({ isOpen, onClose, qu
 
     const includePdfLink = client?.quote_settings?.share_message?.include_pdf_link !== false;
 
+    const markAsSent = async () => {
+        if (quote.status !== 'draft') return;
+        try {
+            await updateQuoteStatus(quote.id, 'sent');
+            onSent?.();
+        } catch (err) {
+            console.error('Errore aggiornamento stato preventivo a "Inviato":', err);
+        }
+    };
+
     const handleSendEmail = async () => {
         if (!previewRef.current || !recipientEmail || !client) return;
         setIsSendingEmail(true);
@@ -73,6 +85,7 @@ const QuoteDetailModal: React.FC<QuoteDetailModalProps> = ({ isOpen, onClose, qu
             body += `\n\n${client.name}`;
             const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(recipientEmail)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
             window.open(gmailUrl, '_blank');
+            await markAsSent();
         } catch (err: any) {
             setStatusMessage({ type: 'error', message: err.message || 'Errore durante la preparazione del PDF.' });
         } finally {
@@ -95,6 +108,7 @@ const QuoteDetailModal: React.FC<QuoteDetailModalProps> = ({ isOpen, onClose, qu
             }
             const waUrl = `https://wa.me/${normalizePhoneForWhatsApp(recipientPhone)}?text=${encodeURIComponent(message)}`;
             window.open(waUrl, '_blank');
+            await markAsSent();
         } catch (err: any) {
             setStatusMessage({ type: 'error', message: err.message || 'Errore durante la preparazione del PDF.' });
         } finally {

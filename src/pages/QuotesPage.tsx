@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import * as ApiService from '@api';
 import { useAuth } from '@contexts/AuthContext';
 import type { Client, QuoteWithDetails, Lead, Quote, QuoteSettings } from '../types';
@@ -42,11 +42,6 @@ const QuotesPage: React.FC = () => {
 
     const [deleteModalState, setDeleteModalState] = useState<{ isOpen: boolean, quoteId: string | null }>({ isOpen: false, quoteId: null });
     const [deleteConfirmationText, setDeleteConfirmationText] = useState('');
-    const [sendingQuoteId, setSendingQuoteId] = useState<string | null>(null);
-
-    const [selectedQuoteIds, setSelectedQuoteIds] = useState<Set<string>>(new Set());
-    const [isSendingMultiple, setIsSendingMultiple] = useState(false);
-    const headerCheckboxRef = useRef<HTMLInputElement>(null);
 
     const [currentPage, setCurrentPage] = useState(1);
     const [quotesPerPage, setQuotesPerPage] = useState(25);
@@ -177,25 +172,6 @@ const QuotesPage: React.FC = () => {
         setCurrentPage(1);
     }, [searchQuery, dateRange, selectedClientId, statusFilter, quotesPerPage]);
     
-    useEffect(() => {
-        if (headerCheckboxRef.current) {
-            const allVisibleIds = paginatedQuotes.map(q => q.id);
-            const selectedCount = allVisibleIds.filter(id => selectedQuoteIds.has(id)).length;
-
-            if (allVisibleIds.length > 0 && selectedCount === allVisibleIds.length) {
-                headerCheckboxRef.current.checked = true;
-                headerCheckboxRef.current.indeterminate = false;
-            } else if (selectedCount > 0) {
-                headerCheckboxRef.current.checked = false;
-                headerCheckboxRef.current.indeterminate = true;
-            } else {
-                headerCheckboxRef.current.checked = false;
-                headerCheckboxRef.current.indeterminate = false;
-            }
-        }
-    }, [selectedQuoteIds, paginatedQuotes]);
-
-
     const handleStatusUpdate = async (quoteId: string, newStatus: Quote['status']) => {
         try {
             // The RPC function now handles the logic of un-accepting other quotes.
@@ -212,69 +188,6 @@ const QuotesPage: React.FC = () => {
             alert(userFriendlyError);
             fetchData(); // Reload on error to revert UI.
         }
-    };
-
-    const handleSendQuote = async (quoteId: string) => {
-        setSendingQuoteId(quoteId);
-        try {
-            await ApiService.sendQuoteByWebhook(quoteId);
-            fetchData(); 
-        } catch (err: unknown) {
-            // FIX: Cast unknown error to string for alert.
-            alert(`Errore durante l'invio del preventivo via email: ${err instanceof Error ? err.message : String(err)}`);
-        } finally {
-            setSendingQuoteId(null);
-        }
-    };
-    
-    const handleSendMultiple = async () => {
-        if (selectedQuoteIds.size === 0) return;
-        if (!window.confirm(`Sei sicuro di voler inviare ${selectedQuoteIds.size} preventivi?`)) return;
-    
-        setIsSendingMultiple(true);
-        const quoteIdsToSend = Array.from(selectedQuoteIds);
-        const results = await Promise.allSettled(
-            quoteIdsToSend.map((id: string) => ApiService.sendQuoteByWebhook(id))
-        );
-    
-        const successfulSends = results.filter(r => r.status === 'fulfilled').length;
-        const failedSends = results.filter(r => r.status === 'rejected').length;
-    
-        let alertMessage = `${successfulSends} preventivi inviati con successo.`;
-        if (failedSends > 0) {
-            alertMessage += `\n${failedSends} invii non riusciti. Controlla la console per i dettagli.`;
-            results.forEach((result, index) => {
-                if (result.status === 'rejected') {
-                    console.error(`Invio fallito per preventivo ID ${quoteIdsToSend[index]}:`, result.reason);
-                }
-            });
-        }
-        alert(alertMessage);
-    
-        setIsSendingMultiple(false);
-        setSelectedQuoteIds(new Set());
-        fetchData(); // Refresh data
-    };
-    
-    const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.checked) {
-            const allVisibleIds = new Set(paginatedQuotes.map(q => q.id));
-            setSelectedQuoteIds(allVisibleIds);
-        } else {
-            setSelectedQuoteIds(new Set());
-        }
-    };
-    
-    const handleSelectQuote = (quoteId: string) => {
-        setSelectedQuoteIds(prev => {
-            const newSet = new Set(prev);
-            if (newSet.has(quoteId)) {
-                newSet.delete(quoteId);
-            } else {
-                newSet.add(quoteId);
-            }
-            return newSet;
-        });
     };
 
     const handleViewDetails = (quote: QuoteWithDetails) => {
@@ -417,20 +330,6 @@ const QuotesPage: React.FC = () => {
                             </div>
                         )}
                         <DateRangeFilter onDateChange={setDateRange} />
-                        {selectedQuoteIds.size > 0 && (
-                            <button
-                                onClick={handleSendMultiple}
-                                disabled={isSendingMultiple}
-                                className="flex items-center bg-green-600 text-white px-3 py-1.5 rounded-md text-sm hover:bg-green-700 transition-colors disabled:opacity-50"
-                            >
-                                {isSendingMultiple ? (
-                                    <Loader2 size={16} className="animate-spin mr-2" />
-                                ) : (
-                                    <Send size={16} className="mr-2" />
-                                )}
-                                Invia Selezionati ({selectedQuoteIds.size})
-                            </button>
-                        )}
                     </div>
                      <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-200 dark:border-slate-700">
                         <span className="text-sm font-medium text-slate-600 dark:text-gray-400 mr-2">Filtra per stato:</span>
@@ -463,14 +362,6 @@ const QuotesPage: React.FC = () => {
                             <table className="min-w-full text-sm hidden md:table">
                                 <thead className="bg-slate-50 dark:bg-slate-800/50">
                                     <tr>
-                                        <th scope="col" className="p-4">
-                                            <input
-                                                type="checkbox"
-                                                ref={headerCheckboxRef}
-                                                onChange={handleSelectAll}
-                                                className="h-4 w-4 rounded bg-slate-200 dark:bg-slate-700 border-slate-400 dark:border-slate-500 text-primary-600 focus:ring-primary-500"
-                                            />
-                                        </th>
                                         {['quote_number', 'client', 'lead', 'date', 'total', 'status', 'actions'].map(h => {
                                             if (!isAdmin && h === 'client') return null;
                                             return <th key={h} className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t(`page_quotes.${h}`)}</th>
@@ -479,16 +370,7 @@ const QuotesPage: React.FC = () => {
                                 </thead>
                                 <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
                                     {paginatedQuotes.map(quote => (
-                                        <tr key={quote.id} className={`transition-colors ${selectedQuoteIds.has(quote.id) ? 'bg-primary-50 dark:bg-slate-700/50' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}>
-                                            <td className="px-4 py-4">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={selectedQuoteIds.has(quote.id)}
-                                                    onChange={() => handleSelectQuote(quote.id)}
-                                                    onClick={e => e.stopPropagation()}
-                                                    className="h-4 w-4 rounded bg-slate-200 dark:bg-slate-700 border-slate-400 dark:border-slate-500 text-primary-600 focus:ring-primary-500"
-                                                />
-                                            </td>
+                                        <tr key={quote.id} className="transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50">
                                             <td className="px-6 py-4 font-medium text-slate-900 dark:text-white">{quote.quote_number_display || quote.id.substring(0,8)}</td>
                                             {isAdmin && <td className="px-6 py-4 text-slate-600 dark:text-gray-300">{quote.clients?.name}</td>}
                                             <td className="px-6 py-4 text-slate-600 dark:text-gray-300">{quote.leads?.data?.nome}</td>
@@ -500,12 +382,11 @@ const QuotesPage: React.FC = () => {
                                             <td className="px-6 py-4 text-right space-x-2">
                                                 <button onClick={() => handleViewDetails(quote)} className="p-2 text-gray-500 dark:text-gray-400 hover:text-blue-500 rounded-full" title="Vedi Dettagli"><Eye size={16} /></button>
                                                 <button onClick={() => handleEditQuote(quote)} className="p-2 text-gray-500 dark:text-gray-400 hover:text-primary-500 rounded-full" title={t('edit')}><Edit size={16} /></button>
-                                                <button 
-                                                    onClick={() => handleSendQuote(quote.id)} 
-                                                    disabled={sendingQuoteId === quote.id}
-                                                    className="p-2 text-gray-500 dark:text-gray-400 hover:text-green-500 rounded-full disabled:opacity-50 disabled:cursor-wait" 
-                                                    title="Invia per mail">
-                                                    {sendingQuoteId === quote.id ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                                                <button
+                                                    onClick={() => handleViewDetails(quote)}
+                                                    className="p-2 text-gray-500 dark:text-gray-400 hover:text-green-500 rounded-full"
+                                                    title="Invia preventivo">
+                                                    <Send size={16} />
                                                 </button>
                                                 <button onClick={() => handleDeleteQuote(quote.id)} className="p-2 text-gray-500 dark:text-gray-400 hover:text-red-500 rounded-full" title={t('delete')}><Trash2 size={16} /></button>
                                             </td>
@@ -516,29 +397,20 @@ const QuotesPage: React.FC = () => {
                             {/* Mobile View */}
                             <div className="md:hidden p-2 space-y-2">
                                 {paginatedQuotes.map(quote => (
-                                    <div key={quote.id} className={`p-4 rounded-lg border ${selectedQuoteIds.has(quote.id) ? 'ring-2 ring-primary-500' : 'border-slate-200 dark:border-slate-700'} bg-slate-50 dark:bg-slate-800/50`}>
+                                    <div key={quote.id} className="p-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
                                         <div className="flex justify-between items-start">
-                                            <div className="flex items-start gap-3">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={selectedQuoteIds.has(quote.id)}
-                                                    onChange={() => handleSelectQuote(quote.id)}
-                                                    className="h-4 w-4 rounded bg-white dark:bg-slate-700 border-slate-400 dark:border-slate-500 text-primary-600 focus:ring-primary-500 mt-1 flex-shrink-0"
-                                                />
-                                                <div>
-                                                    <div className="font-semibold text-slate-900 dark:text-white">#{quote.quote_number_display || quote.id.substring(0,8)}</div>
-                                                    <div className="text-xs text-slate-500 dark:text-gray-400">{new Date(quote.quote_date + 'T00:00:00').toLocaleDateString('it-IT')}</div>
-                                                </div>
+                                            <div>
+                                                <div className="font-semibold text-slate-900 dark:text-white">#{quote.quote_number_display || quote.id.substring(0,8)}</div>
+                                                <div className="text-xs text-slate-500 dark:text-gray-400">{new Date(quote.quote_date + 'T00:00:00').toLocaleDateString('it-IT')}</div>
                                             </div>
                                             <div className="flex items-center space-x-1 flex-shrink-0">
                                                 <button onClick={() => handleViewDetails(quote)} className="p-2 text-gray-500 dark:text-gray-400 hover:text-blue-500 rounded-full" title="Vedi Dettagli"><Eye size={16} /></button>
                                                 <button onClick={() => handleEditQuote(quote)} className="p-2 text-gray-500 dark:text-gray-400 hover:text-primary-500 rounded-full" title={t('edit')}><Edit size={16} /></button>
-                                                <button 
-                                                    onClick={() => handleSendQuote(quote.id)}
-                                                    disabled={sendingQuoteId === quote.id}
-                                                    className="p-2 text-gray-500 dark:text-gray-400 hover:text-green-500 rounded-full disabled:opacity-50 disabled:cursor-wait" 
-                                                    title="Invia per mail">
-                                                    {sendingQuoteId === quote.id ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                                                <button
+                                                    onClick={() => handleViewDetails(quote)}
+                                                    className="p-2 text-gray-500 dark:text-gray-400 hover:text-green-500 rounded-full"
+                                                    title="Invia preventivo">
+                                                    <Send size={16} />
                                                 </button>
                                                 <button onClick={() => handleDeleteQuote(quote.id)} className="p-2 text-gray-500 dark:text-gray-400 hover:text-red-500 rounded-full" title={t('delete')}><Trash2 size={16} /></button>
                                             </div>
@@ -591,6 +463,7 @@ const QuotesPage: React.FC = () => {
                 onClose={() => setIsDetailModalOpen(false)}
                 quote={selectedQuote}
                 client={selectedQuote ? clients.find(c => c.id === selectedQuote.client_id) || null : null}
+                onSent={fetchData}
             />
             {clientForModal && leadForModal && (
                 <QuoteCreatorModal
