@@ -1192,17 +1192,17 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
                                                 <p className="text-xs text-gray-500 dark:text-gray-400">{new Date(quote.quote_date).toLocaleDateString('it-IT')}</p>
                                             </div>
                                             <div className="flex items-center space-x-1 flex-shrink-0">
-                                                <button onClick={() => handleEditQuote(quote)} className="p-1.5 text-gray-400 hover:text-primary-500 rounded-full" aria-label="Modifica"><Edit size={14} /></button>
+                                                <button onClick={() => handleEditQuote(quote)} className="p-2.5 text-gray-400 hover:text-primary-500 rounded-full" aria-label="Modifica"><Edit size={20} /></button>
                                                 <button
                                                     onClick={() => {
                                                         setSelectedQuoteForViewing(quote);
                                                         setIsQuoteDetailModalOpen(true);
                                                     }}
-                                                    className="p-1.5 text-gray-400 hover:text-green-500 rounded-full"
+                                                    className="p-2.5 text-gray-400 hover:text-green-500 rounded-full"
                                                     aria-label="Invia preventivo">
-                                                    <Send size={14} />
+                                                    <Send size={20} />
                                                 </button>
-                                                <button onClick={() => handleDeleteQuote(quote.id)} className="p-1.5 text-gray-400 hover:text-red-500 rounded-full" aria-label="Elimina"><Trash2 size={14} /></button>
+                                                <button onClick={() => handleDeleteQuote(quote.id)} className="p-2.5 text-gray-400 hover:text-red-500 rounded-full" aria-label="Elimina"><Trash2 size={20} /></button>
                                             </div>
                                         </div>
                                         <div className="flex justify-between items-center pt-2 border-t border-slate-200 dark:border-slate-700">
