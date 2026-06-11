@@ -1674,7 +1674,47 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
 
     return (
         <>
-            <Modal isOpen={isOpen} onClose={onClose} title={`${t('component_leadDetailModal.title', { name: lead.data.nome || 'N/D' })}`}>
+            <Modal
+                isOpen={isOpen}
+                onClose={onClose}
+                title={`${t('component_leadDetailModal.title', { name: lead.data.nome || 'N/D' })}`}
+                footer={
+                    <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                            {onLeadUpdate && (
+                                <>
+                                    <div className="relative">
+                                        <select
+                                            value={currentStatus}
+                                            onChange={(e) => setCurrentStatus(e.target.value as Lead['status'])}
+                                            className={`appearance-none w-40 text-center text-sm font-semibold py-2 px-3 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-400 ${currentStatus ? statusColors[currentStatus] : ''}`}
+                                        >
+                                            <option value="Nuovo">{t('lead_status.Nuovo')}</option>
+                                            <option value="Contattato">{t('lead_status.Contattato')}</option>
+                                            <option value="In Lavorazione">{t('lead_status.In Lavorazione')}</option>
+                                            <option value="Perso">{t('lead_status.Perso')}</option>
+                                            <option value="Vinto">{t('lead_status.Vinto')}</option>
+                                            <option value="Preventivo Inviato">{t('lead_status.Preventivo Inviato')}</option>
+                                        </select>
+                                        <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-white pointer-events-none" />
+                                    </div>
+                                    <button
+                                        onClick={handleStatusSave}
+                                        disabled={isSavingStatus || currentStatus === lead.status}
+                                        className="bg-primary-600 text-white px-4 py-2 rounded-lg shadow hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center text-sm"
+                                    >
+                                        {isSavingStatus ? <Loader2 size={16} className="animate-spin mr-2"/> : <Save size={16} className="mr-2"/>}
+                                        {t('save')}
+                                    </button>
+                                </>
+                            )}
+                        </div>
+                        <button onClick={onClose} className="bg-slate-500 dark:bg-slate-600 text-white px-4 py-2 rounded-lg shadow hover:bg-slate-600 dark:hover:bg-slate-500 transition-colors">
+                            {t('close')}
+                        </button>
+                    </div>
+                }
+            >
                 <div className="border-b border-slate-200 dark:border-slate-700">
                     <nav className="-mb-px flex space-x-4 overflow-x-auto" aria-label="Tabs">
                         {tabs.map(tab => (
@@ -1697,41 +1737,6 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
                 
                 <div className="py-6 min-h-[400px]">
                     {renderTabContent()}
-                </div>
-                
-                <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-700 flex justify-between items-center">
-                    <div className="flex items-center gap-2">
-                        {onLeadUpdate && (
-                            <>
-                                <div className="relative">
-                                    <select
-                                        value={currentStatus}
-                                        onChange={(e) => setCurrentStatus(e.target.value as Lead['status'])}
-                                        className={`appearance-none w-40 text-center text-sm font-semibold py-2 px-3 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-400 ${currentStatus ? statusColors[currentStatus] : ''}`}
-                                    >
-                                        <option value="Nuovo">{t('lead_status.Nuovo')}</option>
-                                        <option value="Contattato">{t('lead_status.Contattato')}</option>
-                                        <option value="In Lavorazione">{t('lead_status.In Lavorazione')}</option>
-                                        <option value="Perso">{t('lead_status.Perso')}</option>
-                                        <option value="Vinto">{t('lead_status.Vinto')}</option>
-                                        <option value="Preventivo Inviato">{t('lead_status.Preventivo Inviato')}</option>
-                                    </select>
-                                    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-white pointer-events-none" />
-                                </div>
-                                <button 
-                                    onClick={handleStatusSave}
-                                    disabled={isSavingStatus || currentStatus === lead.status}
-                                    className="bg-primary-600 text-white px-4 py-2 rounded-lg shadow hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center text-sm"
-                                >
-                                    {isSavingStatus ? <Loader2 size={16} className="animate-spin mr-2"/> : <Save size={16} className="mr-2"/>}
-                                    {t('save')}
-                                </button>
-                            </>
-                        )}
-                    </div>
-                    <button onClick={onClose} className="bg-slate-500 dark:bg-slate-600 text-white px-4 py-2 rounded-lg shadow hover:bg-slate-600 dark:hover:bg-slate-500 transition-colors">
-                        {t('close')}
-                    </button>
                 </div>
             </Modal>
             

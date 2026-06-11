@@ -152,7 +152,42 @@ const QuoteDetailModal: React.FC<QuoteDetailModalProps> = ({ isOpen, onClose, qu
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={`Dettagli Preventivo #${quote.quote_number_display || quote.id.substring(0,6)}`} size="large">
+        <Modal
+            isOpen={isOpen}
+            onClose={onClose}
+            title={`Dettagli Preventivo #${quote.quote_number_display || quote.id.substring(0,6)}`}
+            size="large"
+            footer={
+                <div className="flex flex-wrap justify-end gap-3">
+                    <button onClick={onClose} className="bg-slate-500 text-white px-4 py-2 rounded-lg shadow hover:bg-slate-600">Chiudi</button>
+                    <button
+                        onClick={handleDownloadPdf}
+                        disabled={isGeneratingPdf}
+                        className="flex items-center gap-2 bg-slate-200 dark:bg-slate-600 text-slate-800 dark:text-white px-4 py-2 rounded-lg shadow hover:bg-slate-300 dark:hover:bg-slate-500 disabled:opacity-50"
+                    >
+                        {isGeneratingPdf ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />} Scarica PDF
+                    </button>
+                    {recipientPhone && (
+                        <button
+                            onClick={handleSendWhatsApp}
+                            disabled={isSendingWhatsApp}
+                            className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg shadow hover:bg-green-700 disabled:opacity-50"
+                        >
+                            {isSendingWhatsApp ? <Loader2 size={16} className="animate-spin" /> : <MessageCircle size={16} />} Invia via WhatsApp
+                        </button>
+                    )}
+                    {recipientEmail && (
+                        <button
+                            onClick={handleSendEmail}
+                            disabled={isSendingEmail}
+                            className="flex items-center gap-2 bg-primary-600 text-white px-4 py-2 rounded-lg shadow hover:bg-primary-700 disabled:opacity-50"
+                        >
+                            {isSendingEmail ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />} Invia via Email
+                        </button>
+                    )}
+                </div>
+            }
+        >
             <div className="space-y-6 text-sm">
                 {/* Anteprima documento */}
                 <div>
@@ -198,35 +233,6 @@ const QuoteDetailModal: React.FC<QuoteDetailModalProps> = ({ isOpen, onClose, qu
                         {statusMessage.message}
                     </p>
                 )}
-
-                <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-700 flex flex-wrap justify-end gap-3">
-                    <button onClick={onClose} className="bg-slate-500 text-white px-4 py-2 rounded-lg shadow hover:bg-slate-600">Chiudi</button>
-                    <button
-                        onClick={handleDownloadPdf}
-                        disabled={isGeneratingPdf}
-                        className="flex items-center gap-2 bg-slate-200 dark:bg-slate-600 text-slate-800 dark:text-white px-4 py-2 rounded-lg shadow hover:bg-slate-300 dark:hover:bg-slate-500 disabled:opacity-50"
-                    >
-                        {isGeneratingPdf ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />} Scarica PDF
-                    </button>
-                    {recipientPhone && (
-                        <button
-                            onClick={handleSendWhatsApp}
-                            disabled={isSendingWhatsApp}
-                            className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg shadow hover:bg-green-700 disabled:opacity-50"
-                        >
-                            {isSendingWhatsApp ? <Loader2 size={16} className="animate-spin" /> : <MessageCircle size={16} />} Invia via WhatsApp
-                        </button>
-                    )}
-                    {recipientEmail && (
-                        <button
-                            onClick={handleSendEmail}
-                            disabled={isSendingEmail}
-                            className="flex items-center gap-2 bg-primary-600 text-white px-4 py-2 rounded-lg shadow hover:bg-primary-700 disabled:opacity-50"
-                        >
-                            {isSendingEmail ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />} Invia via Email
-                        </button>
-                    )}
-                </div>
             </div>
 
             {isFullPreviewOpen && (

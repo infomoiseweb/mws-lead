@@ -8,10 +8,11 @@ interface ModalProps {
     onClose: () => void;
     title: string;
     children: ReactNode;
+    footer?: ReactNode;
     size?: 'default' | 'large' | 'extra-large';
 }
 
-const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, size = 'default' }) => {
+const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer, size = 'default' }) => {
     if (!isOpen) return null;
 
     const sizeClasses = {
@@ -22,8 +23,8 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, size = 
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-2 sm:p-4" onClick={onClose}>
-            <div 
-                className={`bg-white dark:bg-slate-800 text-slate-800 dark:text-gray-300 rounded-lg shadow-xl w-full ${sizeClasses[size]} border border-slate-200 dark:border-slate-700 flex flex-col max-h-[90vh]`} 
+            <div
+                className={`bg-white dark:bg-slate-800 text-slate-800 dark:text-gray-300 rounded-lg shadow-xl w-full ${sizeClasses[size]} border border-slate-200 dark:border-slate-700 flex flex-col max-h-[90vh]`}
                 onClick={(e) => e.stopPropagation()}
             >
                 <div className="flex-shrink-0 flex justify-between items-center p-4 border-b border-slate-200 dark:border-slate-700">
@@ -35,6 +36,11 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, size = 
                 <div className="p-4 sm:p-6 overflow-y-auto">
                     {children}
                 </div>
+                {footer && (
+                    <div className="flex-shrink-0 p-4 border-t border-slate-200 dark:border-slate-700">
+                        {footer}
+                    </div>
+                )}
             </div>
         </div>
     );
