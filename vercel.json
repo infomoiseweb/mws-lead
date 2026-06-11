@@ -1,6 +1,10 @@
 {
     "rewrites": [
         {
+            "source": "/api/q/:code",
+            "destination": "/api/q?code=:code"
+        },
+        {
             "source": "/api/:path*",
             "destination": "/api/:path*"
         },
