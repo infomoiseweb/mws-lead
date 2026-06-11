@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Modal from '@components/ui/Modal';
 import type { Client, QuoteItem, QuoteWithDetails } from '../types';
 import { FileText, Calendar, User, Truck, Hash, Download, Send, Loader2, MessageCircle, Eye, Maximize2 } from 'lucide-react';
@@ -25,6 +25,28 @@ const QuoteDetailModal: React.FC<QuoteDetailModalProps> = ({ isOpen, onClose, qu
     const [isSendingWhatsApp, setIsSendingWhatsApp] = useState(false);
     const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
     const [isFullPreviewOpen, setIsFullPreviewOpen] = useState(false);
+
+    const previewContainerRef = useRef<HTMLDivElement>(null);
+    const previewContentRef = useRef<HTMLDivElement>(null);
+    const [previewScale, setPreviewScale] = useState(1);
+    const [previewHeight, setPreviewHeight] = useState(0);
+
+    useEffect(() => {
+        const updatePreviewSize = () => {
+            const containerWidth = previewContainerRef.current?.offsetWidth || 0;
+            const contentHeight = previewContentRef.current?.offsetHeight || 0;
+            if (containerWidth > 0 && contentHeight > 0) {
+                const scale = containerWidth / 794;
+                setPreviewScale(scale);
+                setPreviewHeight(contentHeight * scale);
+            }
+        };
+        updatePreviewSize();
+        const resizeObserver = new ResizeObserver(updatePreviewSize);
+        if (previewContainerRef.current) resizeObserver.observe(previewContainerRef.current);
+        if (previewContentRef.current) resizeObserver.observe(previewContentRef.current);
+        return () => resizeObserver.disconnect();
+    }, [isOpen, quote]);
 
     if (!isOpen || !quote) return null;
 
@@ -282,8 +304,8 @@ const QuoteDetailModal: React.FC<QuoteDetailModalProps> = ({ isOpen, onClose, qu
                             <Maximize2 size={14} /> Ingrandisci
                         </button>
                     </div>
-                    <div className="overflow-auto border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-100 dark:bg-slate-900/50" style={{ maxHeight: '600px' }}>
-                        <div style={{ zoom: 0.75 } as React.CSSProperties}>
+                    <div ref={previewContainerRef} className="overflow-hidden border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-100 dark:bg-slate-900/50" style={{ height: previewHeight || undefined }}>
+                        <div ref={previewContentRef} style={{ width: '794px', transform: `scale(${previewScale})`, transformOrigin: 'top left' }}>
                             <QuotePreviewDocument
                                 clientName={client?.name || ''}
                                 branding={client?.quote_settings?.branding}
