@@ -4,6 +4,7 @@ import { useAuth } from '@contexts/AuthContext';
 import type { Client, QuoteWithDetails, Lead, Quote, QuoteSettings } from '../types';
 import { FileText, Loader2, Search, Edit, Trash2, Eye, ChevronDown, RefreshCw, Send, Settings as SettingsIcon, List } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router-dom';
 import DateRangeFilter from '@components/ui/DateRangeFilter';
 import QuoteDetailModal from '@components/quote/QuoteDetailModal';
 import QuoteCreatorModal from '@components/quote/QuoteCreatorModal';
@@ -50,7 +51,19 @@ const QuotesPage: React.FC = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [quotesPerPage, setQuotesPerPage] = useState(25);
 
-    const [view, setView] = useState<'list' | 'settings'>('list');
+    const [searchParams, setSearchParams] = useSearchParams();
+    const view: 'list' | 'settings' = searchParams.get('view') === 'settings' ? 'settings' : 'list';
+    const setView = useCallback((next: 'list' | 'settings') => {
+        setSearchParams(prev => {
+            const params = new URLSearchParams(prev);
+            if (next === 'settings') {
+                params.set('view', 'settings');
+            } else {
+                params.delete('view');
+            }
+            return params;
+        });
+    }, [setSearchParams]);
 
     const isAdmin = user?.role === 'admin';
 
@@ -353,7 +366,7 @@ const QuotesPage: React.FC = () => {
                         <div className="flex items-center gap-2">
                             {ownClient && (
                                 <button
-                                    onClick={() => setView(prev => prev === 'list' ? 'settings' : 'list')}
+                                    onClick={() => setView(view === 'list' ? 'settings' : 'list')}
                                     className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                                         view === 'settings'
                                         ? 'bg-primary-600 text-white hover:bg-primary-700'

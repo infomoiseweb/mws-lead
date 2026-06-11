@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { Client, QuoteSettings, QuotePricePreset, QuoteBranding, QuoteTermsPreset } from '../../types';
 import { PlusCircle, Trash2, Edit2, Save, X, Upload, Image as ImageIcon } from 'lucide-react';
 import { uploadClientLogo } from '@api/storage';
@@ -59,6 +59,28 @@ const QuoteSettingsEditor: React.FC<Props> = ({ client, onSave }) => {
     const [isUploadingLogo, setIsUploadingLogo] = useState(false);
     const [logoError, setLogoError] = useState('');
     const logoInputRef = useRef<HTMLInputElement>(null);
+
+    const previewContainerRef = useRef<HTMLDivElement>(null);
+    const previewContentRef = useRef<HTMLDivElement>(null);
+    const [previewScale, setPreviewScale] = useState(1);
+    const [previewHeight, setPreviewHeight] = useState(0);
+
+    useEffect(() => {
+        const updatePreviewSize = () => {
+            const containerWidth = previewContainerRef.current?.offsetWidth || 0;
+            const contentHeight = previewContentRef.current?.offsetHeight || 0;
+            if (containerWidth > 0 && contentHeight > 0) {
+                const scale = containerWidth / 794;
+                setPreviewScale(scale);
+                setPreviewHeight(contentHeight * scale);
+            }
+        };
+        updatePreviewSize();
+        const resizeObserver = new ResizeObserver(updatePreviewSize);
+        if (previewContainerRef.current) resizeObserver.observe(previewContainerRef.current);
+        if (previewContentRef.current) resizeObserver.observe(previewContentRef.current);
+        return () => resizeObserver.disconnect();
+    }, [branding]);
 
     const [termsPresets, setTermsPresets] = useState<QuoteTermsPreset[]>(client.quote_settings?.terms_presets || []);
     const [editingTermsId, setEditingTermsId] = useState<string | null>(null);
@@ -309,8 +331,8 @@ const QuoteSettingsEditor: React.FC<Props> = ({ client, onSave }) => {
 
                     <div>
                         <label className="text-xs font-medium text-slate-500 dark:text-gray-400 mb-1 block">Anteprima</label>
-                        <div className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-900/50" style={{ height: '320px' }}>
-                            <div style={{ width: '794px', transform: 'scale(0.37)', transformOrigin: 'top left' }}>
+                        <div ref={previewContainerRef} className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-900/50" style={{ height: previewHeight || undefined }}>
+                            <div ref={previewContentRef} style={{ width: '794px', transform: `scale(${previewScale})`, transformOrigin: 'top left' }}>
                                 <QuotePreviewDocument clientName={client.name} branding={branding} data={SAMPLE_PREVIEW_DATA} />
                             </div>
                         </div>
