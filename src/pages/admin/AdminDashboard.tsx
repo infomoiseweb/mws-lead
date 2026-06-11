@@ -733,7 +733,7 @@ const StatusSelect: React.FC<{ status: Lead['status'], onChange: (newStatus: Lea
             <option value="In Lavorazione">In Lavorazione</option>
             <option value="Perso">Perso</option>
             <option value="Vinto">Vinto</option>
-            <option value="Preventivo Inviato">Preventivo Inviato</option>
+            <option value="Preventivo Inviato">Prev. Inviato</option>
         </select>
         <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-white dark:text-white pointer-events-none" />
     </div>

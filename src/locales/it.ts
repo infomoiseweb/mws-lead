@@ -78,7 +78,7 @@ export default {
         "In Lavorazione": "In Lavorazione",
         Perso: "Perso",
         Vinto: "Vinto",
-        "Preventivo Inviato": "Preventivo Inviato"
+        "Preventivo Inviato": "Prev. Inviato"
     },
 
     overview: {
