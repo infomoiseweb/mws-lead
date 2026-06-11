@@ -4,7 +4,7 @@ import type { Client, QuoteItem, QuoteWithDetails } from '../types';
 import { FileText, Calendar, User, Truck, Hash, Download, Send, Loader2, MessageCircle, Eye, Maximize2 } from 'lucide-react';
 import QuotePreviewDocument from './QuotePreviewDocument';
 import { generateQuotePdfBlob, downloadPdf } from '@lib/generateQuotePdf';
-import { uploadQuotePdf } from '@api/storage';
+import { uploadQuotePdf, getQuoteShareUrl } from '@api/storage';
 import { findLeadEmail, findLeadPhone, normalizePhoneForWhatsApp } from '@lib/leadFields';
 
 interface QuoteDetailModalProps {
@@ -54,16 +54,23 @@ const QuoteDetailModal: React.FC<QuoteDetailModalProps> = ({ isOpen, onClose, qu
         }
     };
 
+    const includePdfLink = client?.quote_settings?.share_message?.include_pdf_link !== false;
+
     const handleSendEmail = async () => {
         if (!previewRef.current || !recipientEmail || !client) return;
         setIsSendingEmail(true);
         setStatusMessage(null);
         try {
-            const blob = await generateQuotePdfBlob(previewRef.current);
-            const pdfUrl = await uploadQuotePdf(client.id, quote.id, blob);
             const quoteNumber = quote.quote_number_display || quote.id.substring(0, 6);
             const subject = `Preventivo n. ${quoteNumber} — ${client.name}`;
-            const body = `Ciao ${quote.recipient_name},\n\nin allegato trovi il preventivo n. ${quoteNumber}.\n\nPuoi scaricarlo da qui: ${pdfUrl}\n\n${client.name}`;
+            let body = `Ciao ${quote.recipient_name},\n\nin allegato trovi il preventivo n. ${quoteNumber}.`;
+            if (includePdfLink) {
+                const blob = await generateQuotePdfBlob(previewRef.current);
+                await uploadQuotePdf(client.id, quote.id, blob);
+                const pdfUrl = await getQuoteShareUrl(quote.id, client.id);
+                body += `\n\nPuoi scaricarlo da qui: ${pdfUrl}`;
+            }
+            body += `\n\n${client.name}`;
             const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(recipientEmail)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
             window.open(gmailUrl, '_blank');
         } catch (err: any) {
@@ -78,9 +85,14 @@ const QuoteDetailModal: React.FC<QuoteDetailModalProps> = ({ isOpen, onClose, qu
         setIsSendingWhatsApp(true);
         setStatusMessage(null);
         try {
-            const blob = await generateQuotePdfBlob(previewRef.current);
-            const pdfUrl = await uploadQuotePdf(client.id, quote.id, blob);
-            const message = `Ciao ${quote.recipient_name}, ecco il preventivo n. ${quote.quote_number_display || quote.id.substring(0, 6)}: ${pdfUrl}`;
+            const quoteNumber = quote.quote_number_display || quote.id.substring(0, 6);
+            let message = `Ciao ${quote.recipient_name}, ecco il preventivo n. ${quoteNumber}.`;
+            if (includePdfLink) {
+                const blob = await generateQuotePdfBlob(previewRef.current);
+                await uploadQuotePdf(client.id, quote.id, blob);
+                const pdfUrl = await getQuoteShareUrl(quote.id, client.id);
+                message += ` Puoi scaricarlo da qui: ${pdfUrl}`;
+            }
             const waUrl = `https://wa.me/${normalizePhoneForWhatsApp(recipientPhone)}?text=${encodeURIComponent(message)}`;
             window.open(waUrl, '_blank');
         } catch (err: any) {

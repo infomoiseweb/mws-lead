@@ -174,6 +174,11 @@ export interface QuoteTermsPreset {
     text: string;
 }
 
+export interface QuoteShareMessageSettings {
+    // Se false, il messaggio WhatsApp/Email non includerà il link per scaricare il PDF
+    include_pdf_link?: boolean;
+}
+
 export interface QuoteSettings {
     numbering?: QuoteNumberingSettings;
     price_presets?: QuotePricePreset[];
@@ -181,6 +186,7 @@ export interface QuoteSettings {
     terms_presets?: QuoteTermsPreset[];
     // Nomi dei campi lead (lead.data) da includere automaticamente nei nuovi preventivi
     default_extra_fields?: string[];
+    share_message?: QuoteShareMessageSettings;
 }
 
 export interface Client {

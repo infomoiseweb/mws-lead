@@ -31,3 +31,27 @@ export async function uploadQuotePdf(clientId: string, quoteId: string, pdf: Blo
     const { data } = supabase.storage.from('quote-pdfs').getPublicUrl(path);
     return `${data.publicUrl}?t=${Date.now()}`;
 }
+
+// Restituisce un link corto (es. https://tuodominio.it/api/q/Ab3dE9fG) che reindirizza
+// al PDF del preventivo, senza esporre l'URL del progetto Supabase.
+export async function getQuoteShareUrl(quoteId: string, clientId: string): Promise<string> {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error('Utente non autenticato.');
+
+    const res = await fetch('/api/quote-share-link', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ quoteId, clientId }),
+    });
+
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Errore sconosciuto' }));
+        throw new Error(err.error || `HTTP ${res.status}`);
+    }
+
+    const { code } = await res.json();
+    return `${window.location.origin}/api/q/${code}`;
+}

@@ -88,6 +88,8 @@ const QuoteSettingsEditor: React.FC<Props> = ({ client, onSave }) => {
 
     const [defaultExtraFields, setDefaultExtraFields] = useState<string[]>(client.quote_settings?.default_extra_fields || []);
 
+    const [includePdfLink, setIncludePdfLink] = useState<boolean>(client.quote_settings?.share_message?.include_pdf_link !== false);
+
     const [isSaving, setIsSaving] = useState(false);
     const [saved, setSaved] = useState(false);
     const [error, setError] = useState('');
@@ -194,7 +196,7 @@ const QuoteSettingsEditor: React.FC<Props> = ({ client, onSave }) => {
         setIsSaving(true);
         setError('');
         try {
-            await onSave({ numbering, price_presets: presets, branding, terms_presets: termsPresets, default_extra_fields: defaultExtraFields });
+            await onSave({ numbering, price_presets: presets, branding, terms_presets: termsPresets, default_extra_fields: defaultExtraFields, share_message: { include_pdf_link: includePdfLink } });
             setSaved(true);
             setTimeout(() => setSaved(false), 2000);
         } catch (err: any) {
@@ -597,6 +599,25 @@ const QuoteSettingsEditor: React.FC<Props> = ({ client, onSave }) => {
                         ))}
                     </div>
                 )}
+            </div>
+
+            {/* Messaggio di condivisione (WhatsApp/Email) */}
+            <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-700">
+                <div>
+                    <h3 className="text-sm font-semibold text-slate-700 dark:text-gray-200">Messaggio di condivisione (WhatsApp/Email)</h3>
+                    <p className="text-xs text-slate-500 dark:text-gray-400 mt-0.5">
+                        Quando invii un preventivo via WhatsApp o Email, scegli se includere nel messaggio la riga con il link per scaricare il PDF.
+                    </p>
+                </div>
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                        type="checkbox"
+                        checked={includePdfLink}
+                        onChange={e => setIncludePdfLink(e.target.checked)}
+                        className="w-4 h-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+                    />
+                    <span className="text-sm text-slate-700 dark:text-gray-200">Includi nel messaggio "Puoi scaricarlo da qui: [link al PDF]"</span>
+                </label>
             </div>
 
             {error && <p className="text-sm text-red-500 dark:text-red-400">{error}</p>}
