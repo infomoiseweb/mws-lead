@@ -989,6 +989,20 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
                     }
                 }
             }
+
+            // Se la lead torna a "Nuovo" o "Contattato" dopo essere stata "Preventivo Inviato"
+            // (es. per correggere un errore), riporta i preventivi "Inviato" a "Bozza".
+            if ((currentStatus === 'Nuovo' || currentStatus === 'Contattato') && lead.status === 'Preventivo Inviato') {
+                const sentQuotes = quotes.filter(q => q.status === 'sent');
+                if (sentQuotes.length > 0) {
+                    try {
+                        await Promise.all(sentQuotes.map(q => ApiService.updateQuoteStatus(q.id, 'draft')));
+                        fetchQuotesForLead(lead.id);
+                    } catch (err) {
+                        console.error("Errore ripristino stato preventivo a 'Bozza':", err);
+                    }
+                }
+            }
         } catch (error) {
             console.error("Failed to update status:", error);
             alert('Errore durante il salvataggio dello stato.');
