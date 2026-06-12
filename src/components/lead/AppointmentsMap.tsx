@@ -23,14 +23,47 @@ const AppointmentsMap: React.FC<AppointmentsMapProps> = ({ appointments, preview
             style: 'https://tiles.openfreemap.org/styles/liberty',
             center: ITALY_CENTER,
             zoom: 5,
-            pitch: 55,
-            bearing: -10,
+            pitch: 60,
+            maxPitch: 85,
+            bearing: -12,
             dragRotate: true,
             touchPitch: true,
+            antialias: true,
         });
 
         map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');
         mapRef.current = map;
+
+        map.on('load', () => {
+            // Cielo + edifici estrusi in 3D per una resa più realistica quando si è vicini al suolo
+            map.setSky({
+                'sky-color': '#1e90ff',
+                'sky-horizon-blend': 0.5,
+                'horizon-color': '#ffffff',
+                'horizon-fog-blend': 0.5,
+                'fog-color': '#bcd9ff',
+                'fog-ground-blend': 0.3,
+            } as any);
+
+            const layers = map.getStyle().layers || [];
+            const hasBuildingSource = layers.some(l => (l as any)['source-layer'] === 'building');
+            if (hasBuildingSource) {
+                const firstSymbolLayer = layers.find(l => l.type === 'symbol')?.id;
+                map.addLayer({
+                    id: 'buildings-3d',
+                    type: 'fill-extrusion',
+                    source: layers.find(l => (l as any)['source-layer'] === 'building')!.source as string,
+                    'source-layer': 'building',
+                    minzoom: 13,
+                    paint: {
+                        'fill-extrusion-color': '#cfd8e6',
+                        'fill-extrusion-height': ['coalesce', ['get', 'render_height'], 8],
+                        'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0],
+                        'fill-extrusion-opacity': 0.85,
+                    },
+                }, firstSymbolLayer);
+            }
+        });
 
         const resizeObserver = new ResizeObserver(() => map.resize());
         resizeObserver.observe(containerRef.current);
@@ -98,7 +131,7 @@ const AppointmentsMap: React.FC<AppointmentsMapProps> = ({ appointments, preview
             }
 
             if (hasPoints) {
-                map.fitBounds(bounds, { padding: 60, maxZoom: 12, duration: 500 });
+                map.fitBounds(bounds, { padding: 60, maxZoom: 15, duration: 500 });
             }
         };
 

@@ -1550,61 +1550,89 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
                         )}
                     </div>
                 );
-            case 'fissa_appuntamento':
+            case 'fissa_appuntamento': {
+                const sortedFutureAppointments = [...futureAppointments].sort((a, b) =>
+                    `${a.appointment_date}T${a.appointment_time}`.localeCompare(`${b.appointment_date}T${b.appointment_time}`)
+                );
                 return (
                     <div>
                         <h4 className="text-md font-semibold text-slate-800 dark:text-white mb-4">
                             {t('component_leadDetailModal.appointment_form.title')}
                         </h4>
-                        <form onSubmit={handleSaveAppointment} className="space-y-4">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div>
-                                    <label htmlFor="appointmentDate" className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-1">{t('component_leadDetailModal.appointment_form.date')}</label>
-                                    <input type="date" id="appointmentDate" value={appointmentDate} onChange={e => setAppointmentDate(e.target.value)} required className="w-full p-2 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-sm"/>
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                            <form onSubmit={handleSaveAppointment} className="space-y-3">
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label htmlFor="appointmentDate" className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-1">{t('component_leadDetailModal.appointment_form.date')}</label>
+                                        <input type="date" id="appointmentDate" value={appointmentDate} onChange={e => setAppointmentDate(e.target.value)} required className="w-full p-2 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-sm"/>
+                                    </div>
+                                    <div>
+                                        <label htmlFor="appointmentTime" className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-1">{t('component_leadDetailModal.appointment_form.time')}</label>
+                                        <input type="time" id="appointmentTime" value={appointmentTime} onChange={e => setAppointmentTime(e.target.value)} required className="w-full p-2 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-sm"/>
+                                    </div>
                                 </div>
                                 <div>
-                                    <label htmlFor="appointmentTime" className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-1">{t('component_leadDetailModal.appointment_form.time')}</label>
-                                    <input type="time" id="appointmentTime" value={appointmentTime} onChange={e => setAppointmentTime(e.target.value)} required className="w-full p-2 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-sm"/>
+                                    <label htmlFor="appointmentDuration" className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-1">{t('component_leadDetailModal.appointment_form.duration')}</label>
+                                    <input type="number" id="appointmentDuration" value={appointmentDuration} onChange={e => setAppointmentDuration(e.target.value)} min="0.5" step="0.5" className="w-full p-2 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-sm"/>
+                                </div>
+                                <div>
+                                    <label htmlFor="appointmentAddress" className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-1">Luogo / Indirizzo</label>
+                                    <input type="text" id="appointmentAddress" value={appointmentAddress} onChange={e => setAppointmentAddress(e.target.value)} onBlur={handleAddressBlur} placeholder="Es. Via Roma 1, Milano" className="w-full p-2 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-sm"/>
+                                    {isGeocoding && <p className="text-xs text-gray-400 mt-1 flex items-center"><Loader2 size={12} className="animate-spin mr-1"/> Ricerca posizione sulla mappa...</p>}
+                                    {!isGeocoding && geocodeError && <p className="text-xs text-amber-500 mt-1">{geocodeError}</p>}
+                                    {!isGeocoding && appointmentCoords && <p className="text-xs text-green-600 mt-1">Posizione trovata sulla mappa.</p>}
+                                </div>
+                                <div>
+                                    <label htmlFor="appointmentNotes" className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-1">{t('component_leadDetailModal.appointment_form.notes')}</label>
+                                    <textarea id="appointmentNotes" value={appointmentNotes} onChange={e => setAppointmentNotes(e.target.value)} rows={3} placeholder="Note sull'intervento o sul cliente..." className="w-full p-2 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-sm"/>
+                                </div>
+
+                                {appointmentError && <p className="text-sm text-red-500">{appointmentError}</p>}
+                                {appointmentSaveSuccess && <p className="text-sm text-green-600 flex items-center"><CheckCircle size={16} className="mr-2"/>{t('component_leadDetailModal.appointment_form.success_message')}</p>}
+
+                                <div className="text-right pt-2">
+                                    <button type="submit" disabled={isSavingAppointment} className="bg-primary-600 text-white px-4 py-2 text-sm rounded-lg shadow hover:bg-primary-700 transition-colors disabled:opacity-50 flex items-center">
+                                        {isSavingAppointment ? <><Loader2 size={16} className="animate-spin mr-2"/> {t('component_leadDetailModal.appointment_form.saving_button')}</> : t('component_leadDetailModal.appointment_form.save_button')}
+                                    </button>
+                                </div>
+                            </form>
+
+                            <div className="lg:col-span-1">
+                                <h4 className="text-sm font-semibold text-slate-800 dark:text-white mb-1">Mappa appuntamenti</h4>
+                                <p className="text-xs text-slate-500 dark:text-gray-400 mb-2">Bandierine blu = appuntamenti futuri già fissati; bandierina rossa = indirizzo appena inserito.</p>
+                                <div className="h-72 lg:h-[26rem] rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700">
+                                    <AppointmentsMap
+                                        appointments={futureAppointments}
+                                        previewLocation={appointmentCoords ? { ...appointmentCoords, label: appointmentAddress } : null}
+                                    />
                                 </div>
                             </div>
-                            <div>
-                                <label htmlFor="appointmentDuration" className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-1">{t('component_leadDetailModal.appointment_form.duration')}</label>
-                                <input type="number" id="appointmentDuration" value={appointmentDuration} onChange={e => setAppointmentDuration(e.target.value)} min="0.5" step="0.5" className="w-full p-2 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-sm"/>
-                            </div>
-                            <div>
-                                <label htmlFor="appointmentAddress" className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-1">Luogo / Indirizzo</label>
-                                <input type="text" id="appointmentAddress" value={appointmentAddress} onChange={e => setAppointmentAddress(e.target.value)} onBlur={handleAddressBlur} placeholder="Es. Via Roma 1, Milano" className="w-full p-2 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-sm"/>
-                                {isGeocoding && <p className="text-xs text-gray-400 mt-1 flex items-center"><Loader2 size={12} className="animate-spin mr-1"/> Ricerca posizione sulla mappa...</p>}
-                                {!isGeocoding && geocodeError && <p className="text-xs text-amber-500 mt-1">{geocodeError}</p>}
-                                {!isGeocoding && appointmentCoords && <p className="text-xs text-green-600 mt-1">Posizione trovata sulla mappa.</p>}
-                            </div>
-                            <div>
-                                <label htmlFor="appointmentNotes" className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-1">{t('component_leadDetailModal.appointment_form.notes')}</label>
-                                <textarea id="appointmentNotes" value={appointmentNotes} onChange={e => setAppointmentNotes(e.target.value)} rows={3} placeholder="Note sull'intervento o sul cliente..." className="w-full p-2 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-sm"/>
-                            </div>
 
-                            {appointmentError && <p className="text-sm text-red-500">{appointmentError}</p>}
-                            {appointmentSaveSuccess && <p className="text-sm text-green-600 flex items-center"><CheckCircle size={16} className="mr-2"/>{t('component_leadDetailModal.appointment_form.success_message')}</p>}
-
-                            <div className="text-right pt-2">
-                                <button type="submit" disabled={isSavingAppointment} className="bg-primary-600 text-white px-4 py-2 text-sm rounded-lg shadow hover:bg-primary-700 transition-colors disabled:opacity-50 flex items-center">
-                                    {isSavingAppointment ? <><Loader2 size={16} className="animate-spin mr-2"/> {t('component_leadDetailModal.appointment_form.saving_button')}</> : t('component_leadDetailModal.appointment_form.save_button')}
-                                </button>
-                            </div>
-                        </form>
-
-                        <div className="mt-6">
-                            <h4 className="text-md font-semibold text-slate-800 dark:text-white mb-2">Altri appuntamenti già fissati</h4>
-                            <p className="text-xs text-slate-500 dark:text-gray-400 mb-2">Le bandierine blu mostrano gli appuntamenti futuri già fissati per questo cliente; quella rossa mostra l'indirizzo appena inserito sopra.</p>
-                            <div className="h-80 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700">
-                                <AppointmentsMap
-                                    appointments={futureAppointments}
-                                    previewLocation={appointmentCoords ? { ...appointmentCoords, label: appointmentAddress } : null}
-                                />
+                            <div className="lg:col-span-1">
+                                <h4 className="text-sm font-semibold text-slate-800 dark:text-white mb-1">Appuntamenti in programma</h4>
+                                <p className="text-xs text-slate-500 dark:text-gray-400 mb-2">Tutti i prossimi appuntamenti del cliente, in ordine cronologico.</p>
+                                <div className="h-72 lg:h-[26rem] overflow-y-auto space-y-2 pr-1">
+                                    {sortedFutureAppointments.length > 0 ? sortedFutureAppointments.map(app => {
+                                        const leadName = (app.leads?.data as Record<string, string> | undefined)?.nome || (app.leads?.data as Record<string, string> | undefined)?.azienda || 'Cliente';
+                                        return (
+                                            <div key={app.id} className="bg-slate-100 dark:bg-slate-800 p-2.5 rounded-lg text-sm border border-slate-200 dark:border-slate-700/50">
+                                                <p className="font-semibold text-slate-800 dark:text-white">
+                                                    {new Date(app.appointment_date + 'T00:00:00').toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'short' })}
+                                                    {' · '}{app.appointment_time?.substring(0, 5)} ({app.duration_hours}h)
+                                                </p>
+                                                <p className="text-slate-600 dark:text-gray-300">{leadName}</p>
+                                                {app.location_address && <p className="text-xs text-slate-500 dark:text-gray-400">{app.location_address}</p>}
+                                            </div>
+                                        );
+                                    }) : (
+                                        <p className="text-sm text-slate-500 dark:text-gray-400">Nessun appuntamento futuro geolocalizzato per questo cliente.</p>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </div>
                 );
+            }
             case 'appuntamenti':
                 return (
                     <div>
@@ -1800,6 +1828,7 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
                 isOpen={isOpen}
                 onClose={onClose}
                 title={`${t('component_leadDetailModal.title', { name: lead.data.nome || 'N/D' })}`}
+                size={activeTab === 'fissa_appuntamento' ? 'extra-large' : 'default'}
                 footer={
                     <div className="flex justify-between items-center">
                         <div className="flex items-center gap-2">
