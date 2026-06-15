@@ -6,6 +6,7 @@ import type { CalendarAppointment } from '../../types';
 interface AppointmentsMapProps {
     appointments: CalendarAppointment[];
     previewLocation?: { lat: number; lng: number; label: string } | null;
+    focusLocation?: { lat: number; lng: number } | null;
 }
 
 const ITALY_CENTER: [number, number] = [12.5, 42.5];
@@ -51,7 +52,7 @@ function getMapStyle(style: MapStyleKey): string | maplibregl.StyleSpecification
     }
 }
 
-const AppointmentsMap: React.FC<AppointmentsMapProps> = ({ appointments, previewLocation }) => {
+const AppointmentsMap: React.FC<AppointmentsMapProps> = ({ appointments, previewLocation, focusLocation }) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const mapRef = useRef<maplibregl.Map | null>(null);
     const markersRef = useRef<maplibregl.Marker[]>([]);
@@ -221,6 +222,20 @@ const AppointmentsMap: React.FC<AppointmentsMapProps> = ({ appointments, preview
             map.once('load', updateMarkers);
         }
     }, [appointments, previewLocation]);
+
+    // Centra la mappa sull'appuntamento selezionato dalla lista "Appuntamenti in programma"
+    useEffect(() => {
+        const map = mapRef.current;
+        if (!map || !focusLocation) return;
+
+        const doFly = () => map.flyTo({ center: [focusLocation.lng, focusLocation.lat], zoom: 15, duration: 800 });
+
+        if (map.isStyleLoaded()) {
+            doFly();
+        } else {
+            map.once('load', doFly);
+        }
+    }, [focusLocation]);
 
     return (
         <div className="relative w-full h-full">

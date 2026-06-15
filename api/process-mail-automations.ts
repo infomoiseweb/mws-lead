@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { Resend } from 'resend';
 import { createClient } from '@supabase/supabase-js';
-import { renderMailTemplate, buildUnsubscribeUrl, findLeadEmail, findLeadName } from './_lib/mailRender';
+import { renderMailTemplate, buildUnsubscribeUrl, findLeadEmail, findLeadName } from './_lib/mailRender.js';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 

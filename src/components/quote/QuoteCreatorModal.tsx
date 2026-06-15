@@ -58,7 +58,8 @@ const QuoteCreatorModal: React.FC<QuoteCreatorModalProps> = ({ isOpen, onClose, 
     const [manualQuoteNumber, setManualQuoteNumber] = useState('');
     const [termsAndConditions, setTermsAndConditions] = useState('');
     const [selectedExtraFieldKeys, setSelectedExtraFieldKeys] = useState<string[]>([]);
-    const [leftTab, setLeftTab] = useState<'lead' | 'preview'>('lead');
+    const [leftTab, setLeftTab] = useState<'lead' | 'preview'>('preview');
+    const [isExtraFieldsOpen, setIsExtraFieldsOpen] = useState(false);
 
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
@@ -162,7 +163,7 @@ const QuoteCreatorModal: React.FC<QuoteCreatorModalProps> = ({ isOpen, onClose, 
                 const defaultExtraFields = client.quote_settings?.default_extra_fields || [];
                 setSelectedExtraFieldKeys(defaultExtraFields.filter(key => key in (lead.data || {}) && lead.data[key] !== '' && lead.data[key] != null));
             }
-            setLeftTab('lead');
+            setLeftTab('preview');
         }
     }, [isOpen, quoteToEdit, isEditing, lead, client]);
 
@@ -528,7 +529,22 @@ const QuoteCreatorModal: React.FC<QuoteCreatorModalProps> = ({ isOpen, onClose, 
                     </div>
                     {leadDataEntries.filter(([key]) => !['nome', 'telefono', 'mail', 'email'].includes(key)).length > 0 && (
                         <div className="md:col-span-3">
-                            <label className="block text-sm font-medium text-slate-700 dark:text-gray-300">Altri dati da includere nel preventivo</label>
+                            <button
+                                type="button"
+                                onClick={() => setIsExtraFieldsOpen(prev => !prev)}
+                                className="flex items-center justify-between w-full text-sm font-medium text-slate-700 dark:text-gray-300"
+                            >
+                                <span>
+                                    Altri dati da includere nel preventivo
+                                    {selectedExtraFieldKeys.length > 0 && (
+                                        <span className="ml-2 text-xs font-semibold text-primary-600 dark:text-primary-400">
+                                            ({selectedExtraFieldKeys.length} selezionati)
+                                        </span>
+                                    )}
+                                </span>
+                                <ChevronDown size={16} className={`transition-transform ${isExtraFieldsOpen ? 'rotate-180' : ''}`} />
+                            </button>
+                            {isExtraFieldsOpen && (
                             <div className="mt-1 flex flex-wrap gap-2">
                                 {leadDataEntries
                                     .filter(([key]) => !['nome', 'telefono', 'mail', 'email'].includes(key))
@@ -548,6 +564,7 @@ const QuoteCreatorModal: React.FC<QuoteCreatorModalProps> = ({ isOpen, onClose, 
                                     </label>
                                 ))}
                             </div>
+                            )}
                         </div>
                     )}
                 </div>

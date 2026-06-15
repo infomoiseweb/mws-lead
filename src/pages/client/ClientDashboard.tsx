@@ -5,7 +5,7 @@ import type { Client, Lead, LeadField } from '../types';
 import { isBaseService } from '@/utils/services';
 import {
   Trash2, ChevronDown, RefreshCw, Plus, Search, Settings, Activity,
-  Megaphone, DollarSign, Pin
+  Megaphone, DollarSign, Pin, SlidersHorizontal
 } from 'lucide-react';
 import DateRangeFilter from '@components/ui/DateRangeFilter';
 import Modal from '@components/ui/Modal';
@@ -208,6 +208,16 @@ const ClientDashboard: React.FC = () => {
     });
     const [dateRange, setDateRange] = useState<{ start: Date | null, end: Date | null }>({ start: null, end: null });
     const [statusFilter, setStatusFilter] = useState<Lead['status'] | 'all'>('all');
+    const [filtersVisible, setFiltersVisible] = useState<boolean>(() => {
+        if (!userId) return true;
+        const saved = localStorage.getItem(`clientDashboard_filtersVisible_${userId}`);
+        return saved === null ? true : saved === 'true';
+    });
+    const [columnFiltersVisible, setColumnFiltersVisible] = useState<boolean>(() => {
+        if (!userId) return false;
+        const saved = localStorage.getItem(`clientDashboard_columnFiltersVisible_${userId}`);
+        return saved === null ? false : saved === 'true';
+    });
     
     const [selectedService, setSelectedService] = useState<string>(() => {
         if (!userId) return 'all';
@@ -260,6 +270,20 @@ const ClientDashboard: React.FC = () => {
             localStorage.setItem(`clientDashboard_search_${userId}`, searchQuery);
         }
     }, [searchQuery, userId]);
+
+    // Salva la visibilità dei filtri nel localStorage
+    useEffect(() => {
+        if (userId) {
+            localStorage.setItem(`clientDashboard_filtersVisible_${userId}`, String(filtersVisible));
+        }
+    }, [filtersVisible, userId]);
+
+    // Salva la visibilità dei filtri per colonna nel localStorage
+    useEffect(() => {
+        if (userId) {
+            localStorage.setItem(`clientDashboard_columnFiltersVisible_${userId}`, String(columnFiltersVisible));
+        }
+    }, [columnFiltersVisible, userId]);
 
     // Salva i filtri per colonna nel localStorage
     useEffect(() => {
@@ -924,6 +948,19 @@ const ClientDashboard: React.FC = () => {
                         </div>
                         <div className="flex items-center gap-2 self-end md:self-center">
                              <button
+                                onClick={() => setFiltersVisible(prev => !prev)}
+                                className={`flex items-center gap-2 border rounded-md py-2 px-3 text-sm transition-colors whitespace-nowrap ${
+                                    filtersVisible
+                                        ? 'bg-primary-600 text-white border-primary-600 hover:bg-primary-700'
+                                        : 'bg-slate-100 dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-700 dark:text-gray-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+                                }`}
+                                title={filtersVisible ? 'Nascondi filtri' : 'Mostra filtri'}
+                            >
+                                <SlidersHorizontal size={16} />
+                                <span>Filtri</span>
+                                <ChevronDown size={14} className={`transition-transform ${filtersVisible ? 'rotate-180' : ''}`} />
+                            </button>
+                             <button
                                 onClick={handleRefresh}
                                 disabled={isRefreshing}
                                 className="p-2 text-gray-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white disabled:opacity-50 disabled:cursor-wait transition-colors rounded-full hover:bg-slate-200 dark:hover:bg-slate-700"
@@ -937,6 +974,7 @@ const ClientDashboard: React.FC = () => {
                             </button>
                         </div>
                     </div>
+                    {filtersVisible && (
                     <div className="space-y-3">
                         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                             <div className="relative flex-1 min-w-0">
@@ -960,6 +998,18 @@ const ClientDashboard: React.FC = () => {
                                     <option value="all">Tutti i Servizi</option>
                                     {client.services.filter(s => s.name !== '__default_fields__').map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
                                 </select>
+                                <button
+                                    onClick={() => setColumnFiltersVisible(prev => !prev)}
+                                    className={`flex items-center gap-2 border rounded-md py-2 px-3 text-sm transition-colors whitespace-nowrap shrink-0 ${
+                                        columnFiltersVisible
+                                            ? 'bg-primary-600 text-white border-primary-600 hover:bg-primary-700'
+                                            : 'bg-slate-100 dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-700 dark:text-gray-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+                                    }`}
+                                    title={columnFiltersVisible ? 'Nascondi filtri colonne' : 'Mostra filtri colonne'}
+                                >
+                                    <SlidersHorizontal size={16} />
+                                    <span>Filtri colonne</span>
+                                </button>
                                 <div className="relative shrink-0">
                                     <button
                                         onClick={() => setIsColumnManagerOpen(prev => !prev)}
@@ -984,7 +1034,9 @@ const ClientDashboard: React.FC = () => {
                             <DateRangeFilter onDateChange={setDateRange} />
                         </div>
                     </div>
+                    )}
                 </div>
+                {filtersVisible && (
                 <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex flex-wrap items-center gap-2">
                     <span className="text-sm font-medium text-slate-600 dark:text-gray-400 mr-2">Filtra per stato:</span>
                     <button
@@ -1011,6 +1063,7 @@ const ClientDashboard: React.FC = () => {
                         </button>
                     ))}
                 </div>
+                )}
                 <div className="overflow-x-auto overscroll-behavior-x-contain">
                     <table className="min-w-full hidden md:table relative border-separate" style={{borderSpacing: 0}}>
                          <thead className="bg-slate-50 dark:bg-slate-800">
@@ -1040,6 +1093,7 @@ const ClientDashboard: React.FC = () => {
                                     </div>
                                 </th>
                             </tr>
+                            {columnFiltersVisible && (
                             <tr>
                                 {orderedColumns.map(col => {
                                     const isSticky = stickyColumns.has(col.name);
@@ -1076,6 +1130,7 @@ const ClientDashboard: React.FC = () => {
                                     )}
                                 </th>
                             </tr>
+                            )}
                         </thead>
                          <tbody className="bg-white dark:bg-slate-900">
                             {paginatedLeads.map((lead) => {

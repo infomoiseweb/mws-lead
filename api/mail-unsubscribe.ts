@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
-import { verifyUnsubscribeToken } from './_lib/mailRender';
+import { verifyUnsubscribeToken } from './_lib/mailRender.js';
 
 const supabaseAdmin = createClient(
     process.env.VITE_SUPABASE_URL!,

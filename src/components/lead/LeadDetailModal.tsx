@@ -429,6 +429,7 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
     const [isGeocoding, setIsGeocoding] = useState(false);
     const [geocodeError, setGeocodeError] = useState('');
     const [futureAppointments, setFutureAppointments] = useState<CalendarAppointment[]>([]);
+    const [focusedAppointmentId, setFocusedAppointmentId] = useState<string | null>(null);
 
     const [deleteModalState, setDeleteModalState] = useState<{ isOpen: boolean, quoteId: string | null }>({ isOpen: false, quoteId: null });
     const [deleteConfirmationText, setDeleteConfirmationText] = useState('');
@@ -1578,6 +1579,7 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
                 const sortedFutureAppointments = [...futureAppointments].sort((a, b) =>
                     `${a.appointment_date}T${a.appointment_time}`.localeCompare(`${b.appointment_date}T${b.appointment_time}`)
                 );
+                const focusedAppointment = sortedFutureAppointments.find(a => a.id === focusedAppointmentId) || null;
                 return (
                     <div>
                         <h4 className="text-md font-semibold text-slate-800 dark:text-white mb-4">
@@ -1628,6 +1630,9 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
                                     <AppointmentsMap
                                         appointments={futureAppointments}
                                         previewLocation={appointmentCoords ? { ...appointmentCoords, label: appointmentAddress } : null}
+                                        focusLocation={focusedAppointment && focusedAppointment.location_lat != null && focusedAppointment.location_lng != null
+                                            ? { lat: focusedAppointment.location_lat, lng: focusedAppointment.location_lng }
+                                            : null}
                                     />
                                 </div>
                             </div>
@@ -1638,8 +1643,18 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
                                 <div className="h-72 lg:h-[26rem] overflow-y-auto space-y-2 pr-1">
                                     {sortedFutureAppointments.length > 0 ? sortedFutureAppointments.map(app => {
                                         const leadName = (app.leads?.data as Record<string, string> | undefined)?.nome || (app.leads?.data as Record<string, string> | undefined)?.azienda || 'Cliente';
+                                        const isGeolocated = app.location_lat != null && app.location_lng != null;
+                                        const isFocused = focusedAppointmentId === app.id;
                                         return (
-                                            <div key={app.id} className="bg-slate-100 dark:bg-slate-800 p-2.5 rounded-lg text-sm border border-slate-200 dark:border-slate-700/50">
+                                            <div
+                                                key={app.id}
+                                                onClick={() => isGeolocated && setFocusedAppointmentId(prev => prev === app.id ? null : app.id)}
+                                                className={`p-2.5 rounded-lg text-sm border transition-colors ${
+                                                    isFocused
+                                                        ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
+                                                        : 'border-slate-200 dark:border-slate-700/50 bg-slate-100 dark:bg-slate-800'
+                                                } ${isGeolocated ? 'cursor-pointer hover:border-primary-400' : ''}`}
+                                            >
                                                 <p className="font-semibold text-slate-800 dark:text-white">
                                                     {new Date(app.appointment_date + 'T00:00:00').toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'short' })}
                                                     {' · '}{app.appointment_time?.substring(0, 5)} ({app.duration_hours}h)
@@ -1852,7 +1867,7 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
                 isOpen={isOpen}
                 onClose={onClose}
                 title={`${t('component_leadDetailModal.title', { name: lead.data.nome || 'N/D' })}`}
-                size={activeTab === 'fissa_appuntamento' ? 'extra-large' : 'default'}
+                size="extra-large"
                 footer={
                     <div className="flex justify-between items-center">
                         <div className="flex items-center gap-2">
