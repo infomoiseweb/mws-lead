@@ -6,6 +6,7 @@ import * as ApiService from '@api';
 import type { Client } from '../../types';
 import StatCard from '@components/dashboard/StatCard';
 import { StatusDonutChart, MonthlyTrendChart } from '@components/dashboard/OverviewCharts';
+import DateRangeFilter from '@components/ui/DateRangeFilter';
 
 const formatCurrency = (value: number) =>
     new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(value);
@@ -15,6 +16,7 @@ const ClientOverview: React.FC = () => {
     const { userId } = useParams();
     const [client, setClient] = useState<Client | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [dateRange, setDateRange] = useState<{ start: Date | null; end: Date | null }>({ start: null, end: null });
 
     useEffect(() => {
         if (!userId) return;
@@ -26,14 +28,21 @@ const ClientOverview: React.FC = () => {
     }, [userId]);
 
     const stats = useMemo(() => {
-        const leads = client?.leads || [];
+        const inRange = (dateStr: string) => {
+            const d = new Date(dateStr);
+            if (dateRange.start && d < dateRange.start) return false;
+            if (dateRange.end && d > dateRange.end) return false;
+            return true;
+        };
+
+        const leads = (client?.leads || []).filter(l => inRange(l.created_at));
         const totalLeads = leads.length;
         const wonLeads = leads.filter(l => l.status === 'Vinto');
         const openLeads = leads.filter(l => l.status !== 'Vinto' && l.status !== 'Perso');
         const conversionRate = totalLeads > 0 ? (wonLeads.length / totalLeads) * 100 : 0;
 
         const revenue = wonLeads.reduce((sum, l) => sum + (l.value || 0), 0);
-        const adSpend = (client?.adSpends || []).reduce((sum, a) => sum + (a.amount || 0), 0);
+        const adSpend = (client?.adSpends || []).filter(a => inRange(a.date)).reduce((sum, a) => sum + (a.amount || 0), 0);
         const roi = adSpend > 0 ? ((revenue - adSpend) / adSpend) * 100 : 0;
 
         const leadsByStatus: Record<string, number> = {};
@@ -46,7 +55,7 @@ const ClientOverview: React.FC = () => {
         });
 
         return { leads, totalLeads, wonLeads, openLeads, conversionRate, revenue, adSpend, roi, leadsByStatus, thisMonthLeads };
-    }, [client]);
+    }, [client, dateRange]);
 
     if (isLoading) {
         return (
@@ -58,9 +67,12 @@ const ClientOverview: React.FC = () => {
 
     return (
         <div className="space-y-6">
-            <div>
-                <h1 className="text-2xl font-bold text-slate-800 dark:text-white">{t('overview.title')}</h1>
-                <p className="text-sm text-slate-500 dark:text-slate-400">{t('overview.client_subtitle')}</p>
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+                <div>
+                    <h1 className="text-2xl font-bold text-slate-800 dark:text-white">{t('overview.title')}</h1>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">{t('overview.client_subtitle')}</p>
+                </div>
+                <DateRangeFilter onDateChange={(range) => setDateRange(range as { start: Date | null; end: Date | null })} />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

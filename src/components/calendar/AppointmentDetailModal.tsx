@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Modal from '@components/ui/Modal';
 import type { CalendarAppointment, Quote, Client, Lead } from '../types';
 import { useTranslation } from 'react-i18next';
-import { Calendar, Clock, User, Briefcase, Info, Phone, Mail, Copy, Check, Hash, FileText, Loader2, Edit, Trash2, Save, X, ChevronDown } from 'lucide-react';
+import { Calendar, Clock, User, Briefcase, Info, Phone, Copy, Check, Hash, FileText, Loader2, Edit, Trash2, Save, X, ChevronDown } from 'lucide-react';
 import * as ApiService from '@api';
 import QuoteCreatorModal from '@components/quote/QuoteCreatorModal';
 
@@ -37,6 +37,16 @@ const copyTextToClipboard = async (text: string): Promise<boolean> => {
 const WhatsAppIcon: React.FC<{ className?: string }> = ({ className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="currentColor" className={className}>
         <path d="M12.04 2.01c-5.52 0-9.99 4.47-9.99 9.99 0 1.77.46 3.45 1.28 4.92L2.01 22l5.24-1.37c1.41.81 3.02 1.29 4.79 1.29h.01c5.52 0 9.99-4.47 9.99-9.99s-4.47-9.99-9.99-9.99zM12.04 20.12c-1.55 0-3.04-.42-4.32-1.15l-.31-.18-3.21.84.86-3.13-.2-.32c-.82-1.33-1.26-2.86-1.26-4.44 0-4.49 3.64-8.13 8.13-8.13 2.21 0 4.29.86 5.82 2.39s2.39 3.61 2.39 5.82c0 4.49-3.64 8.13-8.13 8.13zm4.49-5.83c-.24-.12-1.43-.71-1.65-.79-.22-.08-.38-.12-.54.12s-.63.79-.77.95c-.14.16-.28.18-.52.06s-1.02-.38-1.94-1.2c-.72-.63-1.2-1.41-1.34-1.65-.14-.24-.01-.37.11-.48.11-.11.24-.28.36-.42.12-.14.16-.24.24-.4s.12-.3-.06-.54c-.18-.24-.54-1.3-.74-1.78-.2-.48-.4-.42-.54-.42h-.47c-.16 0-.42.06-.64.3s-.83.81-.83 1.97c0 1.16.85 2.28 1 2.44.14.16 1.67 2.55 4.05 3.56.57.24 1.02.38 1.37.49.68.21 1.3.18 1.78.11.52-.08 1.43-.58 1.63-1.14.2-.55.2-1.02.14-1.14-.06-.12-.22-.18-.46-.3z"/>
+    </svg>
+);
+
+const GmailIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" className={className}>
+        <path fill="#4caf50" d="M45,16.2l-5,2.75l-5,4.75L35,40h7c1.657,0,3-1.343,3-3V16.2z"/>
+        <path fill="#1e88e5" d="M3,16.2l3.614,2.215L13,23.7V40H6c-1.657,0-3-1.343-3-3V16.2z"/>
+        <polygon fill="#e53935" points="35,11.2 24,19.45 13,11.2 12,17 13,23.7 24,31.95 35,23.7 36,17"/>
+        <path fill="#c62828" d="M3,12.298V16.2l10,7.5V11.2L9.876,8.859C9.132,8.301,8.228,8,7.298,8h0C4.924,8,3,9.924,3,12.298z"/>
+        <path fill="#fbc02d" d="M45,12.298V16.2l-10,7.5V11.2l3.124-2.341C38.868,8.301,39.772,8,40.702,8h0C43.076,8,45,9.924,45,12.298z"/>
     </svg>
 );
 
@@ -477,7 +487,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({ isOpen,
                                         <div className="w-full sm:w-2/3 font-semibold flex items-center gap-2">
                                         <span className="truncate">{leadEmail}</span>
                                             <button onClick={() => handleCopy(leadEmail, 'email')} title="Copia" className="p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700">{copied === 'email' ? <Check size={14} className="text-green-500"/> : <Copy size={14}/>}</button>
-                                            <a href={`mailto:${leadEmail}`} title="Invia Email" className="p-1 rounded-full text-blue-500 hover:bg-blue-500/10"><Mail size={14}/></a>
+                                            <a href={`mailto:${leadEmail}`} title="Invia Email" className="p-1 rounded-full hover:bg-blue-500/10"><GmailIcon className="w-3.5 h-3.5"/></a>
                                         </div>
                                     </div>
                                 )}

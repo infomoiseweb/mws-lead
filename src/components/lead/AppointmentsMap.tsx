@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import type { CalendarAppointment } from '../../types';
@@ -10,22 +10,100 @@ interface AppointmentsMapProps {
 
 const ITALY_CENTER: [number, number] = [12.5, 42.5];
 
+type MapStyleKey = 'liberty' | 'bright' | 'positron' | 'dark';
+
+const MAP_STYLES: { key: MapStyleKey; label: string }[] = [
+    { key: 'liberty', label: 'Liberty' },
+    { key: 'bright', label: 'Bright' },
+    { key: 'positron', label: 'Chiaro' },
+    { key: 'dark', label: 'Scuro' },
+];
+
+// Stili gratuiti, nessuna API key: OpenFreeMap (vettoriale) per liberty/bright/positron,
+// raster CartoDB Dark Matter per la modalità scura.
+function getMapStyle(style: MapStyleKey): string | maplibregl.StyleSpecification {
+    switch (style) {
+        case 'bright':
+            return 'https://tiles.openfreemap.org/styles/bright';
+        case 'positron':
+            return 'https://tiles.openfreemap.org/styles/positron';
+        case 'dark':
+            return {
+                version: 8,
+                sources: {
+                    'carto-dark': {
+                        type: 'raster',
+                        tiles: [
+                            'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+                            'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+                            'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+                        ],
+                        tileSize: 256,
+                        attribution: '© OpenStreetMap contributors, © CartoDB',
+                        maxzoom: 19,
+                    },
+                },
+                layers: [{ id: 'carto-dark-layer', type: 'raster', source: 'carto-dark' }],
+            };
+        case 'liberty':
+        default:
+            return 'https://tiles.openfreemap.org/styles/liberty';
+    }
+}
+
 const AppointmentsMap: React.FC<AppointmentsMapProps> = ({ appointments, previewLocation }) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const mapRef = useRef<maplibregl.Map | null>(null);
     const markersRef = useRef<maplibregl.Marker[]>([]);
+    const isFirstStyleRender = useRef(true);
+
+    const [mapStyle, setMapStyle] = useState<MapStyleKey>('liberty');
+    const [tilt, setTilt] = useState(60);
+    const [rotation, setRotation] = useState(-12);
+    const [autoRotate, setAutoRotate] = useState(false);
+
+    // Aggiunge cielo + edifici estrusi in 3D (se lo stile espone la source-layer "building")
+    const applySceneExtras = (map: maplibregl.Map) => {
+        map.setSky({
+            'sky-color': '#1e90ff',
+            'sky-horizon-blend': 0.5,
+            'horizon-color': '#ffffff',
+            'horizon-fog-blend': 0.5,
+            'fog-color': '#bcd9ff',
+            'fog-ground-blend': 0.3,
+        } as any);
+
+        const layers = map.getStyle().layers || [];
+        const buildingLayer = layers.find(l => (l as any)['source-layer'] === 'building');
+        if (buildingLayer && !map.getLayer('buildings-3d')) {
+            const firstSymbolLayer = layers.find(l => l.type === 'symbol')?.id;
+            map.addLayer({
+                id: 'buildings-3d',
+                type: 'fill-extrusion',
+                source: buildingLayer.source as string,
+                'source-layer': 'building',
+                minzoom: 13,
+                paint: {
+                    'fill-extrusion-color': '#cfd8e6',
+                    'fill-extrusion-height': ['coalesce', ['get', 'render_height'], 8],
+                    'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0],
+                    'fill-extrusion-opacity': 0.85,
+                },
+            }, firstSymbolLayer);
+        }
+    };
 
     useEffect(() => {
         if (!containerRef.current || mapRef.current) return;
 
         const map = new maplibregl.Map({
             container: containerRef.current,
-            style: 'https://tiles.openfreemap.org/styles/liberty',
+            style: getMapStyle(mapStyle),
             center: ITALY_CENTER,
             zoom: 5,
-            pitch: 60,
+            pitch: tilt,
             maxPitch: 85,
-            bearing: -12,
+            bearing: rotation,
             dragRotate: true,
             touchPitch: true,
             antialias: true,
@@ -34,36 +112,7 @@ const AppointmentsMap: React.FC<AppointmentsMapProps> = ({ appointments, preview
         map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');
         mapRef.current = map;
 
-        map.on('load', () => {
-            // Cielo + edifici estrusi in 3D per una resa più realistica quando si è vicini al suolo
-            map.setSky({
-                'sky-color': '#1e90ff',
-                'sky-horizon-blend': 0.5,
-                'horizon-color': '#ffffff',
-                'horizon-fog-blend': 0.5,
-                'fog-color': '#bcd9ff',
-                'fog-ground-blend': 0.3,
-            } as any);
-
-            const layers = map.getStyle().layers || [];
-            const hasBuildingSource = layers.some(l => (l as any)['source-layer'] === 'building');
-            if (hasBuildingSource) {
-                const firstSymbolLayer = layers.find(l => l.type === 'symbol')?.id;
-                map.addLayer({
-                    id: 'buildings-3d',
-                    type: 'fill-extrusion',
-                    source: layers.find(l => (l as any)['source-layer'] === 'building')!.source as string,
-                    'source-layer': 'building',
-                    minzoom: 13,
-                    paint: {
-                        'fill-extrusion-color': '#cfd8e6',
-                        'fill-extrusion-height': ['coalesce', ['get', 'render_height'], 8],
-                        'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0],
-                        'fill-extrusion-opacity': 0.85,
-                    },
-                }, firstSymbolLayer);
-            }
-        });
+        map.on('load', () => applySceneExtras(map));
 
         const resizeObserver = new ResizeObserver(() => map.resize());
         resizeObserver.observe(containerRef.current);
@@ -74,6 +123,37 @@ const AppointmentsMap: React.FC<AppointmentsMapProps> = ({ appointments, preview
             mapRef.current = null;
         };
     }, []);
+
+    // Cambio stile mappa (ricarica gli edifici 3D/cielo dopo il restyle)
+    useEffect(() => {
+        const map = mapRef.current;
+        if (!map) return;
+        if (isFirstStyleRender.current) {
+            isFirstStyleRender.current = false;
+            return;
+        }
+        map.setStyle(getMapStyle(mapStyle));
+        map.once('style.load', () => applySceneExtras(map));
+    }, [mapStyle]);
+
+    // Applica inclinazione (pitch) e rotazione (bearing) reali della camera 3D
+    useEffect(() => {
+        const map = mapRef.current;
+        if (!map) return;
+        map.easeTo({ pitch: tilt, bearing: rotation, duration: autoRotate ? 0 : 300 });
+    }, [tilt, rotation, autoRotate]);
+
+    // Rotazione orbitale automatica
+    useEffect(() => {
+        if (!autoRotate) return;
+        const interval = setInterval(() => {
+            setRotation(prev => {
+                const next = prev + 0.6;
+                return next > 45 ? -45 : next;
+            });
+        }, 100);
+        return () => clearInterval(interval);
+    }, [autoRotate]);
 
     useEffect(() => {
         const map = mapRef.current;
@@ -142,7 +222,74 @@ const AppointmentsMap: React.FC<AppointmentsMapProps> = ({ appointments, preview
         }
     }, [appointments, previewLocation]);
 
-    return <div ref={containerRef} className="w-full h-full" />;
+    return (
+        <div className="relative w-full h-full">
+            <div ref={containerRef} className="w-full h-full" />
+
+            {/* HUD: selettore stile mappa + controlli inclinazione/rotazione 3D */}
+            <div className="absolute top-2 left-2 z-10 flex flex-col gap-1 pointer-events-none">
+                <div className="flex gap-1 bg-slate-900/80 backdrop-blur-sm p-1 rounded-lg shadow-lg pointer-events-auto">
+                    {MAP_STYLES.map(s => (
+                        <button
+                            key={s.key}
+                            type="button"
+                            onClick={() => setMapStyle(s.key)}
+                            className={`px-1.5 py-0.5 text-[9px] font-bold rounded transition-colors ${
+                                mapStyle === s.key ? 'bg-sky-500 text-white' : 'text-slate-300 hover:text-white'
+                            }`}
+                        >
+                            {s.label}
+                        </button>
+                    ))}
+                </div>
+
+                <div className="flex items-center gap-1 bg-slate-900/80 backdrop-blur-sm p-1 rounded-lg shadow-lg pointer-events-auto">
+                    <button
+                        type="button"
+                        title="Inclinazione -"
+                        onClick={() => { setAutoRotate(false); setTilt(t => Math.max(0, t - 10)); }}
+                        className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-slate-800 hover:bg-slate-700 text-slate-200"
+                    >
+                        Tilt -
+                    </button>
+                    <button
+                        type="button"
+                        title="Inclinazione +"
+                        onClick={() => { setAutoRotate(false); setTilt(t => Math.min(85, t + 10)); }}
+                        className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-slate-800 hover:bg-slate-700 text-slate-200"
+                    >
+                        Tilt +
+                    </button>
+                    <button
+                        type="button"
+                        title="Ruota a sinistra"
+                        onClick={() => { setAutoRotate(false); setRotation(r => r - 15); }}
+                        className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-slate-800 hover:bg-slate-700 text-slate-200"
+                    >
+                        ⟲
+                    </button>
+                    <button
+                        type="button"
+                        title="Ruota a destra"
+                        onClick={() => { setAutoRotate(false); setRotation(r => r + 15); }}
+                        className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-slate-800 hover:bg-slate-700 text-slate-200"
+                    >
+                        ⟳
+                    </button>
+                    <button
+                        type="button"
+                        title="Rotazione automatica"
+                        onClick={() => setAutoRotate(a => !a)}
+                        className={`px-1.5 py-0.5 text-[9px] font-bold rounded ${
+                            autoRotate ? 'bg-sky-500 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
+                        }`}
+                    >
+                        Auto
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
 };
 
 export default AppointmentsMap;

@@ -194,6 +194,8 @@ export interface QuoteSettings {
     // Nomi dei campi lead (lead.data) da includere automaticamente nei nuovi preventivi
     default_extra_fields?: string[];
     share_message?: QuoteShareMessageSettings;
+    // Giorni di validità del preventivo: usati per impostare automaticamente la data di scadenza alla creazione
+    validity_days?: number;
 }
 
 export interface Client {
@@ -207,11 +209,106 @@ export interface Client {
     quote_webhook_url?: string;
     message_templates?: MessageTemplate[];
     quote_settings?: QuoteSettings;
+    marketing_settings?: MailMarketingSettings;
     lead_intake_mode?: 'form' | 'api';
     api_token?: string;
     // These are loaded separately
     leads: Lead[];
     adSpends?: AdSpend[];
+}
+
+// ============================================================
+// Mail Marketing
+// ============================================================
+
+export interface MailBranding {
+    logo_url?: string;
+    brand_name?: string;
+    primary_color?: string;
+    secondary_color?: string;
+    footer_text?: string;
+}
+
+export interface MailMarketingSettings {
+    branding?: MailBranding;
+    // Nome mostrato come mittente, es. "Mario Rossi" in "Mario Rossi <noreply@dominio.it>"
+    sender_name?: string;
+    // Dominio verificato su Resend usato per l'invio (es. "mail.clientedomain.it")
+    verified_domain?: string;
+}
+
+export interface MailDomainDnsRecord {
+    record: string;
+    name: string;
+    type: string;
+    value: string;
+    ttl?: string;
+    priority?: number;
+    status?: string;
+}
+
+export interface MailDomain {
+    id: string;
+    client_id: string;
+    domain: string;
+    resend_domain_id: string | null;
+    status: 'pending' | 'verified' | 'failed';
+    dns_records: MailDomainDnsRecord[] | null;
+    created_at: string;
+}
+
+export interface MailTemplate {
+    id: string;
+    client_id: string;
+    name: string;
+    layout: 'simple' | 'image_header' | 'newsletter';
+    subject_template: string;
+    body_html: string;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface MailCampaignFilters {
+    statuses?: string[];
+    services?: string[];
+    created_after?: string;
+    created_before?: string;
+}
+
+export interface MailCampaign {
+    id: string;
+    client_id: string;
+    template_id: string | null;
+    name: string;
+    subject: string;
+    status: 'draft' | 'scheduled' | 'sending' | 'sent' | 'failed';
+    filters: MailCampaignFilters;
+    scheduled_at?: string | null;
+    sent_at?: string | null;
+    created_at: string;
+}
+
+export interface MailCampaignRecipient {
+    id: string;
+    campaign_id: string;
+    lead_id: string | null;
+    email: string;
+    status: 'pending' | 'sent' | 'failed' | 'bounced';
+    sent_at?: string | null;
+    error?: string | null;
+    created_at: string;
+}
+
+export interface MailAutomation {
+    id: string;
+    client_id: string;
+    name: string;
+    trigger_type: 'lead_created' | 'lead_status_changed';
+    trigger_status?: string | null;
+    delay_hours: number;
+    template_id: string | null;
+    active: boolean;
+    created_at: string;
 }
 
 export interface MwsMonthlyRevenue {

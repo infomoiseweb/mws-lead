@@ -193,7 +193,19 @@ const ClientDashboard: React.FC = () => {
     const [client, setClient] = useState<Client | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
-    const [searchQuery, setSearchQuery] = useState('');
+    const [searchQuery, setSearchQuery] = useState<string>(() => {
+        if (!userId) return '';
+        return localStorage.getItem(`clientDashboard_search_${userId}`) || '';
+    });
+    const [columnFilters, setColumnFilters] = useState<Record<string, string>>(() => {
+        if (!userId) return {};
+        try {
+            const saved = localStorage.getItem(`clientDashboard_columnFilters_${userId}`);
+            return saved ? JSON.parse(saved) : {};
+        } catch {
+            return {};
+        }
+    });
     const [dateRange, setDateRange] = useState<{ start: Date | null, end: Date | null }>({ start: null, end: null });
     const [statusFilter, setStatusFilter] = useState<Lead['status'] | 'all'>('all');
     
@@ -242,6 +254,20 @@ const ClientDashboard: React.FC = () => {
         }
     }, [selectedService, userId]);
 
+    // Salva la ricerca testuale nel localStorage
+    useEffect(() => {
+        if (userId) {
+            localStorage.setItem(`clientDashboard_search_${userId}`, searchQuery);
+        }
+    }, [searchQuery, userId]);
+
+    // Salva i filtri per colonna nel localStorage
+    useEffect(() => {
+        if (userId) {
+            localStorage.setItem(`clientDashboard_columnFilters_${userId}`, JSON.stringify(columnFilters));
+        }
+    }, [columnFilters, userId]);
+
     // Salva le colonne bloccate nel localStorage
     useEffect(() => {
         if (userId) {
@@ -262,39 +288,6 @@ const ClientDashboard: React.FC = () => {
         setIsRefreshing(true);
         await fetchClientData();
     }, [fetchClientData]);
-
-    const filteredLeads = useMemo(() => {
-        let leads = client?.leads || [];
-
-        leads = leads.filter(lead => lead.data?._is_historical !== 'true');
-
-        if (searchQuery.trim() !== '') {
-            const normalizedQuery = searchQuery.toLowerCase().replace(/\s/g, '');
-            leads = leads.filter(lead => 
-                Object.values(lead.data).some(val => {
-                    if (val === null || val === undefined) return false;
-                    return String(val).toLowerCase().replace(/\s/g, '').includes(normalizedQuery);
-                })
-            );
-        }
-
-        if (dateRange.start) {
-            leads = leads.filter(lead => new Date(lead.created_at) >= dateRange.start!);
-        }
-        if (dateRange.end) {
-            leads = leads.filter(lead => new Date(lead.created_at) <= dateRange.end!);
-        }
-        
-        if (statusFilter !== 'all') {
-            leads = leads.filter(lead => lead.status === statusFilter);
-        }
-        
-        if (selectedService !== 'all') {
-            leads = leads.filter(lead => lead.service === selectedService);
-        }
-
-        return [...leads].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-    }, [client?.leads, searchQuery, dateRange, statusFilter, selectedService]);
 
     // Campi tecnici da non mostrare mai come colonna
     const TECHNICAL_FIELDS = ['ip_address', 'user_agent', '_is_historical', '_revenue_attribution_date'];
@@ -322,6 +315,49 @@ const ClientDashboard: React.FC = () => {
         }
         return fallback;
     };
+
+    const filteredLeads = useMemo(() => {
+        let leads = client?.leads || [];
+
+        leads = leads.filter(lead => lead.data?._is_historical !== 'true');
+
+        if (searchQuery.trim() !== '') {
+            const normalizedQuery = searchQuery.toLowerCase().replace(/\s/g, '');
+            leads = leads.filter(lead =>
+                Object.values(lead.data).some(val => {
+                    if (val === null || val === undefined) return false;
+                    return String(val).toLowerCase().replace(/\s/g, '').includes(normalizedQuery);
+                })
+            );
+        }
+
+        if (dateRange.start) {
+            leads = leads.filter(lead => new Date(lead.created_at) >= dateRange.start!);
+        }
+        if (dateRange.end) {
+            leads = leads.filter(lead => new Date(lead.created_at) <= dateRange.end!);
+        }
+
+        if (statusFilter !== 'all') {
+            leads = leads.filter(lead => lead.status === statusFilter);
+        }
+
+        if (selectedService !== 'all') {
+            leads = leads.filter(lead => lead.service === selectedService);
+        }
+
+        Object.entries(columnFilters).forEach(([columnName, filterValue]) => {
+            const normalizedFilter = filterValue.trim().toLowerCase();
+            if (!normalizedFilter) return;
+            leads = leads.filter(lead => {
+                const value = getLeadFieldValue(lead.data, columnName);
+                if (value === undefined || value === null) return false;
+                return String(value).toLowerCase().includes(normalizedFilter);
+            });
+        });
+
+        return [...leads].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    }, [client?.leads, searchQuery, dateRange, statusFilter, selectedService, columnFilters]);
 
     // Tutti i campi disponibili come colonna: campi configurati nei servizi + qualsiasi campo
     // effettivamente presente nei dati delle lead (es. arrivati via API con chiavi non registrate)
@@ -901,48 +937,52 @@ const ClientDashboard: React.FC = () => {
                             </button>
                         </div>
                     </div>
-                    <div className="flex flex-col md:flex-row items-center gap-4">
-                         <div className="relative w-full md:w-auto">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
-                            <input 
-                                type="text"
-                                placeholder="Cerca in tutti i campi..."
-                                value={searchQuery}
-                                onChange={e => setSearchQuery(e.target.value)}
-                                className="bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md py-2 pl-10 pr-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500 w-full sm:w-64"
-                            />
+                    <div className="space-y-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                            <div className="relative flex-1 min-w-0">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
+                                <input
+                                    type="text"
+                                    placeholder="Cerca in tutti i campi..."
+                                    value={searchQuery}
+                                    onChange={e => setSearchQuery(e.target.value)}
+                                    className="bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md py-2 pl-10 pr-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500 w-full"
+                                />
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <label htmlFor="service-filter" className="sr-only">Filtra per servizio</label>
+                                <select
+                                    id="service-filter"
+                                    value={selectedService}
+                                    onChange={e => setSelectedService(e.target.value)}
+                                    className="bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md py-2 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500 flex-1 sm:flex-none sm:w-44"
+                                >
+                                    <option value="all">Tutti i Servizi</option>
+                                    {client.services.filter(s => s.name !== '__default_fields__').map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                                </select>
+                                <div className="relative shrink-0">
+                                    <button
+                                        onClick={() => setIsColumnManagerOpen(prev => !prev)}
+                                        className="flex items-center gap-2 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md py-2 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500 whitespace-nowrap"
+                                    >
+                                        <Settings size={16} />
+                                        <span>Colonne</span>
+                                    </button>
+                                    <ColumnManager
+                                        isOpen={isColumnManagerOpen}
+                                        onClose={() => setIsColumnManagerOpen(false)}
+                                        allFields={allFilterableFields}
+                                        visibleColumns={visibleColumns}
+                                        onToggleVisible={handleToggleVisible}
+                                        stickyColumns={stickyColumns}
+                                        onToggleSticky={handleToggleSticky}
+                                    />
+                                </div>
+                            </div>
                         </div>
-                         <div className="w-full md:w-auto">
-                            <label htmlFor="service-filter" className="sr-only">Filtra per servizio</label>
-                            <select
-                                id="service-filter"
-                                value={selectedService}
-                                onChange={e => setSelectedService(e.target.value)}
-                                className="bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md py-2 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500 w-full"
-                            >
-                                <option value="all">Tutti i Servizi</option>
-                                {client.services.filter(s => s.name !== '__default_fields__').map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
-                            </select>
+                        <div className="pt-3 border-t border-slate-200 dark:border-slate-700">
+                            <DateRangeFilter onDateChange={setDateRange} />
                         </div>
-                        <div className="relative">
-                            <button
-                                onClick={() => setIsColumnManagerOpen(prev => !prev)}
-                                className="flex items-center gap-2 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md py-2 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
-                            >
-                                <Settings size={16} />
-                                <span>Colonne</span>
-                            </button>
-                             <ColumnManager
-                                isOpen={isColumnManagerOpen}
-                                onClose={() => setIsColumnManagerOpen(false)}
-                                allFields={allFilterableFields}
-                                visibleColumns={visibleColumns}
-                                onToggleVisible={handleToggleVisible}
-                                stickyColumns={stickyColumns}
-                                onToggleSticky={handleToggleSticky}
-                            />
-                        </div>
-                        <DateRangeFilter onDateChange={setDateRange} />
                     </div>
                 </div>
                 <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex flex-wrap items-center gap-2">
@@ -998,6 +1038,42 @@ const ClientDashboard: React.FC = () => {
                                         <div className="px-6" style={{width: '128px'}}>Valore (€)</div>
                                         <div className="px-6 text-right" style={{width: '96px'}}>Azioni</div>
                                     </div>
+                                </th>
+                            </tr>
+                            <tr>
+                                {orderedColumns.map(col => {
+                                    const isSticky = stickyColumns.has(col.name);
+                                    let tdClasses = `px-6 pb-3 border-b border-slate-200 dark:border-slate-700`;
+                                    const styles: React.CSSProperties = {};
+
+                                    if (isSticky) {
+                                        tdClasses += ` sticky bg-slate-50 dark:bg-slate-800 z-20`;
+                                        styles.left = `${leftStickyOffsets[col.name]}px`;
+                                    }
+
+                                    return (
+                                        <th key={`filter-${col.id}`} className={tdClasses} style={styles}>
+                                            <input
+                                                type="text"
+                                                value={columnFilters[col.name] || ''}
+                                                onChange={e => setColumnFilters(prev => ({ ...prev, [col.name]: e.target.value }))}
+                                                placeholder="Filtra..."
+                                                className="w-full px-2 py-1 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-xs font-normal text-slate-700 dark:text-gray-200 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                                            />
+                                        </th>
+                                    );
+                                })}
+                                <th className="px-6 pb-3 border-b border-slate-200 dark:border-slate-700"></th>
+                                <th className="sticky z-20 bg-slate-50 dark:bg-slate-800 px-6 pb-3 border-b border-slate-200 dark:border-slate-700" style={{ right: '0px' }}>
+                                    {Object.values(columnFilters).some(v => v.trim()) && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setColumnFilters({})}
+                                            className="text-xs font-medium text-primary-600 dark:text-primary-400 hover:underline whitespace-nowrap"
+                                        >
+                                            Pulisci filtri
+                                        </button>
+                                    )}
                                 </th>
                             </tr>
                         </thead>

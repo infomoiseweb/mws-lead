@@ -69,6 +69,7 @@ export default {
     nav_my_leads: "Lead-urile Mele",
     nav_ad_expenses: "Cheltuieli Publicitate",
     nav_integrations: "Integrări Formular / API",
+    nav_mail_marketing: "Mail Marketing",
     nav_data_analysis: "Analiză Date",
     
     // Lead Status

@@ -52,6 +52,7 @@ const FONT_OPTIONS: { value: NonNullable<QuoteBranding['font']>; label: string }
 
 const QuoteSettingsEditor: React.FC<Props> = ({ client, onSave }) => {
     const [numbering, setNumbering] = useState(client.quote_settings?.numbering || { enabled: false, next_number: '' });
+    const [validityDays, setValidityDays] = useState<number>(client.quote_settings?.validity_days || 7);
     const [presets, setPresets] = useState<QuotePricePreset[]>(client.quote_settings?.price_presets || []);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editBuffer, setEditBuffer] = useState<QuotePricePreset | null>(null);
@@ -200,7 +201,7 @@ const QuoteSettingsEditor: React.FC<Props> = ({ client, onSave }) => {
         setIsSaving(true);
         setError('');
         try {
-            await onSave({ numbering, price_presets: presets, branding, terms_presets: termsPresets, default_extra_fields: defaultExtraFields, share_message: { include_pdf_link: includePdfLink, email_subject_template: emailSubjectTemplate, email_body_template: emailBodyTemplate, whatsapp_message_template: whatsappMessageTemplate } });
+            await onSave({ numbering, price_presets: presets, branding, terms_presets: termsPresets, default_extra_fields: defaultExtraFields, validity_days: validityDays, share_message: { include_pdf_link: includePdfLink, email_subject_template: emailSubjectTemplate, email_body_template: emailBodyTemplate, whatsapp_message_template: whatsappMessageTemplate } });
             setSaved(true);
             setTimeout(() => setSaved(false), 2000);
         } catch (err: any) {
@@ -243,6 +244,28 @@ const QuoteSettingsEditor: React.FC<Props> = ({ client, onSave }) => {
                             className={inputCls}
                         />
                     </div>
+                </div>
+            </div>
+
+            {/* Validità preventivo */}
+            <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-700">
+                <div>
+                    <h3 className="text-sm font-semibold text-slate-700 dark:text-gray-200">Validità preventivo</h3>
+                    <p className="text-xs text-slate-500 dark:text-gray-400 mt-0.5">
+                        Imposta per quanti giorni è valido un preventivo dalla data di emissione. La data di scadenza verrà calcolata automaticamente alla creazione di un nuovo preventivo.
+                    </p>
+                </div>
+                <div className="w-full sm:w-40">
+                    <label className="text-xs font-medium text-slate-500 dark:text-gray-400">Validità (giorni)</label>
+                    <input
+                        type="number"
+                        min={1}
+                        step="1"
+                        value={validityDays}
+                        onChange={e => setValidityDays(Math.max(1, parseInt(e.target.value) || 1))}
+                        placeholder="Es. 7"
+                        className={inputCls}
+                    />
                 </div>
             </div>
 

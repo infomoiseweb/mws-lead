@@ -69,6 +69,7 @@ export default {
     nav_my_leads: "My Leads",
     nav_ad_expenses: "Ad Expenses",
     nav_integrations: "Form / API Integrations",
+    nav_mail_marketing: "Mail Marketing",
     nav_data_analysis: "Data Analysis",
     
     // Lead Status

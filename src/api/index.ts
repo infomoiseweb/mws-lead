@@ -8,3 +8,4 @@ export * from './adSpends';
 export * from './forms';
 export * from './revenue';
 export * from './email';
+export * from './mailMarketing';

@@ -132,9 +132,10 @@ const QuoteCreatorModal: React.FC<QuoteCreatorModalProps> = ({ isOpen, onClose, 
             } else {
                 // Set defaults for new quote
                 setQuoteDate(new Date().toISOString().split('T')[0]);
-                const nextWeek = new Date();
-                nextWeek.setDate(nextWeek.getDate() + 7);
-                setDueDate(nextWeek.toISOString().split('T')[0]);
+                const validityDays = client.quote_settings?.validity_days || 7;
+                const expirationDate = new Date();
+                expirationDate.setDate(expirationDate.getDate() + validityDays);
+                setDueDate(expirationDate.toISOString().split('T')[0]);
                 setRecipientName(lead.data.nome || '');
                 // Mostra solo i campi veicolo che il lead possiede effettivamente
                 // (rilevanti per clienti tipo officine, non per tutti i clienti)

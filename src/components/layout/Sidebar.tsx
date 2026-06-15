@@ -4,7 +4,7 @@ import { useAuth } from '@contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import {
     LogOut, User as UserIcon, LayoutGrid, List, Users, BarChart3, DollarSign,
-    FileCode, Activity, Calendar, FileText, ChevronsLeft, ChevronsRight, Plug
+    FileCode, Activity, Calendar, FileText, ChevronsLeft, ChevronsRight, Plug, Send
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -110,7 +110,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle, onNavigate }) =>
             to: `/client/${userId}/dashboard`,
             icon: <List size={20} />,
             label: t('nav_my_leads'),
-            isActive: (pathname, search) => pathname === `/client/${userId}/dashboard` && !search.includes('view=live') && !search.includes('view=spese'),
+            isActive: (pathname, search) => pathname === `/client/${userId}/dashboard` && !search.includes('view=live') && !search.includes('view=spese') && !search.includes('view=integrazioni'),
         },
         {
             to: `/client/${userId}/calendar`,
@@ -141,6 +141,12 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle, onNavigate }) =>
             icon: <Plug size={20} />,
             label: t('nav_integrations'),
             isActive: (pathname, search) => pathname === `/client/${userId}/dashboard` && search.includes('view=integrazioni'),
+        },
+        {
+            to: `/client/${userId}/mail-marketing`,
+            icon: <Send size={20} />,
+            label: t('nav_mail_marketing'),
+            isActive: (pathname) => pathname === `/client/${userId}/mail-marketing`,
         },
         {
             to: `/client/${userId}/analytics`,

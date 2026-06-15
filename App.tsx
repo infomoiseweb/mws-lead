@@ -21,6 +21,7 @@ import ManageNotificationsPage from './src/pages/admin/ManageNotificationsPage';
 import { useTranslation } from 'react-i18next';
 import CalendarPage from './src/pages/CalendarPage';
 import QuotesPage from './src/pages/QuotesPage';
+import MailMarketingPage from './src/pages/client/MailMarketingPage';
 import { supabase } from './src/lib/supabase';
 
 const ProtectedRoute: React.FC<{ children: React.ReactElement; role: 'admin' | 'client' }> = ({ children, role }) => {
@@ -107,6 +108,7 @@ const AppRoutes: React.FC = () => {
                 <Route path="dashboard" element={<ClientDashboard />} />
                 <Route path="calendar" element={<CalendarPage />} />
                 <Route path="quotes" element={<QuotesPage />} />
+                <Route path="mail-marketing" element={<MailMarketingPage />} />
                 <Route path="analytics" element={<AnalyticsPage />} />
                 <Route path="revenue" element={<MwsRevenuePage />} />
                 <Route path="settings" element={<AccountSettingsPage />} />
@@ -115,7 +117,7 @@ const AppRoutes: React.FC = () => {
                 <Route path="notifications" element={<NotificationsPage />} />
                 <Route index element={<Navigate to="overview" replace />} />
             </Route>
-            
+
             {/* Redirect from root path. This has lower precedence than specific routes. */}
             <Route path="/" element={<RootRedirector />} />
             
