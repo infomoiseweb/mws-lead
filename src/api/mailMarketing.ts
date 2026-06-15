@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import type { MailDomain, MailMarketingSettings, MailTemplate, MailCampaign, MailCampaignRecipient, MailAutomation } from '../types';
+import type { MailDomain, MailMarketingSettings, MailTemplate, MailCampaign, MailCampaignRecipient, MailAutomation, MailMarketingOverviewClient } from '../types';
 
 async function authHeader(): Promise<Record<string, string>> {
     const { data: { session } } = await supabase.auth.getSession();
@@ -201,6 +201,23 @@ export async function saveMailAutomation(automation: Partial<MailAutomation> & {
 
 export async function deleteMailAutomation(automationId: string): Promise<void> {
     const { error } = await supabase.from('mail_automations').delete().eq('id', automationId);
+    if (error) throw new Error(error.message);
+}
+
+// ─── Vista admin ────────────────────────────────────────────────────────────
+
+export async function getMailMarketingOverview(): Promise<MailMarketingOverviewClient[]> {
+    const { data, error } = await supabase
+        .from('clients')
+        .select('id, name, mail_marketing_enabled, mail_domains(domain, status), mail_campaigns(id, name, status, sent_at, mail_campaign_recipients(status))')
+        .order('name');
+
+    if (error) throw new Error(error.message);
+    return (data || []) as unknown as MailMarketingOverviewClient[];
+}
+
+export async function setClientMailMarketingEnabled(clientId: string, enabled: boolean): Promise<void> {
+    const { error } = await supabase.from('clients').update({ mail_marketing_enabled: enabled }).eq('id', clientId);
     if (error) throw new Error(error.message);
 }
 

@@ -71,6 +71,12 @@ export async function getClients(startDate?: Date | null, endDate?: Date | null)
     }));
 }
 
+export async function getClientMailMarketingFlag(userId: string): Promise<boolean> {
+    const { data, error } = await supabase.from('clients').select('mail_marketing_enabled').eq('user_id', userId).maybeSingle();
+    if (error || !data) return false;
+    return !!data.mail_marketing_enabled;
+}
+
 export async function getClientByUserId(userId: string, startDate?: Date | null, endDate?: Date | null): Promise<Client | null> {
     const { data: client, error } = await supabase.from('clients').select('*').eq('user_id', userId).single();
     if (error || !client) return null;
@@ -114,7 +120,7 @@ export async function addClientForExistingUser(
 
 export async function updateClient(
     clientId: string,
-    updates: Partial<Pick<Client, 'name' | 'services' | 'mws_fixed_fee' | 'mws_profit_percentage' | 'quote_webhook_url' | 'message_templates' | 'quote_settings' | 'marketing_settings'>>
+    updates: Partial<Pick<Client, 'name' | 'services' | 'mws_fixed_fee' | 'mws_profit_percentage' | 'quote_webhook_url' | 'message_templates' | 'quote_settings' | 'marketing_settings' | 'mail_marketing_enabled'>>
 ): Promise<Client> {
     const { mws_fixed_fee, mws_profit_percentage, ...otherUpdates } = updates;
     const payload: any = { ...otherUpdates };

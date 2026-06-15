@@ -210,6 +210,7 @@ export interface Client {
     message_templates?: MessageTemplate[];
     quote_settings?: QuoteSettings;
     marketing_settings?: MailMarketingSettings;
+    mail_marketing_enabled?: boolean;
     lead_intake_mode?: 'form' | 'api';
     api_token?: string;
     // These are loaded separately
@@ -309,6 +310,22 @@ export interface MailAutomation {
     template_id: string | null;
     active: boolean;
     created_at: string;
+}
+
+// ─── Vista admin: panoramica Mail Marketing per cliente ────────────────────────
+
+export interface MailMarketingOverviewClient {
+    id: string;
+    name: string;
+    mail_marketing_enabled: boolean;
+    mail_domains: { domain: string; status: MailDomain['status'] }[];
+    mail_campaigns: {
+        id: string;
+        name: string;
+        status: MailCampaign['status'];
+        sent_at: string | null;
+        mail_campaign_recipients: { status: MailCampaignRecipient['status'] }[];
+    }[];
 }
 
 export interface MwsMonthlyRevenue {

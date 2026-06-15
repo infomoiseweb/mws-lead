@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavLink, useNavigate, useLocation, useParams } from 'react-router-dom';
 import { useAuth } from '@contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
+import { getClientMailMarketingFlag } from '@api/clients';
 import {
     LogOut, User as UserIcon, LayoutGrid, List, Users, BarChart3, DollarSign,
     FileCode, Activity, Calendar, FileText, ChevronsLeft, ChevronsRight, Plug, Send
@@ -30,6 +31,13 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle, onNavigate }) =>
 
     const isAdmin = user?.role === 'admin';
     const userId = user?.id || params.userId;
+
+    const [mailMarketingEnabled, setMailMarketingEnabled] = useState(false);
+
+    useEffect(() => {
+        if (isAdmin || !userId) return;
+        getClientMailMarketingFlag(userId).then(setMailMarketingEnabled).catch(() => setMailMarketingEnabled(false));
+    }, [isAdmin, userId]);
 
     const handleLogout = () => {
         logout();
@@ -97,6 +105,12 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle, onNavigate }) =>
             label: t('nav_mws_revenue'),
             isActive: (pathname) => pathname === '/admin/revenue',
         },
+        {
+            to: '/admin/mail-marketing',
+            icon: <Send size={20} />,
+            label: t('nav_mail_marketing'),
+            isActive: (pathname) => pathname === '/admin/mail-marketing',
+        },
     ];
 
     const clientItems: NavItem[] = [
@@ -142,12 +156,12 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle, onNavigate }) =>
             label: t('nav_integrations'),
             isActive: (pathname, search) => pathname === `/client/${userId}/dashboard` && search.includes('view=integrazioni'),
         },
-        {
+        ...(mailMarketingEnabled ? [{
             to: `/client/${userId}/mail-marketing`,
             icon: <Send size={20} />,
             label: t('nav_mail_marketing'),
-            isActive: (pathname) => pathname === `/client/${userId}/mail-marketing`,
-        },
+            isActive: (pathname: string) => pathname === `/client/${userId}/mail-marketing`,
+        }] : []),
         {
             to: `/client/${userId}/analytics`,
             icon: <BarChart3 size={20} />,

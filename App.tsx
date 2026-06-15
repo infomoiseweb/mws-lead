@@ -15,6 +15,7 @@ import AccountSettingsPage from './src/pages/AccountSettingsPage';
 import TermsPage from './src/pages/TermsPage';
 import ChatPage from './src/pages/ChatPage';
 import MwsRevenuePage from './src/pages/admin/MwsRevenuePage';
+import AdminMailMarketingPage from './src/pages/admin/AdminMailMarketingPage';
 import SendNotificationPage from './src/pages/admin/SendNotificationPage';
 import NotificationsPage from './src/pages/NotificationsPage';
 import ManageNotificationsPage from './src/pages/admin/ManageNotificationsPage';
@@ -94,6 +95,7 @@ const AppRoutes: React.FC = () => {
                 <Route path="quotes" element={<QuotesPage />} />
                 <Route path="analytics" element={<AnalyticsPage />} />
                 <Route path="revenue" element={<MwsRevenuePage />} />
+                <Route path="mail-marketing" element={<AdminMailMarketingPage />} />
                 <Route path="settings" element={<AccountSettingsPage />} />
                 <Route path="terms" element={<TermsPage />} />
                 <Route path="chat" element={<ChatPage />} />

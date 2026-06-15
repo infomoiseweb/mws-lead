@@ -307,6 +307,14 @@ const MailMarketingPage: React.FC = () => {
         );
     }
 
+    if (!client?.mail_marketing_enabled) {
+        return (
+            <div className="bg-white dark:bg-slate-800 rounded-2xl p-8 text-center text-sm text-slate-400 border border-slate-100 dark:border-slate-700/50">
+                La sezione "Mail Marketing" non è ancora attiva per il tuo account. Contatta il tuo referente per attivarla.
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-6">
             <div>

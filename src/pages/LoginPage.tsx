@@ -43,9 +43,9 @@ const LoginPage: React.FC = () => {
             const user = await login(email, password);
             if (user) {
                 if (user.role === 'admin') {
-                    navigate('/admin/dashboard');
+                    navigate('/admin/overview');
                 } else {
-                    navigate(`/client/${user.id}/dashboard`);
+                    navigate(`/client/${user.id}/overview`);
                 }
             } else {
                 setError(t('login_error_credentials') || 'Credenziali non valide o utente non trovato.');
