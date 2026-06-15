@@ -1,9 +1,41 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@contexts/AuthContext';
-import { Lock, User, Mail, Sparkles, KeyRound, ArrowLeft, RefreshCw, AlertCircle } from 'lucide-react';
+import { Lock, Mail, Sparkles, KeyRound, ArrowLeft, RefreshCw, AlertCircle, Eye, EyeOff, ShieldCheck, BarChart3, MessageCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@lib/supabase';
+import './LoginPage.css';
+
+interface FloatingFieldProps {
+    id: string;
+    type: string;
+    value: string;
+    onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    label: string;
+    icon: React.ReactNode;
+    autoComplete?: string;
+    required?: boolean;
+    rightElement?: React.ReactNode;
+}
+
+const FloatingField: React.FC<FloatingFieldProps> = ({ id, type, value, onChange, label, icon, autoComplete, required, rightElement }) => (
+    <div className={`login-field ${value ? 'filled' : ''}`}>
+        <input
+            id={id}
+            name={id}
+            type={type}
+            autoComplete={autoComplete}
+            required={required}
+            value={value}
+            onChange={onChange}
+            placeholder={label}
+        />
+        <span className="login-field-icon">{icon}</span>
+        <label htmlFor={id}>{label}</label>
+        <span className="login-field-line"></span>
+        {rightElement}
+    </div>
+);
 
 const LoginPage: React.FC = () => {
     const { t } = useTranslation();
@@ -14,6 +46,7 @@ const LoginPage: React.FC = () => {
     // Form states
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -25,6 +58,11 @@ const LoginPage: React.FC = () => {
     // Reset password states (if routed from email link)
     const [isResetMode, setIsResetMode] = useState(false);
     const [newPassword, setNewPassword] = useState('');
+    const [showNewPassword, setShowNewPassword] = useState(false);
+
+    // Effetto parallax / tilt sullo sfondo e sulla card
+    const bgShapesRef = useRef<HTMLDivElement>(null);
+    const shellRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         // Controlla se siamo in modalità reset password (es. link mail)
@@ -32,6 +70,40 @@ const LoginPage: React.FC = () => {
             setIsResetMode(true);
         }
     }, [searchParams]);
+
+    useEffect(() => {
+        const isFinePointer = window.matchMedia('(pointer: fine)').matches;
+        let frame = 0;
+
+        const applyTransform = (x: number, y: number) => {
+            const relX = x - 0.5;
+            const relY = y - 0.5;
+
+            if (bgShapesRef.current) {
+                bgShapesRef.current.style.transform = `translate(${relX * -40}px, ${relY * -40}px)`;
+            }
+            if (shellRef.current) {
+                shellRef.current.style.transform = `perspective(1200px) rotateX(${relY * -4}deg) rotateY(${relX * 6}deg)`;
+            }
+        };
+
+        if (isFinePointer) {
+            const handleMouseMove = (e: MouseEvent) => {
+                applyTransform(e.clientX / window.innerWidth, e.clientY / window.innerHeight);
+            };
+            window.addEventListener('mousemove', handleMouseMove);
+            return () => window.removeEventListener('mousemove', handleMouseMove);
+        } else {
+            const start = Date.now();
+            const animate = () => {
+                const t = (Date.now() - start) / 1000;
+                applyTransform(0.5 + Math.sin(t * 0.4) * 0.5, 0.5 + Math.cos(t * 0.3) * 0.5);
+                frame = requestAnimationFrame(animate);
+            };
+            frame = requestAnimationFrame(animate);
+            return () => cancelAnimationFrame(frame);
+        }
+    }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -95,7 +167,7 @@ const LoginPage: React.FC = () => {
         try {
             const { error } = await supabase.auth.updateUser({ password: newPassword });
             if (error) throw error;
-            
+
             setSuccess('La tua password è stata aggiornata con successo! Ora puoi effettuare il login.');
             setTimeout(() => {
                 setIsResetMode(false);
@@ -109,214 +181,256 @@ const LoginPage: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen flex flex-col bg-slate-900 text-slate-150 relative overflow-hidden font-sans">
-            {/* Sfondo Astratto 3D di profondità */}
-            <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full bg-primary-900/20 blur-[130px] pointer-events-none"></div>
-            <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full bg-purple-950/20 blur-[120px] pointer-events-none"></div>
+        <div className="min-h-screen flex flex-col bg-[#07111f] text-white relative overflow-hidden font-sans">
+            {/* Sfondo animato: blob + griglia */}
+            <div ref={bgShapesRef} className="login-bg-shapes">
+                <div className="login-blob login-blob-1"></div>
+                <div className="login-blob login-blob-2"></div>
+                <div className="login-blob login-blob-3"></div>
+                <div className="login-blob login-blob-4"></div>
+                <div className="login-grid"></div>
+            </div>
 
             <main className="flex-grow flex items-center justify-center p-4 z-10">
-                <div className="w-full max-w-md p-8 bg-slate-800/60 backdrop-blur-xl border border-slate-700/60 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] rounded-2xl relative transition-all duration-300">
-                    
-                    {/* Elemento decorativo 3D Glow Line in alto */}
-                    <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-primary-500 via-primary-400 to-purple-600 rounded-t-2xl"></div>
+                <div ref={shellRef} className="login-shell w-full max-w-5xl grid grid-cols-1 lg:grid-cols-[1.05fr_0.95fr] rounded-2xl overflow-hidden border border-white/10 shadow-[0_25px_60px_-12px_rgba(0,0,0,0.6)]">
 
-                    <div className="text-center">
-                        <div className="relative inline-block">
-                            <img 
-                                src="https://moise-web-srl.com/wp-content/uploads/2025/07/web-app-manifest-512x512-2.png" 
-                                alt="MWS Lead Hub Logo" 
-                                className="mx-auto h-24 w-24 object-contain filter drop-shadow-[0_10px_15px_rgba(59,130,246,0.3)] transition-transform duration-500 hover:scale-105" 
-                            />
-                            <div className="absolute bottom-1 right-1 bg-primary-500 text-[10px] uppercase font-bold text-slate-900 px-1 py-0.5 rounded shadow-lg flex items-center gap-1">
-                                <Sparkles className="w-2.5 h-2.5" /> Beta
+                    {/* Pannello sinistro: copy + logo */}
+                    <div className="hidden lg:flex flex-col justify-between p-10 bg-white/[0.03] backdrop-blur-xl border-r border-white/10 relative">
+                        <div>
+                            <div className="flex items-center gap-3 mb-10">
+                                <img
+                                    src="https://moise-web-srl.com/wp-content/uploads/2025/07/web-app-manifest-512x512-2.png"
+                                    alt="MWS Lead Hub Logo"
+                                    className="h-12 w-12 object-contain filter drop-shadow-[0_10px_15px_rgba(96,165,250,0.35)]"
+                                />
+                                <span className="text-lg font-bold tracking-tight text-white">MWS Lead Hub</span>
+                            </div>
+
+                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-semibold text-[#9cc9ff] mb-6">
+                                <Sparkles className="w-3.5 h-3.5" /> Beta
+                            </div>
+
+                            <h1 className="text-3xl lg:text-4xl font-extrabold tracking-tight leading-tight mb-4 bg-clip-text text-transparent bg-gradient-to-r from-white via-[#dbeafe] to-[#c4b5fd]">
+                                Tutte le tue lead, sempre sotto controllo.
+                            </h1>
+                            <p className="text-white/60 text-sm leading-relaxed max-w-md">
+                                Gestisci campagne, contatti e preventivi dei tuoi clienti in un'unica dashboard:
+                                monitora ogni lead dal primo contatto alla chiusura, traccia il ROI delle tue
+                                campagne pubblicitarie e mantieni tutto organizzato in tempo reale.
+                            </p>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-4 mt-10">
+                            <div className="rounded-xl bg-white/[0.04] border border-white/10 p-4">
+                                <ShieldCheck className="w-5 h-5 text-[#5eead4] mb-2" />
+                                <div className="text-sm font-semibold text-white">Accesso sicuro</div>
+                                <div className="text-xs text-white/50 mt-1">Dati protetti e cifrati</div>
+                            </div>
+                            <div className="rounded-xl bg-white/[0.04] border border-white/10 p-4">
+                                <BarChart3 className="w-5 h-5 text-[#60a5fa] mb-2" />
+                                <div className="text-sm font-semibold text-white">ROI in tempo reale</div>
+                                <div className="text-xs text-white/50 mt-1">Spese vs risultati</div>
+                            </div>
+                            <div className="rounded-xl bg-white/[0.04] border border-white/10 p-4">
+                                <MessageCircle className="w-5 h-5 text-[#a78bfa] mb-2" />
+                                <div className="text-sm font-semibold text-white">Contatti rapidi</div>
+                                <div className="text-xs text-white/50 mt-1">WhatsApp & email</div>
                             </div>
                         </div>
-                        
-                        <h2 className="mt-4 text-center text-3xl font-extrabold tracking-tight text-white bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-100 to-slate-300">
-                            {isResetMode ? 'Nuova Password' : showForgot ? 'Recupero Password' : 'MWS Lead Hub'}
-                        </h2>
-                        
-                        <p className="mt-2 text-center text-sm text-slate-400">
-                            {isResetMode 
-                                ? 'Imposta la tua nuova credenziale di accesso.' 
-                                : showForgot 
-                                    ? 'Inserisci la tua email per ricevere il link di ripristino.' 
-                                    : t('login_subtitle') || 'Accedi alla console di gestione lead multi-tenant.'}
-                        </p>
                     </div>
 
-                    {isResetMode ? (
-                        /* MODALITÀ RESET PASSWORD */
-                        <form className="mt-8 space-y-6" onSubmit={handleResetPassword}>
-                            <div className="relative">
-                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <KeyRound className="h-5 w-5 text-slate-400" />
+                    {/* Pannello destro: form */}
+                    <div className="p-8 sm:p-10 bg-white/[0.05] backdrop-blur-xl flex flex-col justify-center">
+                        <div className="text-center lg:text-left mb-8">
+                            <div className="lg:hidden flex justify-center mb-6">
+                                <div className="relative inline-block">
+                                    <img
+                                        src="https://moise-web-srl.com/wp-content/uploads/2025/07/web-app-manifest-512x512-2.png"
+                                        alt="MWS Lead Hub Logo"
+                                        className="mx-auto h-20 w-20 object-contain filter drop-shadow-[0_10px_15px_rgba(96,165,250,0.35)]"
+                                    />
+                                    <div className="absolute bottom-1 right-1 bg-[#5eead4] text-[10px] uppercase font-bold text-slate-900 px-1 py-0.5 rounded shadow-lg flex items-center gap-1">
+                                        <Sparkles className="w-2.5 h-2.5" /> Beta
+                                    </div>
                                 </div>
-                                <input
-                                    type="password"
-                                    required
+                            </div>
+
+                            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
+                                {isResetMode ? 'Nuova password' : showForgot ? 'Recupera password' : 'Accedi al tuo account'}
+                            </h2>
+                            <p className="mt-2 text-sm text-white/60">
+                                {isResetMode
+                                    ? 'Imposta la tua nuova credenziale di accesso.'
+                                    : showForgot
+                                        ? 'Inserisci la tua email per ricevere il link di ripristino.'
+                                        : t('login_subtitle') || 'Accedi alla console di gestione lead multi-tenant.'}
+                            </p>
+                        </div>
+
+                        {isResetMode ? (
+                            /* MODALITÀ RESET PASSWORD */
+                            <form className="space-y-5" onSubmit={handleResetPassword}>
+                                <FloatingField
+                                    id="newPassword"
+                                    type={showNewPassword ? 'text' : 'password'}
                                     value={newPassword}
                                     onChange={(e) => setNewPassword(e.target.value)}
-                                    className="appearance-none relative block w-full px-3 py-3 pl-10 bg-slate-900/60 border border-slate-700/80 placeholder-slate-500 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent sm:text-sm"
-                                    placeholder="Nuova password (min. 6 caratteri)"
-                                />
-                            </div>
-
-                            {error && (
-                                <div className="flex items-center gap-2 p-3 bg-red-950/40 border border-red-500/30 rounded-lg text-sm text-red-400">
-                                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                                    <span>{error}</span>
-                                </div>
-                            )}
-
-                            {success && (
-                                <div className="flex items-center gap-2 p-3 bg-emerald-950/40 border border-emerald-500/30 rounded-lg text-sm text-emerald-400">
-                                    <Sparkles className="w-4 h-4 flex-shrink-0" />
-                                    <span>{success}</span>
-                                </div>
-                            )}
-
-                            <button
-                                type="submit"
-                                disabled={isLoading}
-                                className="w-full flex justify-center py-3 px-4 border border-transparent text-sm font-semibold rounded-lg text-slate-950 bg-gradient-to-r from-primary-400 to-primary-500 hover:from-primary-500 hover:to-primary-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-primary-400 disabled:opacity-50 transition-all shadow-[0_4px_20px_rgba(59,130,246,0.3)]"
-                            >
-                                {isLoading ? 'Aggiornamento...' : 'Ripristina Password'}
-                            </button>
-
-                            <button
-                                type="button"
-                                onClick={() => setIsResetMode(false)}
-                                className="w-full text-center text-sm font-medium text-primary-400 hover:text-primary-300 transition-colors"
-                            >
-                                Torna al Login
-                            </button>
-                        </form>
-
-                    ) : showForgot ? (
-                        /* MODALITÀ FORGOT PASSWORD */
-                        <form className="mt-8 space-y-6" onSubmit={handleForgotPassword}>
-                            <div className="relative">
-                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <Mail className="h-5 w-5 text-slate-400" />
-                                </div>
-                                <input
-                                    type="email"
+                                    label="Nuova password (min. 6 caratteri)"
+                                    icon={<KeyRound className="h-5 w-5" />}
                                     required
-                                    value={forgotEmail}
-                                    onChange={(e) => setForgotEmail(e.target.value)}
-                                    className="appearance-none relative block w-full px-3 py-3 pl-10 bg-slate-900/60 border border-slate-700/80 placeholder-slate-500 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent sm:text-sm"
-                                    placeholder="Indirizzo Email"
+                                    rightElement={
+                                        <button type="button" className="login-toggle-password" onClick={() => setShowNewPassword(v => !v)} aria-label="Mostra/nascondi password">
+                                            {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                        </button>
+                                    }
                                 />
-                            </div>
 
-                            {error && (
-                                <div className="flex items-center gap-2 p-3 bg-red-950/40 border border-red-500/30 rounded-lg text-sm text-red-400">
-                                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                                    <span>{error}</span>
-                                </div>
-                            )}
-
-                            {success && (
-                                <div className="flex items-center gap-2 p-3 bg-emerald-950/40 border border-emerald-500/30 rounded-lg text-sm text-emerald-400">
-                                    <Sparkles className="w-4 h-4 flex-shrink-0" />
-                                    <span>{success}</span>
-                                </div>
-                            )}
-
-                            <button
-                                type="submit"
-                                disabled={isLoading}
-                                className="w-full flex justify-center py-3 px-4 border border-transparent text-sm font-semibold rounded-lg text-slate-950 bg-gradient-to-r from-primary-400 to-primary-500 hover:from-primary-500 hover:to-primary-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-primary-400 disabled:opacity-50 transition-all shadow-[0_4px_20px_rgba(59,130,246,0.3)]"
-                            >
-                                {isLoading ? 'Invio in corso...' : 'Invia Link di Recupero'}
-                            </button>
-
-                            <button
-                                type="button"
-                                onClick={() => { setShowForgot(false); setError(''); setSuccess(''); }}
-                                className="w-full flex items-center justify-center gap-2 text-sm font-medium text-slate-400 hover:text-white transition-colors"
-                            >
-                                <ArrowLeft className="w-4 h-4" /> Torna al Login
-                            </button>
-                        </form>
-
-                    ) : (
-                        /* MODALITÀ LOGIN STANDARD */
-                        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-                            <div className="space-y-4">
-                                <div className="relative">
-                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <User className="h-5 w-5 text-slate-400" />
+                                {error && (
+                                    <div className="flex items-center gap-2 p-3 bg-red-950/40 border border-red-500/30 rounded-lg text-sm text-red-300">
+                                        <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                                        <span>{error}</span>
                                     </div>
-                                    <input
-                                        id="email"
-                                        name="email"
-                                        type="email"
-                                        autoComplete="email"
-                                        required
-                                        value={email}
-                                        onChange={(e) => setEmail(e.target.value)}
-                                        className="appearance-none relative block w-full px-3 py-3 pl-10 bg-slate-900/60 border border-slate-700/80 placeholder-slate-500 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent sm:text-sm"
-                                        placeholder="Indirizzo Email"
-                                    />
-                                </div>
-                                <div className="relative">
-                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <Lock className="h-5 w-5 text-slate-400" />
+                                )}
+
+                                {success && (
+                                    <div className="flex items-center gap-2 p-3 bg-emerald-950/40 border border-emerald-500/30 rounded-lg text-sm text-emerald-300">
+                                        <Sparkles className="w-4 h-4 flex-shrink-0" />
+                                        <span>{success}</span>
                                     </div>
-                                    <input
-                                        id="password"
-                                        name="password"
-                                        type="password"
-                                        autoComplete="current-password"
-                                        required
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                        className="appearance-none relative block w-full px-3 py-3 pl-10 bg-slate-900/60 border border-slate-700/80 placeholder-slate-500 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent sm:text-sm"
-                                        placeholder={t('password_placeholder') || 'Password'}
-                                    />
-                                </div>
-                            </div>
+                                )}
 
-                            <div className="flex items-center justify-end">
-                                <button
-                                    type="button"
-                                    onClick={() => { setShowForgot(true); setError(''); setSuccess(''); }}
-                                    className="text-xs font-semibold text-primary-400 hover:text-primary-300 transition-colors"
-                                >
-                                    Password dimenticata?
-                                </button>
-                            </div>
-
-                            {error && (
-                                <div className="flex items-center gap-2 p-3 bg-red-950/40 border border-red-500/30 rounded-lg text-sm text-red-400">
-                                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                                    <span>{error}</span>
-                                </div>
-                            )}
-
-                            <div>
                                 <button
                                     type="submit"
                                     disabled={isLoading}
-                                    className="w-full flex justify-center py-3 px-4 border border-transparent text-sm font-semibold rounded-lg text-slate-950 bg-gradient-to-r from-primary-400 to-primary-500 hover:from-primary-500 hover:to-primary-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-primary-400 disabled:opacity-50 transition-all shadow-[0_4px_20px_rgba(59,130,246,0.3)]"
+                                    className="login-submit-btn w-full flex justify-center items-center py-3.5 px-4 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-[#60a5fa] to-[#a78bfa] hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#07111f] focus:ring-[#60a5fa] disabled:opacity-50 transition-all shadow-[0_4px_20px_rgba(96,165,250,0.3)]"
                                 >
+                                    <span className="login-btn-glow"></span>
+                                    {isLoading ? <RefreshCw className="w-5 h-5 animate-spin" /> : 'Ripristina password'}
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setIsResetMode(false)}
+                                    className="w-full text-center text-sm font-medium text-[#9cc9ff] hover:text-white transition-colors"
+                                >
+                                    Torna al login
+                                </button>
+                            </form>
+
+                        ) : showForgot ? (
+                            /* MODALITÀ FORGOT PASSWORD */
+                            <form className="space-y-5" onSubmit={handleForgotPassword}>
+                                <FloatingField
+                                    id="forgotEmail"
+                                    type="email"
+                                    value={forgotEmail}
+                                    onChange={(e) => setForgotEmail(e.target.value)}
+                                    label="Indirizzo email"
+                                    icon={<Mail className="h-5 w-5" />}
+                                    autoComplete="email"
+                                    required
+                                />
+
+                                {error && (
+                                    <div className="flex items-center gap-2 p-3 bg-red-950/40 border border-red-500/30 rounded-lg text-sm text-red-300">
+                                        <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                                        <span>{error}</span>
+                                    </div>
+                                )}
+
+                                {success && (
+                                    <div className="flex items-center gap-2 p-3 bg-emerald-950/40 border border-emerald-500/30 rounded-lg text-sm text-emerald-300">
+                                        <Sparkles className="w-4 h-4 flex-shrink-0" />
+                                        <span>{success}</span>
+                                    </div>
+                                )}
+
+                                <button
+                                    type="submit"
+                                    disabled={isLoading}
+                                    className="login-submit-btn w-full flex justify-center items-center py-3.5 px-4 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-[#60a5fa] to-[#a78bfa] hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#07111f] focus:ring-[#60a5fa] disabled:opacity-50 transition-all shadow-[0_4px_20px_rgba(96,165,250,0.3)]"
+                                >
+                                    <span className="login-btn-glow"></span>
+                                    {isLoading ? <RefreshCw className="w-5 h-5 animate-spin" /> : 'Invia link di recupero'}
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => { setShowForgot(false); setError(''); setSuccess(''); }}
+                                    className="w-full flex items-center justify-center gap-2 text-sm font-medium text-white/60 hover:text-white transition-colors"
+                                >
+                                    <ArrowLeft className="w-4 h-4" /> Torna al login
+                                </button>
+                            </form>
+
+                        ) : (
+                            /* MODALITÀ LOGIN STANDARD */
+                            <form className="space-y-5" onSubmit={handleSubmit}>
+                                <FloatingField
+                                    id="email"
+                                    type="email"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    label="Indirizzo email"
+                                    icon={<Mail className="h-5 w-5" />}
+                                    autoComplete="email"
+                                    required
+                                />
+
+                                <FloatingField
+                                    id="password"
+                                    type={showPassword ? 'text' : 'password'}
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    label={t('password_placeholder') || 'Password'}
+                                    icon={<Lock className="h-5 w-5" />}
+                                    autoComplete="current-password"
+                                    required
+                                    rightElement={
+                                        <button type="button" className="login-toggle-password" onClick={() => setShowPassword(v => !v)} aria-label="Mostra/nascondi password">
+                                            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                        </button>
+                                    }
+                                />
+
+                                <div className="flex items-center justify-end">
+                                    <button
+                                        type="button"
+                                        onClick={() => { setShowForgot(true); setError(''); setSuccess(''); }}
+                                        className="text-xs font-semibold text-[#9cc9ff] hover:text-white transition-colors"
+                                    >
+                                        Password dimenticata?
+                                    </button>
+                                </div>
+
+                                {error && (
+                                    <div className="flex items-center gap-2 p-3 bg-red-950/40 border border-red-500/30 rounded-lg text-sm text-red-300">
+                                        <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                                        <span>{error}</span>
+                                    </div>
+                                )}
+
+                                <button
+                                    type="submit"
+                                    disabled={isLoading}
+                                    className="login-submit-btn w-full flex justify-center items-center py-3.5 px-4 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-[#60a5fa] to-[#a78bfa] hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#07111f] focus:ring-[#60a5fa] disabled:opacity-50 transition-all shadow-[0_4px_20px_rgba(96,165,250,0.3)]"
+                                >
+                                    <span className="login-btn-glow"></span>
                                     {isLoading ? (
-                                        <RefreshCw className="w-5 h-5 animate-spin text-slate-950" />
+                                        <RefreshCw className="w-5 h-5 animate-spin" />
                                     ) : (
-                                        t('login_button') || 'Accedi alla Piattaforma'
+                                        t('login_button') || 'Accedi alla piattaforma'
                                     )}
                                 </button>
-                            </div>
-                        </form>
-                    )}
+                            </form>
+                        )}
+                    </div>
                 </div>
             </main>
 
-            <footer className="w-full text-center p-6 border-t border-slate-800 bg-slate-950/60 backdrop-blur-md">
-                <div className="text-xs text-slate-500 flex flex-col sm:flex-row justify-center items-center gap-x-4 gap-y-1">
-                    <a href="https://moise-web-srl.com/" target="_blank" rel="noopener noreferrer" className="hover:text-primary-400 transition-colors font-medium">
+            <footer className="w-full text-center p-6 border-t border-white/10 bg-black/20 backdrop-blur-md z-10">
+                <div className="text-xs text-white/40 flex flex-col sm:flex-row justify-center items-center gap-x-4 gap-y-1">
+                    <a href="https://moise-web-srl.com/" target="_blank" rel="noopener noreferrer" className="hover:text-[#9cc9ff] transition-colors font-medium">
                         {t('footer_developed_by') || 'Sviluppato da Moise Web Srl'}
                     </a>
                     <span className="hidden sm:inline">|</span>
