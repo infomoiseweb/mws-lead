@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@contexts/AuthContext';
 import { Lock, Mail, Sparkles, KeyRound, ArrowLeft, RefreshCw, AlertCircle, Eye, EyeOff, ShieldCheck, BarChart3, MessageCircle } from 'lucide-react';
@@ -60,50 +60,12 @@ const LoginPage: React.FC = () => {
     const [newPassword, setNewPassword] = useState('');
     const [showNewPassword, setShowNewPassword] = useState(false);
 
-    // Effetto parallax / tilt sullo sfondo e sulla card
-    const bgShapesRef = useRef<HTMLDivElement>(null);
-    const shellRef = useRef<HTMLDivElement>(null);
-
     useEffect(() => {
         // Controlla se siamo in modalità reset password (es. link mail)
         if (searchParams.get('reset') === 'true' || window.location.href.includes('type=recovery')) {
             setIsResetMode(true);
         }
     }, [searchParams]);
-
-    useEffect(() => {
-        const isFinePointer = window.matchMedia('(pointer: fine)').matches;
-        let frame = 0;
-
-        const applyTransform = (x: number, y: number) => {
-            const relX = x - 0.5;
-            const relY = y - 0.5;
-
-            if (bgShapesRef.current) {
-                bgShapesRef.current.style.transform = `translate(${relX * -40}px, ${relY * -40}px)`;
-            }
-            if (shellRef.current) {
-                shellRef.current.style.transform = `perspective(1200px) rotateX(${relY * -4}deg) rotateY(${relX * 6}deg)`;
-            }
-        };
-
-        if (isFinePointer) {
-            const handleMouseMove = (e: MouseEvent) => {
-                applyTransform(e.clientX / window.innerWidth, e.clientY / window.innerHeight);
-            };
-            window.addEventListener('mousemove', handleMouseMove);
-            return () => window.removeEventListener('mousemove', handleMouseMove);
-        } else {
-            const start = Date.now();
-            const animate = () => {
-                const t = (Date.now() - start) / 1000;
-                applyTransform(0.5 + Math.sin(t * 0.4) * 0.5, 0.5 + Math.cos(t * 0.3) * 0.5);
-                frame = requestAnimationFrame(animate);
-            };
-            frame = requestAnimationFrame(animate);
-            return () => cancelAnimationFrame(frame);
-        }
-    }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -181,9 +143,9 @@ const LoginPage: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen flex flex-col bg-[#07111f] text-white relative overflow-hidden font-sans">
+        <div className="min-h-screen flex flex-col bg-[#101e33] text-white relative overflow-hidden font-sans">
             {/* Sfondo animato: blob + griglia */}
-            <div ref={bgShapesRef} className="login-bg-shapes">
+            <div className="login-bg-shapes">
                 <div className="login-blob login-blob-1"></div>
                 <div className="login-blob login-blob-2"></div>
                 <div className="login-blob login-blob-3"></div>
@@ -192,7 +154,7 @@ const LoginPage: React.FC = () => {
             </div>
 
             <main className="flex-grow flex items-center justify-center p-4 z-10">
-                <div ref={shellRef} className="login-shell w-full max-w-5xl grid grid-cols-1 lg:grid-cols-[1.05fr_0.95fr] rounded-2xl overflow-hidden border border-white/10 shadow-[0_25px_60px_-12px_rgba(0,0,0,0.6)]">
+                <div className="login-shell w-full max-w-5xl grid grid-cols-1 lg:grid-cols-[1.05fr_0.95fr] rounded-2xl overflow-hidden border border-white/10 shadow-[0_25px_60px_-12px_rgba(0,0,0,0.6)]">
 
                     {/* Pannello sinistro: copy + logo */}
                     <div className="hidden lg:flex flex-col justify-between p-10 bg-white/[0.03] backdrop-blur-xl border-r border-white/10 relative">
@@ -201,9 +163,9 @@ const LoginPage: React.FC = () => {
                                 <img
                                     src="https://moise-web-srl.com/wp-content/uploads/2025/07/web-app-manifest-512x512-2.png"
                                     alt="MWS Lead Hub Logo"
-                                    className="h-12 w-12 object-contain filter drop-shadow-[0_10px_15px_rgba(96,165,250,0.35)]"
+                                    className="h-32 w-32 object-contain filter drop-shadow-[0_10px_15px_rgba(96,165,250,0.35)]"
                                 />
-                                <span className="text-lg font-bold tracking-tight text-white">MWS Lead Hub</span>
+                                <span className="login-3d-text text-3xl font-extrabold tracking-tight text-white">MWS Lead Hub</span>
                             </div>
 
                             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-semibold text-[#9cc9ff] mb-6">
@@ -247,7 +209,7 @@ const LoginPage: React.FC = () => {
                                     <img
                                         src="https://moise-web-srl.com/wp-content/uploads/2025/07/web-app-manifest-512x512-2.png"
                                         alt="MWS Lead Hub Logo"
-                                        className="mx-auto h-20 w-20 object-contain filter drop-shadow-[0_10px_15px_rgba(96,165,250,0.35)]"
+                                        className="mx-auto h-28 w-28 object-contain filter drop-shadow-[0_10px_15px_rgba(96,165,250,0.35)]"
                                     />
                                     <div className="absolute bottom-1 right-1 bg-[#5eead4] text-[10px] uppercase font-bold text-slate-900 px-1 py-0.5 rounded shadow-lg flex items-center gap-1">
                                         <Sparkles className="w-2.5 h-2.5" /> Beta
@@ -302,7 +264,7 @@ const LoginPage: React.FC = () => {
                                 <button
                                     type="submit"
                                     disabled={isLoading}
-                                    className="login-submit-btn w-full flex justify-center items-center py-3.5 px-4 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-[#60a5fa] to-[#a78bfa] hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#07111f] focus:ring-[#60a5fa] disabled:opacity-50 transition-all shadow-[0_4px_20px_rgba(96,165,250,0.3)]"
+                                    className="login-submit-btn w-full flex justify-center items-center py-3.5 px-4 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-[#60a5fa] to-[#a78bfa] hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#101e33] focus:ring-[#60a5fa] disabled:opacity-50 transition-all shadow-[0_4px_20px_rgba(96,165,250,0.3)]"
                                 >
                                     <span className="login-btn-glow"></span>
                                     {isLoading ? <RefreshCw className="w-5 h-5 animate-spin" /> : 'Ripristina password'}
@@ -348,7 +310,7 @@ const LoginPage: React.FC = () => {
                                 <button
                                     type="submit"
                                     disabled={isLoading}
-                                    className="login-submit-btn w-full flex justify-center items-center py-3.5 px-4 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-[#60a5fa] to-[#a78bfa] hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#07111f] focus:ring-[#60a5fa] disabled:opacity-50 transition-all shadow-[0_4px_20px_rgba(96,165,250,0.3)]"
+                                    className="login-submit-btn w-full flex justify-center items-center py-3.5 px-4 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-[#60a5fa] to-[#a78bfa] hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#101e33] focus:ring-[#60a5fa] disabled:opacity-50 transition-all shadow-[0_4px_20px_rgba(96,165,250,0.3)]"
                                 >
                                     <span className="login-btn-glow"></span>
                                     {isLoading ? <RefreshCw className="w-5 h-5 animate-spin" /> : 'Invia link di recupero'}
@@ -413,7 +375,7 @@ const LoginPage: React.FC = () => {
                                 <button
                                     type="submit"
                                     disabled={isLoading}
-                                    className="login-submit-btn w-full flex justify-center items-center py-3.5 px-4 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-[#60a5fa] to-[#a78bfa] hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#07111f] focus:ring-[#60a5fa] disabled:opacity-50 transition-all shadow-[0_4px_20px_rgba(96,165,250,0.3)]"
+                                    className="login-submit-btn w-full flex justify-center items-center py-3.5 px-4 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-[#60a5fa] to-[#a78bfa] hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#101e33] focus:ring-[#60a5fa] disabled:opacity-50 transition-all shadow-[0_4px_20px_rgba(96,165,250,0.3)]"
                                 >
                                     <span className="login-btn-glow"></span>
                                     {isLoading ? (

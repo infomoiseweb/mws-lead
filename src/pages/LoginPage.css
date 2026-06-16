@@ -163,6 +163,16 @@
     color: #bfe0ff;
 }
 
+/* Effetto 3D per la scritta del brand */
+.login-3d-text {
+    text-shadow:
+        0 1px 0 rgba(255, 255, 255, 0.35),
+        0 2px 0 rgba(186, 213, 255, 0.25),
+        1px 3px 0 rgba(96, 165, 250, 0.35),
+        2px 5px 0 rgba(96, 165, 250, 0.22),
+        3px 7px 10px rgba(7, 17, 31, 0.55);
+}
+
 /* Bottone submit con riflesso animato */
 .login-submit-btn {
     position: relative;
