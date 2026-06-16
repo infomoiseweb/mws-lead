@@ -120,8 +120,8 @@ const LoginPage: React.FC = () => {
         e.preventDefault();
         setError('');
         setSuccess('');
-        if (!newPassword || newPassword.length < 6) {
-            setError('La password deve contenere almeno 6 caratteri.');
+        if (!newPassword || newPassword.length < 12) {
+            setError('La password deve contenere almeno 12 caratteri.');
             return;
         }
         setIsLoading(true);
@@ -237,7 +237,7 @@ const LoginPage: React.FC = () => {
                                     type={showNewPassword ? 'text' : 'password'}
                                     value={newPassword}
                                     onChange={(e) => setNewPassword(e.target.value)}
-                                    label="Nuova password (min. 6 caratteri)"
+                                    label="Nuova password (min. 12 caratteri)"
                                     icon={<KeyRound className="h-5 w-5" />}
                                     required
                                     rightElement={

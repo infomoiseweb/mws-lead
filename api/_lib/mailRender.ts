@@ -9,7 +9,8 @@ export function renderMailTemplate(template: string, vars: Record<string, string
 // Genera un token di disiscrizione firmato (HMAC) per email+cliente,
 // verificabile da /api/mail-unsubscribe senza autenticazione utente.
 export function buildUnsubscribeToken(email: string, clientId: string): string {
-    const secret = process.env.MAIL_UNSUBSCRIBE_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+    const secret = process.env.MAIL_UNSUBSCRIBE_SECRET;
+    if (!secret) throw new Error('MAIL_UNSUBSCRIBE_SECRET non configurato');
     const payload = `${email.toLowerCase()}|${clientId}`;
     const signature = crypto.createHmac('sha256', secret).update(payload).digest('hex');
     return Buffer.from(`${payload}|${signature}`).toString('base64url');

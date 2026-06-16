@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { GoogleGenAI, Chat } from "@google/genai";
 import { Send, Bot, User, Loader2, RotateCcw } from 'lucide-react';
 import { useAuth } from '@contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
+import { supabase } from '@lib/supabase';
 
 interface ChatMessage {
     role: 'user' | 'model';
@@ -25,51 +25,28 @@ const ChatPage: React.FC = () => {
         }
     });
 
-    const [chat, setChat] = useState<Chat | null>(null);
+    // history usata per passare il contesto al proxy server-side
+    const historyRef = useRef<{ role: string; parts: { text: string }[] }[]>([]);
+
     const [userInput, setUserInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
     const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
-    const initializeChat = (history: ChatMessage[]) => {
-        try {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
-            const chatHistory = history
-                .filter(m => m.text.trim() !== '')
-                .map(m => ({
-                    role: m.role,
-                    parts: [{ text: m.text }]
-                }));
-
-            const chatSession = ai.chats.create({
-                model: 'gemini-2.5-flash',
-                history: chatHistory,
-                config: {
-                    systemInstruction: t('page_chat.system_instruction', { username: user?.username || 'user', lng: i18n.language }),
-                },
-            });
-            setChat(chatSession);
-            setError(''); // Clear previous errors
-        } catch (e: any) {
-            console.error("Initialization error:", e);
-            setError(t('page_chat.init_error'));
-            setChat(null);
-        }
-    };
-
     useEffect(() => {
-        initializeChat(messages);
         if (messages.length === 0 && user?.username) {
-            setMessages([
-                {
-                    role: 'model',
-                    text: t('page_chat.initial_greeting', { username: user.username })
-                }
-            ]);
+            const greeting = { role: 'model' as const, text: t('page_chat.initial_greeting', { username: user.username }) };
+            setMessages([greeting]);
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [user?.id, i18n.language]); // Re-initialize when the user ID or language changes
+    }, [user?.id, i18n.language]);
 
+    // Sincronizza historyRef con messages (esclude il saluto iniziale dall'history AI)
+    useEffect(() => {
+        historyRef.current = messages
+            .filter(m => m.text.trim() !== '')
+            .map(m => ({ role: m.role, parts: [{ text: m.text }] }));
+    }, [messages]);
 
     useEffect(() => {
         if (chatSessionKey) {
@@ -81,7 +58,6 @@ const ChatPage: React.FC = () => {
         }
     }, [messages, chatSessionKey]);
 
-
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
@@ -90,33 +66,47 @@ const ChatPage: React.FC = () => {
 
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!userInput.trim() || isLoading || !chat) return;
+        if (!userInput.trim() || isLoading) return;
 
         const userMessage: ChatMessage = { role: 'user', text: userInput };
+        const currentInput = userInput;
         setMessages(prev => [...prev, userMessage]);
         setUserInput('');
         setIsLoading(true);
         setError('');
 
         try {
-            const responseStream = await chat.sendMessageStream({ message: userInput });
-            
-            let currentBotMessage = '';
-            setMessages(prev => [...prev, { role: 'model', text: '' }]);
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
+            if (!token) throw new Error('Sessione scaduta, effettua di nuovo il login.');
 
-            for await (const chunk of responseStream) {
-                currentBotMessage += chunk.text;
-                setMessages(prev => {
-                    const newMessages = [...prev];
-                    newMessages[newMessages.length - 1].text = currentBotMessage;
-                    return newMessages;
-                });
+            // History esclude l'ultimo messaggio utente appena aggiunto (non ancora inviato)
+            const history = historyRef.current.slice(0, -1);
+
+            const res = await fetch('/api/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    message: currentInput,
+                    history,
+                    systemInstruction: t('page_chat.system_instruction', { username: user?.username || 'user', lng: i18n.language }),
+                }),
+            });
+
+            if (!res.ok) {
+                const body = await res.json().catch(() => ({}));
+                throw new Error(body.error || `Errore ${res.status}`);
             }
+
+            const { text } = await res.json();
+            setMessages(prev => [...prev, { role: 'model', text: text || '' }]);
         } catch (e: any) {
             console.error("Error sending message:", e);
-            setError(t('page_chat.send_error'));
-            // Remove the empty bot message placeholder on error
-            setMessages(prev => prev.slice(0, prev.length -1));
+            setError(e.message || t('page_chat.send_error'));
+            setMessages(prev => prev.slice(0, -1));
         } finally {
             setIsLoading(false);
         }
@@ -124,16 +114,13 @@ const ChatPage: React.FC = () => {
 
     const handleResetChat = () => {
         if (window.confirm(t('page_chat.confirm_reset'))) {
-            setIsLoading(false); // Stop any ongoing loading
-            if (chatSessionKey) {
-                sessionStorage.removeItem(chatSessionKey);
-            }
+            setIsLoading(false);
+            if (chatSessionKey) sessionStorage.removeItem(chatSessionKey);
             const initialMessages = [{
                 role: 'model' as const,
                 text: t('page_chat.initial_greeting', { username: user?.username || '' })
             }];
             setMessages(initialMessages);
-            initializeChat([]); // Re-initialize chat with empty history
         }
     };
 
@@ -155,7 +142,7 @@ const ChatPage: React.FC = () => {
                 >
                     <p className="text-sm whitespace-pre-wrap">{message.text}</p>
                 </div>
-                 {isUser && (
+                {isUser && (
                     <div className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-600 flex items-center justify-center text-white">
                         <User size={20} />
                     </div>
@@ -184,18 +171,18 @@ const ChatPage: React.FC = () => {
                     <RotateCcw className="w-5 h-5 text-gray-500 dark:text-gray-400" />
                 </button>
             </div>
-            
+
             <div className="flex-1 p-4 sm:p-6 overflow-y-auto space-y-6">
                 {messages.map((msg, index) => (
                     <MessageBubble key={index} message={msg} />
                 ))}
-                 {isLoading && (
+                {isLoading && (
                     <div className="flex items-start gap-3">
                         <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary-500 flex items-center justify-center text-white">
                             <Bot size={20} />
                         </div>
                         <div className="max-w-xs px-4 py-3 rounded-2xl rounded-bl-lg bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-gray-200">
-                           <Loader2 className="w-5 h-5 animate-spin text-slate-500" />
+                            <Loader2 className="w-5 h-5 animate-spin text-slate-500" />
                         </div>
                     </div>
                 )}
@@ -207,7 +194,7 @@ const ChatPage: React.FC = () => {
                     {error}
                 </div>
             )}
-            
+
             <div className="flex-shrink-0 p-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
                 <form onSubmit={handleSendMessage} className="flex items-center space-x-3">
                     <input
@@ -216,11 +203,11 @@ const ChatPage: React.FC = () => {
                         onChange={(e) => setUserInput(e.target.value)}
                         placeholder={t('page_chat.placeholder')}
                         className="flex-1 w-full p-3 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-full focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
-                        disabled={isLoading || !chat}
+                        disabled={isLoading}
                     />
                     <button
                         type="submit"
-                        disabled={isLoading || !userInput.trim() || !chat}
+                        disabled={isLoading || !userInput.trim()}
                         className="w-12 h-12 flex items-center justify-center bg-primary-600 text-white rounded-full shadow hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
                         aria-label={t('page_chat.send_aria_label')}
                     >

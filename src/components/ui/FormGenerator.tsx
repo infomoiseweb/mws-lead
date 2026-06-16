@@ -60,8 +60,8 @@ const FormGenerator: React.FC<FormGeneratorProps> = ({ clients, formToEdit, onDo
     const [selectedServiceName, setSelectedServiceName] = useState('');
     
     // Supabase & Post-Submit Config
-    const [supabaseUrl, setSupabaseUrl] = useState('https://lmuunqingyolxjuktred.supabase.co');
-    const [supabaseAnonKey, setSupabaseAnonKey] = useState('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxtdXVucWluZ3lvbHhqdWt0cmVkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTcwMTAzNjYsImV4cCI6MjA3MjU4NjM2Nn0.DZ8CVuTNTehfMitQpPFJoJumUsngTbhUbcSgK6FGHQE');
+    const [supabaseUrl, setSupabaseUrl] = useState(import.meta.env.VITE_SUPABASE_URL || '');
+    const [supabaseAnonKey, setSupabaseAnonKey] = useState(import.meta.env.VITE_SUPABASE_ANON_KEY || '');
     const [thankYouUrl, setThankYouUrl] = useState('');
     const [webhookUrl, setWebhookUrl] = useState('');
 

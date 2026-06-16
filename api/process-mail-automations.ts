@@ -16,8 +16,9 @@ const MAX_LEADS_PER_AUTOMATION = 50;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     const secret = process.env.AUTOMATION_CRON_SECRET;
-    const provided = (req.query.secret as string | undefined) || req.headers['x-cron-secret'];
-    if (!secret || provided !== secret) {
+    if (!secret) return res.status(500).json({ error: 'Server misconfigured' });
+    const provided = req.headers['x-cron-secret'];
+    if (provided !== secret) {
         return res.status(401).json({ error: 'Unauthorized' });
     }
 
