@@ -19,7 +19,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer,
     const sizeClasses = {
         default: 'max-w-md sm:max-w-lg md:max-w-2xl',
         large: 'max-w-md sm:max-w-xl md:max-w-4xl',
-        'extra-large': 'max-w-md sm:max-w-3xl md:max-w-6xl lg:max-w-7xl'
+        'extra-large': 'max-w-md sm:max-w-4xl md:max-w-6xl lg:max-w-[92vw] xl:max-w-[1400px]'
     };
 
     return createPortal(
