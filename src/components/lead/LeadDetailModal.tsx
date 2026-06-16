@@ -1737,7 +1737,9 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
                                                     </div>
                                                     <div className="flex items-center space-x-1 flex-shrink-0">
                                                         <button onClick={() => setEditingHistoricalLead(hLead)} className="p-1.5 text-gray-400 hover:text-primary-500 rounded-full" aria-label="Modifica"><Edit size={14} /></button>
-                                                        <button onClick={() => handleDeleteHistorical(hLead.id)} className="p-1.5 text-gray-400 hover:text-red-500 rounded-full" aria-label="Elimina"><Trash2 size={14} /></button>
+                                                        {client?.can_delete_leads && (
+                                                            <button onClick={() => handleDeleteHistorical(hLead.id)} className="p-1.5 text-gray-400 hover:text-red-500 rounded-full" aria-label="Elimina"><Trash2 size={14} /></button>
+                                                        )}
                                                     </div>
                                                 </div>
                                                 <div className="flex justify-between items-center pt-2 border-t border-slate-200 dark:border-slate-700">

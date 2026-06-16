@@ -1191,7 +1191,9 @@ const ClientDashboard: React.FC = () => {
                                                 </div>
                                             </div>
                                             <div className="px-6 py-4 text-right" style={{width: '96px'}}>
-                                                <button onClick={(e) => { e.stopPropagation(); handleDeleteLead(lead.id); }} className="text-gray-400 hover:text-red-500 p-2 rounded-full"><Trash2 size={16}/></button>
+                                                {client?.can_delete_leads && (
+                                                    <button onClick={(e) => { e.stopPropagation(); handleDeleteLead(lead.id); }} className="text-gray-400 hover:text-red-500 p-2 rounded-full"><Trash2 size={16}/></button>
+                                                )}
                                             </div>
                                         </div>
                                     </td>
@@ -1210,7 +1212,9 @@ const ClientDashboard: React.FC = () => {
                                         <div className="font-bold text-slate-900 dark:text-white">{getLeadFieldValue(lead.data, 'nome') || 'N/D'}</div>
                                         <div className="text-xs text-gray-500 dark:text-gray-400">{lead.service || 'N/D'}</div>
                                     </div>
-                                    <button onClick={(e) => { e.stopPropagation(); handleDeleteLead(lead.id); }} className="text-gray-400 hover:text-red-500 p-1"><Trash2 size={16}/></button>
+                                    {client?.can_delete_leads && (
+                                        <button onClick={(e) => { e.stopPropagation(); handleDeleteLead(lead.id); }} className="text-gray-400 hover:text-red-500 p-1"><Trash2 size={16}/></button>
+                                    )}
                                 </div>
                                 <div className="text-sm text-slate-600 dark:text-gray-300 space-y-1 pt-2 mt-2 border-t border-slate-200 dark:border-slate-700">
                                     {dynamicColumns.filter(c => c.name !== 'nome').slice(0, 2).map(col => {

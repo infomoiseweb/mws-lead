@@ -44,6 +44,7 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
     const [mwsFixedFee, setMwsFixedFee] = useState<string>('');
     const [mwsProfitPercentage, setMwsProfitPercentage] = useState<string>('');
     const [quoteWebhookUrl, setQuoteWebhookUrl] = useState('');
+    const [canDeleteLeads, setCanDeleteLeads] = useState(false);
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [copiedFieldName, setCopiedFieldName] = useState<string | null>(null);
@@ -116,6 +117,7 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
             setMwsFixedFee(String(client.mws_fixed_fee || ''));
             setMwsProfitPercentage(String(client.mws_profit_percentage || ''));
             setQuoteWebhookUrl(client.quote_webhook_url || '');
+            setCanDeleteLeads(client.can_delete_leads ?? false);
         } else {
             setName('');
             setUsername('');
@@ -292,6 +294,7 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
                     mws_fixed_fee: mwsFixedFee ? parseFloat(mwsFixedFee) : 0,
                     mws_profit_percentage: mwsProfitPercentage ? parseFloat(mwsProfitPercentage) : 0,
                     quote_webhook_url: quoteWebhookUrl,
+                    can_delete_leads: canDeleteLeads,
                 };
                 await ApiService.updateClient(client.id, updates);
             } else {
@@ -379,6 +382,22 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
 
                 <fieldset className="border-t border-slate-200 dark:border-slate-700 pt-4">
                     <legend className="text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">Impostazioni Integrazioni</legend>
+
+                    {/* Permesso eliminazione lead */}
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50 mb-4">
+                        <div>
+                            <p className="text-sm font-medium text-slate-700 dark:text-gray-200">Permetti al cliente di eliminare le lead</p>
+                            <p className="text-xs text-slate-500 dark:text-gray-400 mt-0.5">Se disabilitato, il pulsante di eliminazione non compare nella dashboard del cliente.</p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setCanDeleteLeads(v => !v)}
+                            className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${canDeleteLeads ? 'bg-primary-600' : 'bg-slate-300 dark:bg-slate-600'}`}
+                        >
+                            <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${canDeleteLeads ? 'translate-x-5' : 'translate-x-0'}`} />
+                        </button>
+                    </div>
+
                     <div>
                         <label htmlFor="quoteWebhookUrl" className="block text-sm font-medium text-slate-700 dark:text-gray-300 flex items-center">
                             <Webhook size={14} className="mr-2"/>

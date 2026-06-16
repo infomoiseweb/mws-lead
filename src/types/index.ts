@@ -213,6 +213,7 @@ export interface Client {
     mail_marketing_enabled?: boolean;
     lead_intake_mode?: 'form' | 'api';
     api_token?: string;
+    can_delete_leads?: boolean;
     // These are loaded separately
     leads: Lead[];
     adSpends?: AdSpend[];
