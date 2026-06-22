@@ -19,7 +19,7 @@ import type { Lead } from '../../types';
 
 ChartJS.register(ArcElement, CategoryScale, LinearScale, BarElement, PointElement, LineElement, Tooltip, Legend, Filler);
 
-const statusOrder: Lead['status'][] = ['Nuovo', 'Contattato', 'In Lavorazione', 'Preventivo Inviato', 'Preventivo Accettato', 'Vinto', 'Perso'];
+const statusOrder: Lead['status'][] = ['Nuovo', 'Contattato', 'In Lavorazione', 'Preventivo Inviato', 'Preventivo Accettato', 'Preventivo Rifiutato', 'Vinto', 'Perso'];
 // Palette basata sui colori del brand (blu primario) con due accenti semantici (verde/rosso per esito)
 const statusColors: Record<Lead['status'], string> = {
     'Nuovo': '#93c5fd',
@@ -29,6 +29,7 @@ const statusColors: Record<Lead['status'], string> = {
     'Perso': '#ef4444',
     'Preventivo Inviato': '#0ea5e9',
     'Preventivo Accettato': '#10b981',
+    'Preventivo Rifiutato': '#f97316',
 };
 
 // 3D-ish drop shadow plugin for arcs/bars

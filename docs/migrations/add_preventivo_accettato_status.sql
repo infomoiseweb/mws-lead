@@ -4,7 +4,7 @@
 -- 1. Aggiorna il vincolo di stato per includere "Preventivo Accettato"
 ALTER TABLE public.leads DROP CONSTRAINT IF EXISTS leads_status_check;
 ALTER TABLE public.leads ADD CONSTRAINT leads_status_check
-    CHECK (status IN ('Nuovo', 'Contattato', 'In Lavorazione', 'Perso', 'Vinto', 'Preventivo Inviato', 'Preventivo Accettato'));
+    CHECK (status IN ('Nuovo', 'Contattato', 'In Lavorazione', 'Perso', 'Vinto', 'Preventivo Inviato', 'Preventivo Accettato', 'Preventivo Rifiutato'));
 
 -- 2. Ricrea la funzione impostando "Preventivo Accettato" invece di "Vinto"
 DROP FUNCTION IF EXISTS public.update_quote_status_and_handle_accepted(UUID, VARCHAR) CASCADE;

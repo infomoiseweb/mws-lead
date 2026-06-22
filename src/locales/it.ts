@@ -80,7 +80,8 @@ export default {
         Perso: "Perso",
         Vinto: "Vinto",
         "Preventivo Inviato": "Prev. Inviato",
-        "Preventivo Accettato": "Prev. Accettato"
+        "Preventivo Accettato": "Prev. Accettato",
+        "Preventivo Rifiutato": "Prev. Rifiutato"
     },
 
     overview: {

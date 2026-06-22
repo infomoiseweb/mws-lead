@@ -80,7 +80,8 @@ export default {
         Perso: "Lost",
         Vinto: "Won",
         "Preventivo Inviato": "Quote Sent",
-        "Preventivo Accettato": "Quote Accepted"
+        "Preventivo Accettato": "Quote Accepted",
+        "Preventivo Rifiutato": "Quote Rejected"
     },
 
     overview: {

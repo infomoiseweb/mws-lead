@@ -20,7 +20,7 @@ interface TooltipData {
     percent: string;
 }
 
-const statusOrder: Lead['status'][] = ['Nuovo', 'Contattato', 'In Lavorazione', 'Preventivo Inviato', 'Preventivo Accettato', 'Vinto', 'Perso'];
+const statusOrder: Lead['status'][] = ['Nuovo', 'Contattato', 'In Lavorazione', 'Preventivo Inviato', 'Preventivo Accettato', 'Preventivo Rifiutato', 'Vinto', 'Perso'];
 const statusColors: Record<Lead['status'], string> = {
     'Nuovo': '#64748b',
     'Contattato': '#f59e0b',
@@ -29,6 +29,7 @@ const statusColors: Record<Lead['status'], string> = {
     'Vinto': '#22c55e',
     'Preventivo Inviato': '#3b82f6',
     'Preventivo Accettato': '#10b981',
+    'Preventivo Rifiutato': '#f97316',
 };
 
 const LiveOverviewChart: React.FC<LiveOverviewChartProps> = ({ data }) => {

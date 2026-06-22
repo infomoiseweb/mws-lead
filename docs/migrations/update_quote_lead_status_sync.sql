@@ -20,7 +20,7 @@ BEGIN
         ELSIF p_new_status = 'sent' THEN
             UPDATE public.leads SET status = 'Preventivo Inviato' WHERE id = v_lead_id;
         ELSIF p_new_status = 'rejected' THEN
-            UPDATE public.leads SET status = 'In Lavorazione' WHERE id = v_lead_id;
+            UPDATE public.leads SET status = 'Preventivo Rifiutato' WHERE id = v_lead_id;
         -- 'draft': nessun cambio automatico sullo stato lead
         END IF;
     END IF;

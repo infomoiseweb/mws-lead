@@ -23,6 +23,7 @@ const statusColors: Record<Lead['status'], string> = {
     'Vinto': 'bg-green-500 text-white',
     'Preventivo Inviato': 'bg-blue-500 dark:bg-blue-600 text-white',
     'Preventivo Accettato': 'bg-emerald-500 dark:bg-emerald-600 text-white',
+    'Preventivo Rifiutato': 'bg-orange-500 dark:bg-orange-600 text-white',
 };
 
 const normalizePhoneNumber = (phone: string | undefined): string => {
@@ -121,6 +122,7 @@ const StatusSelect: React.FC<{ status: Lead['status'], onChange: (newStatus: Lea
             <option value="Vinto">Vinto</option>
             <option value="Preventivo Inviato">Prev. Inviato</option>
             <option value="Preventivo Accettato">Prev. Accettato</option>
+            <option value="Preventivo Rifiutato">Prev. Rifiutato</option>
         </select>
         <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-white pointer-events-none" />
     </div>

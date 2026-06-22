@@ -80,7 +80,8 @@ export default {
         Perso: "Pierdut",
         Vinto: "Câștigat",
         "Preventivo Inviato": "Ofertă Trimisă",
-        "Preventivo Accettato": "Ofertă Acceptată"
+        "Preventivo Accettato": "Ofertă Acceptată",
+        "Preventivo Rifiutato": "Ofertă Respinsă"
     },
 
     overview: {
