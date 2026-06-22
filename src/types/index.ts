@@ -130,7 +130,7 @@ export interface Lead {
     client_id?: string;
     created_at: string;
     data: Record<string, string>;
-    status: 'Nuovo' | 'Contattato' | 'In Lavorazione' | 'Perso' | 'Vinto' | 'Preventivo Inviato';
+    status: 'Nuovo' | 'Contattato' | 'In Lavorazione' | 'Perso' | 'Vinto' | 'Preventivo Inviato' | 'Preventivo Accettato';
     value?: number;
     service?: string;
     notes?: Note[];

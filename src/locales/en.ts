@@ -79,7 +79,8 @@ export default {
         "In Lavorazione": "In Progress",
         Perso: "Lost",
         Vinto: "Won",
-        "Preventivo Inviato": "Quote Sent"
+        "Preventivo Inviato": "Quote Sent",
+        "Preventivo Accettato": "Quote Accepted"
     },
 
     overview: {

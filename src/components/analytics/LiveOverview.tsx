@@ -12,8 +12,9 @@ const statusColors: Record<Lead['status'], string> = {
     'Perso': 'bg-red-500 text-white',
     'Vinto': 'bg-green-500 text-white',
     'Preventivo Inviato': 'bg-blue-500 dark:bg-blue-600 text-white',
+    'Preventivo Accettato': 'bg-emerald-500 dark:bg-emerald-600 text-white',
 };
-const statusOrder: Lead['status'][] = ['Nuovo', 'Contattato', 'In Lavorazione', 'Preventivo Inviato', 'Vinto', 'Perso'];
+const statusOrder: Lead['status'][] = ['Nuovo', 'Contattato', 'In Lavorazione', 'Preventivo Inviato', 'Preventivo Accettato', 'Vinto', 'Perso'];
 
 
 const LiveOverview: React.FC<{
@@ -40,7 +41,7 @@ const LiveOverview: React.FC<{
                 dataMap.set(groupId, {
                     groupName,
                     total: 0,
-                    leadsByStatus: { 'Nuovo': [], 'Contattato': [], 'In Lavorazione': [], 'Perso': [], 'Vinto': [], 'Preventivo Inviato': [] }
+                    leadsByStatus: { 'Nuovo': [], 'Contattato': [], 'In Lavorazione': [], 'Perso': [], 'Vinto': [], 'Preventivo Inviato': [], 'Preventivo Accettato': [] }
                 });
             }
             const groupData = dataMap.get(groupId)!;

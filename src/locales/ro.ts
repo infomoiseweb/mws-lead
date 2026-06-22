@@ -79,7 +79,8 @@ export default {
         "In Lavorazione": "În Lucru",
         Perso: "Pierdut",
         Vinto: "Câștigat",
-        "Preventivo Inviato": "Ofertă Trimisă"
+        "Preventivo Inviato": "Ofertă Trimisă",
+        "Preventivo Accettato": "Ofertă Acceptată"
     },
 
     overview: {

@@ -7,7 +7,7 @@ import { Loader2, Send } from 'lucide-react';
 
 const inputCls = "w-full px-3 py-2 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500";
 
-const LEAD_STATUSES: Lead['status'][] = ['Nuovo', 'Contattato', 'In Lavorazione', 'Preventivo Inviato', 'Vinto', 'Perso'];
+const LEAD_STATUSES: Lead['status'][] = ['Nuovo', 'Contattato', 'In Lavorazione', 'Preventivo Inviato', 'Preventivo Accettato', 'Vinto', 'Perso'];
 
 interface MailCampaignModalProps {
     isOpen: boolean;

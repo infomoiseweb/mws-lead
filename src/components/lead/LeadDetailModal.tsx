@@ -72,6 +72,7 @@ const statusColors: Record<Lead['status'], string> = {
     'Perso': 'bg-red-500 text-white',
     'Vinto': 'bg-green-500 text-white',
     'Preventivo Inviato': 'bg-blue-500 dark:bg-blue-600 text-white',
+    'Preventivo Accettato': 'bg-emerald-500 dark:bg-emerald-600 text-white',
 };
 
 const WhatsAppIcon: React.FC<{className?: string}> = ({className}) => (
@@ -1887,6 +1888,7 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
                                             <option value="Perso">{t('lead_status.Perso')}</option>
                                             <option value="Vinto">{t('lead_status.Vinto')}</option>
                                             <option value="Preventivo Inviato">{t('lead_status.Preventivo Inviato')}</option>
+                                            <option value="Preventivo Accettato">{t('lead_status.Preventivo Accettato')}</option>
                                         </select>
                                         <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-white pointer-events-none" />
                                     </div>

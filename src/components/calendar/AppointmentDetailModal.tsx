@@ -84,6 +84,8 @@ const statusColors: Record<Lead['status'], string> = {
     'In Lavorazione': 'bg-purple-400 dark:bg-purple-500 text-white',
     'Perso': 'bg-red-500 text-white',
     'Vinto': 'bg-green-500 text-white',
+    'Preventivo Inviato': 'bg-sky-500 text-white',
+    'Preventivo Accettato': 'bg-emerald-500 text-white',
 };
 
 const StatusSelect: React.FC<{ status: Lead['status'], onChange: (newStatus: Lead['status']) => void }> = ({ status, onChange }) => (
@@ -98,6 +100,8 @@ const StatusSelect: React.FC<{ status: Lead['status'], onChange: (newStatus: Lea
             <option value="In Lavorazione">In Lavorazione</option>
             <option value="Perso">Perso</option>
             <option value="Vinto">Vinto</option>
+            <option value="Preventivo Inviato">Prev. Inviato</option>
+            <option value="Preventivo Accettato">Prev. Accettato</option>
         </select>
         <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-white pointer-events-none" />
     </div>
