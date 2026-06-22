@@ -377,7 +377,7 @@ const EditHistoricalLeadForm: React.FC<{
 const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead, client, historicalLeads, onAddNote, onUpdateNote, onDeleteNote, onHistoricalLeadAdded, onHistoricalLeadUpdated, onHistoricalLeadDeleted, onLeadUpdate }) => {
     const { t } = useTranslation();
     const { user } = useAuth();
-    const { distanceKm, isLoading: isLoadingDistance } = useLeadDistance(client, lead);
+    const { result: distanceResult, isLoading: isLoadingDistance } = useLeadDistance(client, lead);
     const [newNote, setNewNote] = useState('');
     const [isSubmittingNote, setIsSubmittingNote] = useState(false);
     const [generatedMessage, setGeneratedMessage] = useState('');
@@ -1306,9 +1306,14 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
                                 label="Distanza"
                                 value={
                                     isLoadingDistance
-                                        ? <span className="text-xs text-slate-400">Calcolo...</span>
-                                        : distanceKm !== null
-                                            ? <span className="text-sm font-semibold text-slate-700 dark:text-gray-200">{distanceKm.toFixed(1)} km</span>
+                                        ? <span className="text-xs text-slate-400">Calcolo percorso...</span>
+                                        : distanceResult !== null
+                                            ? <span className="text-sm font-semibold text-slate-700 dark:text-gray-200">
+                                                {distanceResult.km.toFixed(1)} km
+                                                {distanceResult.mode === 'straight' && (
+                                                    <span className="ml-1 text-xs font-normal text-slate-400">(linea d'aria)</span>
+                                                )}
+                                              </span>
                                             : <span className="text-xs text-slate-400 dark:text-gray-500">Indirizzo non disponibile</span>
                                 }
                             />
