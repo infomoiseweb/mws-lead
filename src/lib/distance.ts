@@ -24,37 +24,47 @@ function withItaly(address: string): string {
     return /italia|italy/i.test(address) ? address : `${address}, Italia`;
 }
 
+/** True se l'indirizzo sembra solo un nome di città (nessun numero, nessuna via/piazza) */
+function looksLikeCityOnly(s: string): boolean {
+    return !/\d/.test(s) && !/\b(via|viale|piazza|corso|strada|localita|loc\.|fraz\.|frazione)\b/i.test(s);
+}
+
 /** Genera varianti dell'indirizzo da provare in sequenza */
 function addressVariants(normalized: string): string[] {
     const variants: string[] = [];
+
     // 1. Indirizzo normalizzato completo
     variants.push(withItaly(normalized));
+
+    // 2. Se sembra solo un nome di città, aggiungi "centro" per ancorarlo al centro urbano
+    if (looksLikeCityOnly(normalized)) {
+        variants.push(withItaly(`${normalized} centro`));
+    }
 
     const parts = normalized.split(',').map(p => p.trim()).filter(Boolean);
 
     if (parts.length > 1) {
-        // 2. Solo prima parte (es. "Piacenza" da "Piacenza, Villanova sull'Arda")
+        // 3. Solo prima parte (es. "Piacenza" da "Piacenza, Villanova sull'Arda")
         variants.push(withItaly(parts[0]));
-        // 3. Solo ultima parte
+        variants.push(withItaly(`${parts[0]} centro`));
+        // 4. Solo ultima parte
         variants.push(withItaly(parts[parts.length - 1]));
-        // 4. Ordine invertito delle parti
+        // 5. Ordine invertito delle parti
         variants.push(withItaly([...parts].reverse().join(', ')));
     } else {
-        // Indirizzo senza virgola: potrebbe essere "Città frazione" o "Città Provincia"
         const words = normalized.trim().split(/\s+/);
         if (words.length >= 2) {
-            // 2. Aggiungi virgola tra le parole: "Pavia, Ceranova"
+            // 6. Aggiungi virgola tra le parole: "Pavia, Ceranova"
             variants.push(withItaly(`${words[0]}, ${words.slice(1).join(' ')}`));
-            // 3. Ordine inverso con virgola: "Ceranova, Pavia"
+            // 7. Ordine inverso con virgola: "Ceranova, Pavia"
             variants.push(withItaly(`${words.slice(1).join(' ')}, ${words[0]}`));
-            // 4. Solo seconda parola (spesso è la città principale)
-            variants.push(withItaly(words.slice(1).join(' ')));
-            // 5. Solo prima parola
-            variants.push(withItaly(words[0]));
+            // 8. Solo seconda parola + centro
+            variants.push(withItaly(`${words.slice(1).join(' ')} centro`));
+            // 9. Solo prima parola + centro
+            variants.push(withItaly(`${words[0]} centro`));
         }
     }
 
-    // Deduplicazione mantenendo l'ordine
     return [...new Set(variants)];
 }
 
