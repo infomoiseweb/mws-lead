@@ -75,33 +75,37 @@ async function geocodeGoogle(raw: string): Promise<{ lat: number; lng: number; f
     if (geocodeCache.has(cacheKey)) return geocodeCache.get(cacheKey)!;
 
     // 1. Prova tutte le varianti con Geocoding API
-    for (const query of addressVariants(normalized)) {
+    const variants = addressVariants(normalized);
+    console.debug('[Distance] geocoding variants:', variants);
+    for (const query of variants) {
         try {
             const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(query)}&region=it&language=it&key=${GOOGLE_API_KEY}`;
             const res = await fetch(url);
             const data = await res.json();
+            console.debug(`[Distance] Geocoding "${query}" →`, data.status, data.error_message || '');
             if (data.status === 'OK' && data.results?.[0]) {
                 const loc = data.results[0].geometry.location;
                 const result = { lat: loc.lat, lng: loc.lng, formatted: data.results[0].formatted_address };
                 geocodeCache.set(cacheKey, result);
                 return result;
             }
-        } catch { /* continua */ }
+        } catch (e) { console.debug('[Distance] Geocoding fetch error:', e); }
     }
 
-    // 2. Fallback: Places Text Search — gestisce linguaggio naturale e indirizzi parziali
+    // 2. Fallback: Places Text Search
     try {
         const query = withItaly(normalized);
         const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&region=it&language=it&key=${GOOGLE_API_KEY}`;
         const res = await fetch(url);
         const data = await res.json();
+        console.debug(`[Distance] Places Text Search "${query}" →`, data.status, data.error_message || '');
         if (data.status === 'OK' && data.results?.[0]) {
             const loc = data.results[0].geometry.location;
             const result = { lat: loc.lat, lng: loc.lng, formatted: data.results[0].formatted_address };
             geocodeCache.set(cacheKey, result);
             return result;
         }
-    } catch { /* continua */ }
+    } catch (e) { console.debug('[Distance] Places fetch error:', e); }
 
     geocodeCache.set(cacheKey, null);
     return null;
