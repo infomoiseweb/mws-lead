@@ -1310,6 +1310,9 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
                                         : distanceResult !== null
                                             ? <span className="text-sm font-semibold text-slate-700 dark:text-gray-200">
                                                 {distanceResult.km.toFixed(1)} km
+                                                {distanceResult.mode === 'google' && (
+                                                    <span className="ml-1 text-xs font-normal text-slate-400">via Google Maps</span>
+                                                )}
                                                 {distanceResult.mode === 'straight' && (
                                                     <span className="ml-1 text-xs font-normal text-slate-400">(linea d'aria)</span>
                                                 )}
