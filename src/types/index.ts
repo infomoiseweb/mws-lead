@@ -155,6 +155,7 @@ export interface QuotePricePreset {
     unit: string;    // Es. "ettaro", "mq", "ora"
     price: number;
     vat: number;
+    children?: QuotePricePreset[]; // Sotto-voci — se presente, questo preset è una categoria
 }
 
 export interface QuoteNumberingSettings {

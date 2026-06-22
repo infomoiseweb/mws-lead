@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { Client, QuoteSettings, QuotePricePreset, QuoteBranding, QuoteTermsPreset } from '../../types';
-import { PlusCircle, Trash2, Edit2, Save, X, Upload, Image as ImageIcon } from 'lucide-react';
+import { PlusCircle, Trash2, Edit2, Save, X, Upload, Image as ImageIcon, ChevronDown, ChevronRight, Plus } from 'lucide-react';
 import { uploadClientLogo } from '@api/storage';
 import QuotePreviewDocument from '@components/quote/QuotePreviewDocument';
 import { DEFAULT_EMAIL_SUBJECT_TEMPLATE, DEFAULT_EMAIL_BODY_TEMPLATE, DEFAULT_WHATSAPP_MESSAGE_TEMPLATE } from '@lib/quoteShareTemplates';
@@ -50,12 +50,78 @@ const FONT_OPTIONS: { value: NonNullable<QuoteBranding['font']>; label: string }
     { value: 'mono', label: 'Tecnico (Mono)' },
 ];
 
+interface PresetFormProps {
+    buffer: QuotePricePreset;
+    services: { id: string; name: string }[];
+    inputCls: string;
+    isCategory: boolean;
+    hideService?: boolean;
+    onChange: (p: QuotePricePreset) => void;
+    onSave: () => void;
+    onCancel: () => void;
+}
+
+const PresetForm: React.FC<PresetFormProps> = ({ buffer, services, inputCls, hideService, onChange, onSave, onCancel }) => (
+    <div className="p-4 space-y-3 bg-white dark:bg-slate-800">
+        <div className={`grid grid-cols-1 gap-3 ${hideService ? '' : 'sm:grid-cols-2'}`}>
+            <div>
+                <label className="text-xs font-medium text-slate-500 dark:text-gray-400">Nome</label>
+                <input type="text" value={buffer.label} onChange={e => onChange({ ...buffer, label: e.target.value })}
+                    placeholder="Es. Irrorazione campi" className={inputCls} autoFocus />
+            </div>
+            {!hideService && (
+                <div>
+                    <label className="text-xs font-medium text-slate-500 dark:text-gray-400">Servizio</label>
+                    <select value={buffer.service} onChange={e => onChange({ ...buffer, service: e.target.value })} className={inputCls}>
+                        <option value="*">Tutti i servizi</option>
+                        {services.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                    </select>
+                </div>
+            )}
+        </div>
+        <div>
+            <label className="text-xs font-medium text-slate-500 dark:text-gray-400">Descrizione voce preventivo (opzionale)</label>
+            <input type="text" value={buffer.description} onChange={e => onChange({ ...buffer, description: e.target.value })}
+                placeholder={buffer.label || 'Es. Trattamento agricolo con drone'} className={inputCls} />
+            <p className="text-xs text-slate-400 dark:text-gray-500 mt-0.5">Se lasciata vuota verrà usato il nome.</p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+                <label className="text-xs font-medium text-slate-500 dark:text-gray-400">Unità di misura</label>
+                <input type="text" value={buffer.unit} onChange={e => onChange({ ...buffer, unit: e.target.value })}
+                    placeholder="Es. ettaro, mq, ora" className={inputCls} />
+            </div>
+            <div>
+                <label className="text-xs font-medium text-slate-500 dark:text-gray-400">Prezzo unitario (€)</label>
+                <input type="number" step="0.01" value={buffer.price}
+                    onChange={e => onChange({ ...buffer, price: parseFloat(e.target.value) || 0 })} className={inputCls} />
+            </div>
+            <div>
+                <label className="text-xs font-medium text-slate-500 dark:text-gray-400">IVA (%)</label>
+                <input type="number" step="1" value={buffer.vat}
+                    onChange={e => onChange({ ...buffer, vat: parseFloat(e.target.value) || 0 })} className={inputCls} />
+            </div>
+        </div>
+        <div className="flex gap-2 justify-end">
+            <button onClick={onCancel} className="flex items-center gap-1 px-3 py-1.5 text-xs text-slate-600 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors">
+                <X className="w-3.5 h-3.5" /> Annulla
+            </button>
+            <button onClick={onSave} disabled={!buffer.label.trim()}
+                className="flex items-center gap-1 px-3 py-1.5 bg-primary-600 hover:bg-primary-700 disabled:opacity-40 text-white text-xs font-medium rounded-lg transition-colors">
+                <Save className="w-3.5 h-3.5" /> Salva
+            </button>
+        </div>
+    </div>
+);
+
 const QuoteSettingsEditor: React.FC<Props> = ({ client, onSave }) => {
     const [numbering, setNumbering] = useState(client.quote_settings?.numbering || { enabled: false, next_number: '' });
     const [validityDays, setValidityDays] = useState<number>(client.quote_settings?.validity_days || 7);
     const [presets, setPresets] = useState<QuotePricePreset[]>(client.quote_settings?.price_presets || []);
     const [editingId, setEditingId] = useState<string | null>(null);
+    const [editingParentId, setEditingParentId] = useState<string | null>(null);
     const [editBuffer, setEditBuffer] = useState<QuotePricePreset | null>(null);
+    const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
 
     const [branding, setBranding] = useState<QuoteBranding>(client.quote_settings?.branding || { primary_color: '#2563eb', font: 'sans' });
     const [isUploadingLogo, setIsUploadingLogo] = useState(false);
@@ -152,6 +218,73 @@ const QuoteSettingsEditor: React.FC<Props> = ({ client, onSave }) => {
         setPresets(prev => prev.filter(p => p.id !== id));
     };
 
+    const toggleExpand = (id: string) => {
+        setExpandedCategories(prev => {
+            const next = new Set(prev);
+            next.has(id) ? next.delete(id) : next.add(id);
+            return next;
+        });
+    };
+
+    const emptyChild = (parent: QuotePricePreset): QuotePricePreset => ({
+        id: `preset_${Date.now()}_${Math.random()}`,
+        service: parent.service,
+        label: '',
+        description: '',
+        unit: '',
+        price: 0,
+        vat: 22,
+    });
+
+    const addChild = (parentId: string) => {
+        const child = emptyChild(presets.find(p => p.id === parentId)!);
+        setPresets(prev => prev.map(p =>
+            p.id === parentId ? { ...p, children: [...(p.children || []), child] } : p
+        ));
+        setEditingId(child.id);
+        setEditingParentId(parentId);
+        setEditBuffer({ ...child });
+    };
+
+    const saveChild = () => {
+        if (!editBuffer?.label.trim() || !editingParentId) return;
+        const finalized: QuotePricePreset = {
+            ...editBuffer,
+            description: editBuffer.description.trim() || editBuffer.label.trim(),
+        };
+        setPresets(prev => prev.map(p =>
+            p.id === editingParentId
+                ? { ...p, children: (p.children || []).map(c => c.id === editingId ? finalized : c) }
+                : p
+        ));
+        setEditingId(null);
+        setEditingParentId(null);
+        setEditBuffer(null);
+    };
+
+    const cancelChildEdit = () => {
+        setPresets(prev => prev.map(p =>
+            p.id === editingParentId
+                ? { ...p, children: (p.children || []).filter(c => !(c.id === editingId && !c.label)) }
+                : p
+        ));
+        setEditingId(null);
+        setEditingParentId(null);
+        setEditBuffer(null);
+    };
+
+    const startEditChild = (parentId: string, child: QuotePricePreset) => {
+        setEditingParentId(parentId);
+        setEditingId(child.id);
+        setEditBuffer({ ...child });
+    };
+
+    const deleteChild = (parentId: string, childId: string) => {
+        setPresets(prev => prev.map(p =>
+            p.id === parentId ? { ...p, children: (p.children || []).filter(c => c.id !== childId) } : p
+        ));
+    };
+
     const startNewTerms = () => {
         const preset = emptyTermsPreset();
         setTermsPresets(prev => [...prev, preset]);
@@ -213,6 +346,7 @@ const QuoteSettingsEditor: React.FC<Props> = ({ client, onSave }) => {
 
     const inputCls = "w-full px-3 py-2 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500";
     const isEditingAnything = !!editingId || !!editingTermsId;
+    const isChildEdit = !!editingParentId;
 
     return (
         <div className="space-y-6">
@@ -390,115 +524,115 @@ const QuoteSettingsEditor: React.FC<Props> = ({ client, onSave }) => {
                         </p>
                     )}
 
-                    {presets.map(preset => (
-                        <div key={preset.id} className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
-                            {editingId === preset.id && editBuffer ? (
-                                <div className="p-4 space-y-3 bg-white dark:bg-slate-800">
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                        <div>
-                                            <label className="text-xs font-medium text-slate-500 dark:text-gray-400">Nome preset</label>
-                                            <input
-                                                type="text"
-                                                value={editBuffer.label}
-                                                onChange={e => setEditBuffer({ ...editBuffer, label: e.target.value })}
-                                                placeholder="Es. Irrorazione campi"
-                                                className={inputCls}
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="text-xs font-medium text-slate-500 dark:text-gray-400">Servizio</label>
-                                            <select value={editBuffer.service} onChange={e => setEditBuffer({ ...editBuffer, service: e.target.value })} className={inputCls}>
-                                                <option value="*">Tutti i servizi</option>
-                                                {services.map(s => (
-                                                    <option key={s.id} value={s.name}>{s.name}</option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                    </div>
+                    {presets.map(preset => {
+                        const isCategory = (preset.children?.length ?? 0) > 0;
+                        const isExpanded = expandedCategories.has(preset.id);
+                        const isEditingThis = editingId === preset.id && !isChildEdit;
 
-                                    <div>
-                                        <label className="text-xs font-medium text-slate-500 dark:text-gray-400">Descrizione voce preventivo (opzionale)</label>
-                                        <input
-                                            type="text"
-                                            value={editBuffer.description}
-                                            onChange={e => setEditBuffer({ ...editBuffer, description: e.target.value })}
-                                            placeholder={editBuffer.label || 'Es. Trattamento agricolo con drone'}
-                                            className={inputCls}
-                                        />
-                                        <p className="text-xs text-slate-400 dark:text-gray-500 mt-0.5">Se lasciata vuota verrà usato il nome del preset.</p>
+                        return (
+                            <div key={preset.id} className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
+                                {/* Riga categoria / preset semplice */}
+                                {isEditingThis && editBuffer ? (
+                                    <PresetForm
+                                        buffer={editBuffer}
+                                        services={services}
+                                        inputCls={inputCls}
+                                        isCategory={false}
+                                        onChange={setEditBuffer}
+                                        onSave={saveEdit}
+                                        onCancel={cancelEdit}
+                                    />
+                                ) : (
+                                    <div className="flex items-start gap-2 p-3 bg-white dark:bg-slate-800">
+                                        {/* Toggle espandi se ha figli */}
+                                        {isCategory ? (
+                                            <button onClick={() => toggleExpand(preset.id)} className="mt-0.5 p-0.5 text-slate-400 hover:text-slate-600 dark:hover:text-gray-200 transition-colors">
+                                                {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                                            </button>
+                                        ) : (
+                                            <span className="w-5" />
+                                        )}
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                                                <span className="text-sm font-semibold text-slate-800 dark:text-white">{preset.label}</span>
+                                                {preset.service !== '*' && (
+                                                    <span className="text-xs px-2 py-0.5 rounded-full bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300">{preset.service}</span>
+                                                )}
+                                                {isCategory ? (
+                                                    <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">{preset.children!.length} voci</span>
+                                                ) : (
+                                                    <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-gray-400">
+                                                        {preset.price.toFixed(2)} € / {preset.unit || 'unità'} · IVA {preset.vat}%
+                                                    </span>
+                                                )}
+                                            </div>
+                                            {!isCategory && <p className="text-xs text-slate-400 dark:text-gray-500 line-clamp-1">{preset.description}</p>}
+                                        </div>
+                                        <div className="flex gap-1 shrink-0">
+                                            <button onClick={() => addChild(preset.id)} title="Aggiungi sotto-voce" className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-md text-slate-400 hover:text-emerald-500 transition-colors">
+                                                <Plus className="w-4 h-4" />
+                                            </button>
+                                            <button onClick={() => startEdit(preset)} className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-md text-slate-400 hover:text-primary-500 transition-colors">
+                                                <Edit2 className="w-4 h-4" />
+                                            </button>
+                                            <button onClick={() => deletePreset(preset.id)} className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md text-slate-400 hover:text-red-500 transition-colors">
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
                                     </div>
+                                )}
 
-                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                        <div>
-                                            <label className="text-xs font-medium text-slate-500 dark:text-gray-400">Unità di misura</label>
-                                            <input
-                                                type="text"
-                                                value={editBuffer.unit}
-                                                onChange={e => setEditBuffer({ ...editBuffer, unit: e.target.value })}
-                                                placeholder="Es. ettaro, mq, ora"
-                                                className={inputCls}
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="text-xs font-medium text-slate-500 dark:text-gray-400">Prezzo unitario (€)</label>
-                                            <input
-                                                type="number"
-                                                step="0.01"
-                                                value={editBuffer.price}
-                                                onChange={e => setEditBuffer({ ...editBuffer, price: parseFloat(e.target.value) || 0 })}
-                                                className={inputCls}
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="text-xs font-medium text-slate-500 dark:text-gray-400">IVA (%)</label>
-                                            <input
-                                                type="number"
-                                                step="1"
-                                                value={editBuffer.vat}
-                                                onChange={e => setEditBuffer({ ...editBuffer, vat: parseFloat(e.target.value) || 0 })}
-                                                className={inputCls}
-                                            />
-                                        </div>
+                                {/* Sotto-voci */}
+                                {isCategory && isExpanded && (
+                                    <div className="border-t border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/30">
+                                        {(preset.children || []).map(child => {
+                                            const isEditingChild = editingId === child.id && editingParentId === preset.id;
+                                            return (
+                                                <div key={child.id} className="border-b border-slate-100 dark:border-slate-700 last:border-b-0">
+                                                    {isEditingChild && editBuffer ? (
+                                                        <div className="ml-6">
+                                                            <PresetForm
+                                                                buffer={editBuffer}
+                                                                services={services}
+                                                                inputCls={inputCls}
+                                                                isCategory={false}
+                                                                hideService
+                                                                onChange={setEditBuffer}
+                                                                onSave={saveChild}
+                                                                onCancel={cancelChildEdit}
+                                                            />
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex items-center gap-2 pl-9 pr-3 py-2.5">
+                                                            <div className="flex-1 min-w-0">
+                                                                <div className="flex items-center gap-2 flex-wrap">
+                                                                    <span className="text-sm text-slate-700 dark:text-gray-200">{child.label}</span>
+                                                                    <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-gray-400">
+                                                                        {child.price.toFixed(2)} € / {child.unit || 'unità'} · IVA {child.vat}%
+                                                                    </span>
+                                                                </div>
+                                                                {child.description && child.description !== child.label && (
+                                                                    <p className="text-xs text-slate-400 dark:text-gray-500 line-clamp-1 mt-0.5">{child.description}</p>
+                                                                )}
+                                                            </div>
+                                                            <div className="flex gap-1 shrink-0">
+                                                                <button onClick={() => startEditChild(preset.id, child)} className="p-1.5 hover:bg-white dark:hover:bg-slate-700 rounded-md text-slate-400 hover:text-primary-500 transition-colors">
+                                                                    <Edit2 className="w-3.5 h-3.5" />
+                                                                </button>
+                                                                <button onClick={() => deleteChild(preset.id, child.id)} className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md text-slate-400 hover:text-red-500 transition-colors">
+                                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
                                     </div>
-
-                                    <div className="flex gap-2 justify-end">
-                                        <button onClick={cancelEdit} className="flex items-center gap-1 px-3 py-1.5 text-xs text-slate-600 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors">
-                                            <X className="w-3.5 h-3.5" /> Annulla
-                                        </button>
-                                        <button onClick={saveEdit} disabled={!editBuffer.label.trim()}
-                                            className="flex items-center gap-1 px-3 py-1.5 bg-primary-600 hover:bg-primary-700 disabled:opacity-40 text-white text-xs font-medium rounded-lg transition-colors">
-                                            <Save className="w-3.5 h-3.5" /> Salva preset
-                                        </button>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="flex items-start gap-3 p-3 bg-white dark:bg-slate-800">
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                            <span className="text-sm font-medium text-slate-800 dark:text-white truncate">{preset.label}</span>
-                                            {preset.service !== '*' && (
-                                                <span className="text-xs px-2 py-0.5 rounded-full bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300">
-                                                    {preset.service}
-                                                </span>
-                                            )}
-                                            <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-gray-400">
-                                                {preset.price.toFixed(2)} € / {preset.unit || 'unità'} · IVA {preset.vat}%
-                                            </span>
-                                        </div>
-                                        <p className="text-xs text-slate-400 dark:text-gray-500 line-clamp-2">{preset.description}</p>
-                                    </div>
-                                    <div className="flex gap-1 shrink-0">
-                                        <button onClick={() => startEdit(preset)} className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-md text-slate-400 hover:text-primary-500 transition-colors">
-                                            <Edit2 className="w-4 h-4" />
-                                        </button>
-                                        <button onClick={() => deletePreset(preset.id)} className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md text-slate-400 hover:text-red-500 transition-colors">
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    ))}
+                                )}
+                            </div>
+                        );
+                    })}
                 </div>
             </div>
 

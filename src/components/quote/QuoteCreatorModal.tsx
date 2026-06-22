@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Modal from '@components/ui/Modal';
 import * as ApiService from '@api';
 import type { Client, Lead, Quote, QuoteItem, QuotePricePreset } from '../types';
-import { Plus, Trash2, Save, Loader2, X, ChevronDown, User, Phone, Mail, Tag, Calendar, Eye, RotateCcw, MessageCircle } from 'lucide-react';
+import { Plus, Trash2, Save, Loader2, X, ChevronDown, ChevronRight, User, Phone, Mail, Tag, Calendar, Eye, RotateCcw, MessageCircle } from 'lucide-react';
 import { incrementQuoteNumber } from '@lib/quoteNumbering';
 import QuotePreviewDocument from './QuotePreviewDocument';
 
@@ -60,6 +60,15 @@ const QuoteCreatorModal: React.FC<QuoteCreatorModalProps> = ({ isOpen, onClose, 
     const [selectedExtraFieldKeys, setSelectedExtraFieldKeys] = useState<string[]>([]);
     const [leftTab, setLeftTab] = useState<'lead' | 'preview'>('preview');
     const [isExtraFieldsOpen, setIsExtraFieldsOpen] = useState(false);
+    const [expandedPresetCategories, setExpandedPresetCategories] = useState<Set<string>>(new Set());
+
+    const togglePresetCategory = (id: string) => {
+        setExpandedPresetCategories(prev => {
+            const next = new Set(prev);
+            next.has(id) ? next.delete(id) : next.add(id);
+            return next;
+        });
+    };
 
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
@@ -616,21 +625,63 @@ const QuoteCreatorModal: React.FC<QuoteCreatorModalProps> = ({ isOpen, onClose, 
                     <div className="space-y-2">
                         <label className="block text-sm font-medium text-slate-700 dark:text-gray-300">Preset rapidi</label>
                         <div className="flex flex-wrap gap-2">
-                            {sortedPresets.map(preset => (
-                                <button
-                                    key={preset.id}
-                                    type="button"
-                                    onClick={() => handleAddPresetItem(preset)}
-                                    title={`${preset.description} — ${preset.price.toFixed(2)} € / ${preset.unit || 'unità'} (IVA ${preset.vat}%)`}
-                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-                                        preset.isMatch
-                                            ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
-                                            : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-gray-300 hover:border-slate-300 dark:hover:border-slate-600'
-                                    }`}
-                                >
-                                    <Plus size={12} /> {preset.label}
-                                </button>
-                            ))}
+                            {sortedPresets.map(preset => {
+                                const hasChildren = (preset.children?.length ?? 0) > 0;
+                                const isExpanded = expandedPresetCategories.has(preset.id);
+
+                                if (hasChildren) {
+                                    return (
+                                        <div key={preset.id} className="flex flex-col gap-1">
+                                            {/* Bottone categoria — espande/chiude */}
+                                            <button
+                                                type="button"
+                                                onClick={() => togglePresetCategory(preset.id)}
+                                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                                                    preset.isMatch
+                                                        ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
+                                                        : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-gray-300 hover:border-slate-300 dark:hover:border-slate-600'
+                                                }`}
+                                            >
+                                                {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                                                {preset.label}
+                                            </button>
+                                            {/* Sotto-voci */}
+                                            {isExpanded && (
+                                                <div className="flex flex-wrap gap-1.5 pl-3 border-l-2 border-primary-200 dark:border-primary-800">
+                                                    {preset.children!.map(child => (
+                                                        <button
+                                                            key={child.id}
+                                                            type="button"
+                                                            onClick={() => handleAddPresetItem(child)}
+                                                            title={`${child.description || child.label} — ${child.price.toFixed(2)} € / ${child.unit || 'unità'} (IVA ${child.vat}%)`}
+                                                            className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-600 dark:text-gray-300 hover:border-primary-400 hover:text-primary-600 dark:hover:text-primary-300 transition-colors"
+                                                        >
+                                                            <Plus size={10} /> {child.label}
+                                                            <span className="text-slate-400 dark:text-gray-500 ml-0.5">{child.price.toFixed(0)}€</span>
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                }
+
+                                return (
+                                    <button
+                                        key={preset.id}
+                                        type="button"
+                                        onClick={() => handleAddPresetItem(preset)}
+                                        title={`${preset.description} — ${preset.price.toFixed(2)} € / ${preset.unit || 'unità'} (IVA ${preset.vat}%)`}
+                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                                            preset.isMatch
+                                                ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
+                                                : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-gray-300 hover:border-slate-300 dark:hover:border-slate-600'
+                                        }`}
+                                    >
+                                        <Plus size={12} /> {preset.label}
+                                    </button>
+                                );
+                            })}
                         </div>
                     </div>
                 )}
