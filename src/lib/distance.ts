@@ -64,6 +64,7 @@ async function geocodeGoogle(raw: string): Promise<{ lat: number; lng: number; f
     const cacheKey = normalized.toLowerCase();
     if (geocodeCache.has(cacheKey)) return geocodeCache.get(cacheKey)!;
 
+    // 1. Prova tutte le varianti con Geocoding API
     for (const query of addressVariants(normalized)) {
         try {
             const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(query)}&region=it&language=it&key=${GOOGLE_API_KEY}`;
@@ -75,8 +76,22 @@ async function geocodeGoogle(raw: string): Promise<{ lat: number; lng: number; f
                 geocodeCache.set(cacheKey, result);
                 return result;
             }
-        } catch { /* continua al prossimo tentativo */ }
+        } catch { /* continua */ }
     }
+
+    // 2. Fallback: Places Text Search — gestisce linguaggio naturale e indirizzi parziali
+    try {
+        const query = withItaly(normalized);
+        const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&region=it&language=it&key=${GOOGLE_API_KEY}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data.status === 'OK' && data.results?.[0]) {
+            const loc = data.results[0].geometry.location;
+            const result = { lat: loc.lat, lng: loc.lng, formatted: data.results[0].formatted_address };
+            geocodeCache.set(cacheKey, result);
+            return result;
+        }
+    } catch { /* continua */ }
 
     geocodeCache.set(cacheKey, null);
     return null;
