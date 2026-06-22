@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import * as ApiService from '@api';
 import { useAuth } from '@contexts/AuthContext';
 import type { Client, QuoteWithDetails, Lead, Quote, QuoteSettings } from '../types';
@@ -25,6 +25,7 @@ const QuotesPage: React.FC = () => {
     const [quotes, setQuotes] = useState<QuoteWithDetails[]>([]);
     const [clients, setClients] = useState<Client[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const hasLoadedOnce = useRef(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [error, setError] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
@@ -103,12 +104,15 @@ const QuotesPage: React.FC = () => {
     }, [fetchData]);
 
     useEffect(() => {
-        const loadInitialData = async () => {
-            setIsLoading(true);
+        const load = async () => {
+            if (!hasLoadedOnce.current) {
+                setIsLoading(true);
+            }
             await fetchData();
+            hasLoadedOnce.current = true;
             setIsLoading(false);
-        }
-        loadInitialData();
+        };
+        load();
     }, [fetchData]);
     
     const filteredQuotes = useMemo(() => {

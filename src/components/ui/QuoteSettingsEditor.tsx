@@ -94,7 +94,9 @@ const PresetForm: React.FC<PresetFormProps> = ({ buffer, services, inputCls, hid
             <div>
                 <label className="text-xs font-medium text-slate-500 dark:text-gray-400">Prezzo unitario (€)</label>
                 <input type="number" step="0.01" value={buffer.price}
-                    onChange={e => onChange({ ...buffer, price: parseFloat(e.target.value) || 0 })} className={inputCls} />
+                    onChange={e => onChange({ ...buffer, price: parseFloat(e.target.value) || 0 })}
+                    onFocus={e => e.target.select()}
+                    className={inputCls} />
             </div>
             <div>
                 <label className="text-xs font-medium text-slate-500 dark:text-gray-400">IVA (%)</label>
