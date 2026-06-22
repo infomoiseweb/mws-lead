@@ -24,20 +24,47 @@ function withItaly(address: string): string {
     return /italia|italy/i.test(address) ? address : `${address}, Italia`;
 }
 
+/** Genera varianti dell'indirizzo da provare in sequenza */
+function addressVariants(normalized: string): string[] {
+    const variants: string[] = [];
+    // 1. Indirizzo normalizzato completo
+    variants.push(withItaly(normalized));
+
+    const parts = normalized.split(',').map(p => p.trim()).filter(Boolean);
+
+    if (parts.length > 1) {
+        // 2. Solo prima parte (es. "Piacenza" da "Piacenza, Villanova sull'Arda")
+        variants.push(withItaly(parts[0]));
+        // 3. Solo ultima parte
+        variants.push(withItaly(parts[parts.length - 1]));
+        // 4. Ordine invertito delle parti
+        variants.push(withItaly([...parts].reverse().join(', ')));
+    } else {
+        // Indirizzo senza virgola: potrebbe essere "Città frazione" o "Città Provincia"
+        const words = normalized.trim().split(/\s+/);
+        if (words.length >= 2) {
+            // 2. Aggiungi virgola tra le parole: "Pavia, Ceranova"
+            variants.push(withItaly(`${words[0]}, ${words.slice(1).join(' ')}`));
+            // 3. Ordine inverso con virgola: "Ceranova, Pavia"
+            variants.push(withItaly(`${words.slice(1).join(' ')}, ${words[0]}`));
+            // 4. Solo seconda parola (spesso è la città principale)
+            variants.push(withItaly(words.slice(1).join(' ')));
+            // 5. Solo prima parola
+            variants.push(withItaly(words[0]));
+        }
+    }
+
+    // Deduplicazione mantenendo l'ordine
+    return [...new Set(variants)];
+}
+
 /** Geocodifica con Google — restituisce lat/lng e l'indirizzo formattato da Google */
 async function geocodeGoogle(raw: string): Promise<{ lat: number; lng: number; formatted: string } | null> {
     const normalized = normalizeAddress(raw);
     const cacheKey = normalized.toLowerCase();
     if (geocodeCache.has(cacheKey)) return geocodeCache.get(cacheKey)!;
 
-    // Tenta prima con l'indirizzo normalizzato, poi senza la seconda parte se contiene virgola
-    const attempts = [withItaly(normalized)];
-    if (normalized.includes(',')) {
-        // fallback con solo la prima parte (es. "Piacenza" da "Piacenza, Villanova sull'Arda")
-        attempts.push(withItaly(normalized.split(',')[0].trim()));
-    }
-
-    for (const query of attempts) {
+    for (const query of addressVariants(normalized)) {
         try {
             const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(query)}&region=it&language=it&key=${GOOGLE_API_KEY}`;
             const res = await fetch(url);
@@ -84,14 +111,20 @@ async function geocodeOsm(raw: string): Promise<{ lat: number; lng: number } | n
     const normalized = normalizeAddress(raw);
     const cacheKey = normalized.toLowerCase();
     if (osmCache.has(cacheKey)) return osmCache.get(cacheKey)!;
-    try {
-        const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(withItaly(normalized))}&limit=1&countrycodes=it`;
-        const res = await fetch(url, { headers: { 'Accept-Language': 'it', 'User-Agent': 'MWSLeadManager/1.0' } });
-        const data = await res.json();
-        const result = data[0] ? { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) } : null;
-        osmCache.set(cacheKey, result);
-        return result;
-    } catch { return null; }
+    for (const query of addressVariants(normalized)) {
+        try {
+            const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1&countrycodes=it`;
+            const res = await fetch(url, { headers: { 'Accept-Language': 'it', 'User-Agent': 'MWSLeadManager/1.0' } });
+            const data = await res.json();
+            if (data[0]) {
+                const result = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+                osmCache.set(cacheKey, result);
+                return result;
+            }
+        } catch { /* continua */ }
+    }
+    osmCache.set(cacheKey, null);
+    return null;
 }
 
 async function distanceOsrm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): Promise<number | null> {
