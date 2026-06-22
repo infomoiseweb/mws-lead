@@ -3,13 +3,14 @@ import Modal from '@components/ui/Modal';
 import type { Lead, Client, Quote, QuoteWithDetails, CalendarAppointment } from '../types';
 import * as ApiService from '@api';
 // FIX: Cannot find name 'CheckCircle'. Import it from lucide-react.
-import { Tag, Calendar, Info, DollarSign, Briefcase, MessageCircle, History, Sparkles, Copy, Loader2, Check, Phone, Edit, Trash2, Mail, Save, X, Database, FileText, PlusCircle, Clock, CheckCircle, Eye, Send, ChevronDown } from 'lucide-react';
+import { Tag, Calendar, Info, DollarSign, Briefcase, MessageCircle, History, Sparkles, Copy, Loader2, Check, Phone, Edit, Trash2, Mail, Save, X, Database, FileText, PlusCircle, Clock, CheckCircle, Eye, Send, ChevronDown, MapPin } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import QuoteCreatorModal from '@components/quote/QuoteCreatorModal';
 import { useAuth } from '@contexts/AuthContext';
 import QuoteDetailModal from '@components/quote/QuoteDetailModal';
 import AppointmentsMap from './AppointmentsMap';
 import { geocodeAddress } from '@lib/geocoding';
+import { useLeadDistance } from '@hooks/useLeadDistance';
 
 // Funzione di copia robusta con fallback
 const copyTextToClipboard = async (text: string): Promise<boolean> => {
@@ -376,6 +377,7 @@ const EditHistoricalLeadForm: React.FC<{
 const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead, client, historicalLeads, onAddNote, onUpdateNote, onDeleteNote, onHistoricalLeadAdded, onHistoricalLeadUpdated, onHistoricalLeadDeleted, onLeadUpdate }) => {
     const { t } = useTranslation();
     const { user } = useAuth();
+    const { distanceKm, isLoading: isLoadingDistance } = useLeadDistance(client, lead);
     const [newNote, setNewNote] = useState('');
     const [isSubmittingNote, setIsSubmittingNote] = useState(false);
     const [generatedMessage, setGeneratedMessage] = useState('');
@@ -1298,6 +1300,19 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
                             label={t('component_leadDetailModal.value_label')}
                             value={lead.value ? `€ ${lead.value.toLocaleString('it-IT')}` : <span className="text-gray-500">{t('component_leadDetailModal.not_defined')}</span>}
                         />
+                        {client?.distance_settings?.enabled && (
+                            <DetailRow
+                                icon={<MapPin size={16} className="text-primary-500 dark:text-primary-400" />}
+                                label="Distanza"
+                                value={
+                                    isLoadingDistance
+                                        ? <span className="text-xs text-slate-400">Calcolo...</span>
+                                        : distanceKm !== null
+                                            ? <span className="text-sm font-semibold text-slate-700 dark:text-gray-200">{distanceKm.toFixed(1)} km</span>
+                                            : <span className="text-xs text-slate-400 dark:text-gray-500">Indirizzo non disponibile</span>
+                                }
+                            />
+                        )}
                     </div>
                 );
             case 'preventivi':

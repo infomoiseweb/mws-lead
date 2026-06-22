@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import type { Client, Service, LeadField, LeadFieldType } from '../types';
 import * as ApiService from '@api';
-import { PlusCircle, Trash2, Tag, ChevronDown, ChevronUp, GripVertical, Webhook, Layers, Sparkles, FileCode, Globe, Copy, Check, FileText } from 'lucide-react';
+import { PlusCircle, Trash2, Tag, ChevronDown, ChevronUp, GripVertical, Webhook, Layers, Sparkles, FileCode, Globe, Copy, Check, FileText, MapPin } from 'lucide-react';
 import Modal from './Modal';
 import { useTranslation } from 'react-i18next';
 import { isBaseService } from '@/utils/services';
 import QuoteSettingsEditor from './QuoteSettingsEditor';
-import type { QuoteSettings } from '../../types';
+import type { QuoteSettings, DistanceSettings } from '../../types';
 
 interface ClientFormProps {
     client?: Client | null;
@@ -45,6 +45,11 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
     const [mwsProfitPercentage, setMwsProfitPercentage] = useState<string>('');
     const [quoteWebhookUrl, setQuoteWebhookUrl] = useState('');
     const [canDeleteLeads, setCanDeleteLeads] = useState(false);
+    const [distanceSettings, setDistanceSettings] = useState<DistanceSettings>({
+        enabled: false,
+        company_address: '',
+        location_field: '',
+    });
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [copiedFieldName, setCopiedFieldName] = useState<string | null>(null);
@@ -118,6 +123,7 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
             setMwsProfitPercentage(String(client.mws_profit_percentage || ''));
             setQuoteWebhookUrl(client.quote_webhook_url || '');
             setCanDeleteLeads(client.can_delete_leads ?? false);
+            setDistanceSettings(client.distance_settings ?? { enabled: false, company_address: '', location_field: '' });
         } else {
             setName('');
             setUsername('');
@@ -295,6 +301,7 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
                     mws_profit_percentage: mwsProfitPercentage ? parseFloat(mwsProfitPercentage) : 0,
                     quote_webhook_url: quoteWebhookUrl,
                     can_delete_leads: canDeleteLeads,
+                    distance_settings: distanceSettings,
                 };
                 await ApiService.updateClient(client.id, updates);
             } else {
@@ -398,7 +405,64 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
                         </button>
                     </div>
 
-                    <div>
+                    {/* Calcolo distanza automatico */}
+                    <div className="mt-4 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+                        <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-700/50">
+                            <div className="flex items-center gap-2">
+                                <MapPin size={15} className="text-primary-500" />
+                                <div>
+                                    <p className="text-sm font-medium text-slate-700 dark:text-gray-200">Calcolo distanza automatico</p>
+                                    <p className="text-xs text-slate-500 dark:text-gray-400 mt-0.5">Calcola i km tra la sede del cliente e il punto di intervento della lead.</p>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setDistanceSettings(s => ({ ...s, enabled: !s.enabled }))}
+                                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${distanceSettings.enabled ? 'bg-primary-600' : 'bg-slate-300 dark:bg-slate-600'}`}
+                            >
+                                <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${distanceSettings.enabled ? 'translate-x-5' : 'translate-x-0'}`} />
+                            </button>
+                        </div>
+
+                        {distanceSettings.enabled && (
+                            <div className="p-3 space-y-3 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700">
+                                <div>
+                                    <label className="block text-xs font-medium text-slate-600 dark:text-gray-400 mb-1">Indirizzo sede azienda</label>
+                                    <input
+                                        type="text"
+                                        value={distanceSettings.company_address}
+                                        onChange={e => setDistanceSettings(s => ({ ...s, company_address: e.target.value }))}
+                                        placeholder="Es. Via Roma 1, Milano, Italia"
+                                        className={inputClasses}
+                                    />
+                                    <p className="text-xs text-slate-400 dark:text-gray-500 mt-0.5">L'indirizzo di partenza da cui calcolare la distanza.</p>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-slate-600 dark:text-gray-400 mb-1">Campo lead contenente l'indirizzo di lavoro</label>
+                                    <select
+                                        value={distanceSettings.location_field}
+                                        onChange={e => setDistanceSettings(s => ({ ...s, location_field: e.target.value }))}
+                                        className={inputClasses}
+                                    >
+                                        <option value="">— Seleziona un campo —</option>
+                                        {Array.from(
+                                            new Map(
+                                                services
+                                                    .flatMap(s => s.fields || [])
+                                                    .filter(f => f.name && f.label)
+                                                    .map(f => [f.name, f])
+                                            ).values()
+                                        ).map(f => (
+                                            <option key={f.name} value={f.name}>{f.label} ({f.name})</option>
+                                        ))}
+                                    </select>
+                                    <p className="text-xs text-slate-400 dark:text-gray-500 mt-0.5">Il campo del formulario/API che contiene l'indirizzo del punto di intervento.</p>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="mt-4">
                         <label htmlFor="quoteWebhookUrl" className="block text-sm font-medium text-slate-700 dark:text-gray-300 flex items-center">
                             <Webhook size={14} className="mr-2"/>
                             Webhook Preventivi Accettati

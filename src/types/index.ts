@@ -158,6 +158,12 @@ export interface QuotePricePreset {
     children?: QuotePricePreset[]; // Sotto-voci — se presente, questo preset è una categoria
 }
 
+export interface DistanceSettings {
+    enabled: boolean;
+    company_address: string;   // indirizzo sede del cliente
+    location_field: string;    // nome del campo in lead.data che contiene l'indirizzo del punto di lavoro
+}
+
 export interface QuoteNumberingSettings {
     enabled: boolean;
     next_number: string; // Valore alfanumerico completo, es. "C6"
@@ -215,6 +221,7 @@ export interface Client {
     lead_intake_mode?: 'form' | 'api';
     api_token?: string;
     can_delete_leads?: boolean;
+    distance_settings?: DistanceSettings;
     // These are loaded separately
     leads: Lead[];
     adSpends?: AdSpend[];
