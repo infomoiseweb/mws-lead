@@ -111,7 +111,7 @@ async function geocodeGoogle(raw: string): Promise<{ lat: number; lng: number; f
     return null;
 }
 
-/** Distance Matrix usando lat/lng — elimina ambiguità sugli indirizzi */
+/** Distance Matrix tramite endpoint server-side (evita CORS) */
 async function distanceMatrixGoogle(
     origin: { lat: number; lng: number },
     destination: { lat: number; lng: number },
@@ -119,14 +119,10 @@ async function distanceMatrixGoogle(
     const cacheKey = `${origin.lat.toFixed(5)},${origin.lng.toFixed(5)}|${destination.lat.toFixed(5)},${destination.lng.toFixed(5)}`;
     if (routeCache.has(cacheKey)) return routeCache.get(cacheKey)!;
     try {
-        const orig = `${origin.lat},${origin.lng}`;
-        const dest = `${destination.lat},${destination.lng}`;
-        const url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${orig}&destinations=${dest}&mode=driving&units=metric&region=it&language=it&key=${GOOGLE_API_KEY}`;
+        const url = `/api/distance?olat=${origin.lat}&olng=${origin.lng}&dlat=${destination.lat}&dlng=${destination.lng}`;
         const res = await fetch(url);
         const data = await res.json();
-        const element = data?.rows?.[0]?.elements?.[0];
-        if (element?.status !== 'OK') { routeCache.set(cacheKey, null); return null; }
-        const km = element.distance.value / 1000;
+        const km = data?.km ?? null;
         routeCache.set(cacheKey, km);
         return km;
     } catch { return null; }
