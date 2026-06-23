@@ -58,6 +58,22 @@ export async function deletePaymentPlan(id: string): Promise<void> {
 export async function markInstallmentPaid(id: string, paidAt: string | null): Promise<void> {
     const { error } = await supabase.from('installments').update({ paid_at: paidAt }).eq('id', id);
     if (error) throw new Error(error.message);
+
+    // Controlla se tutte le rate del piano sono ora pagate → promuovi lead a "Vinto"
+    const { data: inst } = await supabase.from('installments').select('payment_plan_id').eq('id', id).single();
+    if (!inst) return;
+
+    const { data: allInsts } = await supabase.from('installments').select('paid_at, amount').eq('payment_plan_id', inst.payment_plan_id);
+    if (!allInsts) return;
+
+    const allPaid = allInsts.every(i => i.paid_at !== null);
+    if (allPaid) {
+        const totalValue = allInsts.reduce((s, i) => s + Number(i.amount), 0);
+        const { data: plan } = await supabase.from('payment_plans').select('lead_id').eq('id', inst.payment_plan_id).single();
+        if (plan) {
+            await supabase.from('leads').update({ status: 'Vinto', value: totalValue }).eq('id', plan.lead_id);
+        }
+    }
 }
 
 export async function addInstallment(planId: string, installment: { amount: number; due_date: string; notes?: string }): Promise<Installment> {

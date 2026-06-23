@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { NavLink, useNavigate, useLocation, useParams } from 'react-router-dom';
 import { useAuth } from '@contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
-import { getClientMailMarketingFlag } from '@api/clients';
+import { getClientMailMarketingFlag, getClientInstallmentsFlag } from '@api/clients';
 import {
     LogOut, User as UserIcon, LayoutGrid, List, Users, BarChart3, DollarSign,
     FileCode, Activity, Calendar, FileText, ChevronsLeft, ChevronsRight, Plug, Send, Layers
@@ -23,7 +23,7 @@ interface NavItem {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle, onNavigate }) => {
-    const { user, logout, client } = useAuth();
+    const { user, logout } = useAuth();
     const { t } = useTranslation();
     const navigate = useNavigate();
     const location = useLocation();
@@ -33,11 +33,12 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle, onNavigate }) =>
     const userId = user?.id || params.userId;
 
     const [mailMarketingEnabled, setMailMarketingEnabled] = useState(false);
-    const installmentsEnabled = client?.installments_enabled ?? false;
+    const [installmentsEnabled, setInstallmentsEnabled] = useState(false);
 
     useEffect(() => {
         if (isAdmin || !userId) return;
         getClientMailMarketingFlag(userId).then(setMailMarketingEnabled).catch(() => setMailMarketingEnabled(false));
+        getClientInstallmentsFlag(userId).then(setInstallmentsEnabled).catch(() => setInstallmentsEnabled(false));
     }, [isAdmin, userId]);
 
     const handleLogout = () => {

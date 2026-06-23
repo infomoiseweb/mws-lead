@@ -77,6 +77,12 @@ export async function getClientMailMarketingFlag(userId: string): Promise<boolea
     return !!data.mail_marketing_enabled;
 }
 
+export async function getClientInstallmentsFlag(userId: string): Promise<boolean> {
+    const { data, error } = await supabase.from('clients').select('installments_enabled').eq('user_id', userId).maybeSingle();
+    if (error || !data) return false;
+    return !!data.installments_enabled;
+}
+
 export async function getClientByUserId(userId: string, startDate?: Date | null, endDate?: Date | null): Promise<Client | null> {
     const { data: client, error } = await supabase.from('clients').select('*').eq('user_id', userId).single();
     if (error || !client) return null;

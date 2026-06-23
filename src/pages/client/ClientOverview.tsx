@@ -15,6 +15,7 @@ const ClientOverview: React.FC = () => {
     const { t } = useTranslation();
     const { userId } = useParams();
     const [client, setClient] = useState<Client | null>(null);
+    const [installmentRevenue, setInstallmentRevenue] = useState<{ month: string; total_paid: number }[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [dateRange, setDateRange] = useState<{ start: Date | null; end: Date | null }>({ start: null, end: null });
 
@@ -22,7 +23,14 @@ const ClientOverview: React.FC = () => {
         if (!userId) return;
         let mounted = true;
         ApiService.getClientByUserId(userId)
-            .then(data => { if (mounted) setClient(data); })
+            .then(async data => {
+                if (!mounted) return;
+                setClient(data);
+                if (data?.installments_enabled) {
+                    const ir = await ApiService.getInstallmentRevenueByMonth(data.id).catch(() => []);
+                    if (mounted) setInstallmentRevenue(ir);
+                }
+            })
             .finally(() => { if (mounted) setIsLoading(false); });
         return () => { mounted = false; };
     }, [userId]);
@@ -38,10 +46,18 @@ const ClientOverview: React.FC = () => {
         const leads = (client?.leads || []).filter(l => inRange(l.created_at));
         const totalLeads = leads.length;
         const wonLeads = leads.filter(l => l.status === 'Vinto');
-        const openLeads = leads.filter(l => l.status !== 'Vinto' && l.status !== 'Perso');
+        const openLeads = leads.filter(l => l.status !== 'Vinto' && l.status !== 'Perso' && l.status !== 'A Rate');
         const conversionRate = totalLeads > 0 ? (wonLeads.length / totalLeads) * 100 : 0;
 
-        const revenue = wonLeads.reduce((sum, l) => sum + (l.value || 0), 0);
+        const leadsRevenue = wonLeads.reduce((sum, l) => sum + (l.value || 0), 0);
+        // Aggiungi rate pagate nel periodo selezionato
+        const irStart = dateRange.start ? dateRange.start.toISOString().slice(0, 7) : null;
+        const irEnd = dateRange.end ? dateRange.end.toISOString().slice(0, 7) : null;
+        const installmentsRevenue = installmentRevenue
+            .filter(r => (!irStart || r.month >= irStart) && (!irEnd || r.month <= irEnd))
+            .reduce((s, r) => s + r.total_paid, 0);
+        const revenue = leadsRevenue + installmentsRevenue;
+
         const adSpend = (client?.adSpends || []).filter(a => inRange(a.date)).reduce((sum, a) => sum + (a.amount || 0), 0);
         const roi = adSpend > 0 ? ((revenue - adSpend) / adSpend) * 100 : 0;
 
@@ -54,8 +70,8 @@ const ClientOverview: React.FC = () => {
             return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
         });
 
-        return { leads, totalLeads, wonLeads, openLeads, conversionRate, revenue, adSpend, roi, leadsByStatus, thisMonthLeads };
-    }, [client, dateRange]);
+        return { leads, totalLeads, wonLeads, openLeads, conversionRate, revenue, adSpend, roi, leadsByStatus, thisMonthLeads, installmentsRevenue };
+    }, [client, dateRange, installmentRevenue]);
 
     if (isLoading) {
         return (

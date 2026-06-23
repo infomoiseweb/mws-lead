@@ -13,14 +13,20 @@ const formatCurrency = (value: number) =>
 const AdminOverview: React.FC = () => {
     const { t } = useTranslation();
     const [clients, setClients] = useState<Client[]>([]);
+    const [installmentRevenue, setInstallmentRevenue] = useState<{ month: string; total_paid: number }[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [dateRange, setDateRange] = useState<{ start: Date | null; end: Date | null }>({ start: null, end: null });
 
     useEffect(() => {
         let mounted = true;
-        ApiService.getClients()
-            .then(data => { if (mounted) setClients(data); })
-            .finally(() => { if (mounted) setIsLoading(false); });
+        Promise.all([
+            ApiService.getClients(),
+            ApiService.getInstallmentRevenueByMonth().catch(() => []),
+        ]).then(([data, ir]) => {
+            if (!mounted) return;
+            setClients(data);
+            setInstallmentRevenue(ir);
+        }).finally(() => { if (mounted) setIsLoading(false); });
         return () => { mounted = false; };
     }, []);
 
@@ -35,10 +41,16 @@ const AdminOverview: React.FC = () => {
         const allLeads: Lead[] = clients.flatMap(c => c.leads || []).filter(l => inRange(l.created_at));
         const totalLeads = allLeads.length;
         const wonLeads = allLeads.filter(l => l.status === 'Vinto');
-        const openLeads = allLeads.filter(l => l.status !== 'Vinto' && l.status !== 'Perso');
+        const openLeads = allLeads.filter(l => l.status !== 'Vinto' && l.status !== 'Perso' && l.status !== 'A Rate');
         const conversionRate = totalLeads > 0 ? (wonLeads.length / totalLeads) * 100 : 0;
 
-        const revenue = wonLeads.reduce((sum, l) => sum + (l.value || 0), 0);
+        const leadsRevenue = wonLeads.reduce((sum, l) => sum + (l.value || 0), 0);
+        const irStart = dateRange.start ? dateRange.start.toISOString().slice(0, 7) : null;
+        const irEnd = dateRange.end ? dateRange.end.toISOString().slice(0, 7) : null;
+        const irTotal = installmentRevenue
+            .filter(r => (!irStart || r.month >= irStart) && (!irEnd || r.month <= irEnd))
+            .reduce((s, r) => s + r.total_paid, 0);
+        const revenue = leadsRevenue + irTotal;
         const adSpend = clients.flatMap(c => c.adSpends || []).filter(a => inRange(a.date)).reduce((sum, a) => sum + (a.amount || 0), 0);
         const roi = adSpend > 0 ? ((revenue - adSpend) / adSpend) * 100 : 0;
 
@@ -48,7 +60,7 @@ const AdminOverview: React.FC = () => {
         const topClients = clients.map(c => ({ name: c.name, count: (c.leads || []).filter(l => inRange(l.created_at)).length }));
 
         return { allLeads, totalLeads, wonLeads, openLeads, conversionRate, revenue, adSpend, roi, leadsByStatus, topClients };
-    }, [clients, dateRange]);
+    }, [clients, dateRange, installmentRevenue]);
 
     if (isLoading) {
         return (
