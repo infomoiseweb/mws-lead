@@ -3,7 +3,7 @@ import Modal from '@components/ui/Modal';
 import type { Lead, Client, Quote, QuoteWithDetails, CalendarAppointment } from '../types';
 import * as ApiService from '@api';
 // FIX: Cannot find name 'CheckCircle'. Import it from lucide-react.
-import { Tag, Calendar, Info, DollarSign, Briefcase, MessageCircle, History, Sparkles, Copy, Loader2, Check, Phone, Edit, Trash2, Mail, Save, X, Database, FileText, PlusCircle, Clock, CheckCircle, Eye, Send, ChevronDown, MapPin } from 'lucide-react';
+import { Tag, Calendar, Info, DollarSign, Briefcase, MessageCircle, History, Sparkles, Copy, Loader2, Check, Phone, Edit, Trash2, Mail, Save, X, Database, FileText, PlusCircle, Clock, CheckCircle, Eye, Send, ChevronDown, MapPin, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import QuoteCreatorModal from '@components/quote/QuoteCreatorModal';
 import { useAuth } from '@contexts/AuthContext';
@@ -377,7 +377,7 @@ const EditHistoricalLeadForm: React.FC<{
 const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead, client, historicalLeads, onAddNote, onUpdateNote, onDeleteNote, onHistoricalLeadAdded, onHistoricalLeadUpdated, onHistoricalLeadDeleted, onLeadUpdate }) => {
     const { t } = useTranslation();
     const { user } = useAuth();
-    const { result: distanceResult, isLoading: isLoadingDistance } = useLeadDistance(client, lead);
+    const { result: distanceResult, isLoading: isLoadingDistance, refresh: refreshDistance } = useLeadDistance(client, lead);
     const [newNote, setNewNote] = useState('');
     const [isSubmittingNote, setIsSubmittingNote] = useState(false);
     const [generatedMessage, setGeneratedMessage] = useState('');
@@ -1305,19 +1305,30 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
                                 icon={<MapPin size={16} className="text-primary-500 dark:text-primary-400" />}
                                 label="Distanza"
                                 value={
-                                    isLoadingDistance
-                                        ? <span className="text-xs text-slate-400">Calcolo percorso...</span>
-                                        : distanceResult !== null
-                                            ? <span className="text-sm font-semibold text-slate-700 dark:text-gray-200">
-                                                {distanceResult.km.toFixed(1)} km
-                                                {distanceResult.mode === 'google' && (
-                                                    <span className="ml-1 text-xs font-normal text-slate-400">via Google Maps</span>
-                                                )}
-                                                {distanceResult.mode === 'straight' && (
-                                                    <span className="ml-1 text-xs font-normal text-slate-400">(linea d'aria)</span>
-                                                )}
-                                              </span>
-                                            : <span className="text-xs text-slate-400 dark:text-gray-500">Indirizzo non disponibile</span>
+                                    <div className="flex items-center gap-2">
+                                        {isLoadingDistance
+                                            ? <span className="text-xs text-slate-400">Calcolo percorso...</span>
+                                            : distanceResult !== null
+                                                ? <span className="text-sm font-semibold text-slate-700 dark:text-gray-200">
+                                                    {distanceResult.km.toFixed(1)} km
+                                                    {distanceResult.mode === 'google' && (
+                                                        <span className="ml-1 text-xs font-normal text-slate-400">via Google Maps</span>
+                                                    )}
+                                                    {distanceResult.mode === 'straight' && (
+                                                        <span className="ml-1 text-xs font-normal text-slate-400">(linea d'aria)</span>
+                                                    )}
+                                                  </span>
+                                                : <span className="text-xs text-slate-400 dark:text-gray-500">Indirizzo non disponibile</span>
+                                        }
+                                        <button
+                                            onClick={refreshDistance}
+                                            disabled={isLoadingDistance}
+                                            title="Ricalcola distanza"
+                                            className="p-1 rounded-md text-slate-400 hover:text-primary-500 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-40 transition-colors"
+                                        >
+                                            <RefreshCw size={13} className={isLoadingDistance ? 'animate-spin' : ''} />
+                                        </button>
+                                    </div>
                                 }
                             />
                         )}

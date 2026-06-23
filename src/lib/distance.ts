@@ -3,11 +3,12 @@ const routeCache = new Map<string, number | null>();
 export async function calculateDistanceKm(
     companyAddress: string,
     workAddress: string,
+    bustCache = false,
 ): Promise<{ km: number; mode: 'google' | 'road' | 'straight' } | null> {
     if (!companyAddress.trim() || !workAddress.trim()) return null;
 
     const cacheKey = `${companyAddress}|${workAddress}`;
-    if (routeCache.has(cacheKey)) {
+    if (!bustCache && routeCache.has(cacheKey)) {
         const cached = routeCache.get(cacheKey);
         return cached != null ? { km: cached, mode: 'google' } : null;
     }
