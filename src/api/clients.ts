@@ -120,7 +120,7 @@ export async function addClientForExistingUser(
 
 export async function updateClient(
     clientId: string,
-    updates: Partial<Pick<Client, 'name' | 'services' | 'mws_fixed_fee' | 'mws_profit_percentage' | 'quote_webhook_url' | 'message_templates' | 'quote_settings' | 'marketing_settings' | 'mail_marketing_enabled'>>
+    updates: Partial<Pick<Client, 'name' | 'services' | 'mws_fixed_fee' | 'mws_profit_percentage' | 'quote_webhook_url' | 'message_templates' | 'quote_settings' | 'marketing_settings' | 'mail_marketing_enabled' | 'can_delete_leads' | 'distance_settings' | 'installments_enabled'>>
 ): Promise<Client> {
     const { mws_fixed_fee, mws_profit_percentage, ...otherUpdates } = updates;
     const payload: any = { ...otherUpdates };
