@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { X, Plus, Trash2, CheckCircle, Clock, AlertCircle, ChevronDown } from 'lucide-react';
+import { X, Plus, Trash2, CheckCircle, Clock, AlertCircle, Calculator, ChevronDown } from 'lucide-react';
 import {
     getPaymentPlanByLead,
     createPaymentPlan,
@@ -8,8 +8,9 @@ import {
     addInstallment,
     deleteInstallment,
     updateInstallment,
+    getQuotesForLead,
 } from '@api/index';
-import type { PaymentPlan, Installment, Lead, Client } from '../../types';
+import type { PaymentPlan, Installment, Lead, Client, Quote } from '../../types';
 
 interface Props {
     lead: Lead;
@@ -25,8 +26,13 @@ const fmtDate = (d: string) =>
 
 const today = () => new Date().toISOString().slice(0, 10);
 
+const addMonths = (dateStr: string, months: number) => {
+    const d = new Date(dateStr);
+    d.setMonth(d.getMonth() + months);
+    return d.toISOString().slice(0, 10);
+};
+
 interface InstallmentRow {
-    id?: string;
     amount: string;
     due_date: string;
     notes: string;
@@ -35,22 +41,31 @@ interface InstallmentRow {
 
 export const PaymentPlanModal: React.FC<Props> = ({ lead, client, onClose }) => {
     const [plan, setPlan] = useState<PaymentPlan | null>(null);
+    const [quotes, setQuotes] = useState<Quote[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
 
-    // Form for creating a new plan
+    // Form creazione
     const [totalAmount, setTotalAmount] = useState('');
     const [notes, setNotes] = useState('');
     const [rows, setRows] = useState<InstallmentRow[]>([
         { amount: '', due_date: today(), notes: '', paid_at: null },
     ]);
 
+    // Calcolatore automatico
+    const [numInstallments, setNumInstallments] = useState('');
+    const [firstDueDate, setFirstDueDate] = useState(today());
+
     const load = useCallback(async () => {
         setLoading(true);
         try {
-            const p = await getPaymentPlanByLead(lead.id);
+            const [p, q] = await Promise.all([
+                getPaymentPlanByLead(lead.id),
+                getQuotesForLead(lead.id).catch(() => [] as Quote[]),
+            ]);
             setPlan(p);
+            setQuotes(q || []);
             if (p) {
                 setTotalAmount(String(p.total_amount));
                 setNotes(p.notes || '');
@@ -63,6 +78,29 @@ export const PaymentPlanModal: React.FC<Props> = ({ lead, client, onClose }) => 
     }, [lead.id]);
 
     useEffect(() => { load(); }, [load]);
+
+    const handleSelectQuote = (quoteId: string) => {
+        if (!quoteId) return;
+        const q = quotes.find(q => q.id === quoteId);
+        if (q) setTotalAmount(String(q.total_amount));
+    };
+
+    const handleCalculate = () => {
+        const total = parseFloat(totalAmount.replace(',', '.'));
+        const n = parseInt(numInstallments);
+        if (!total || !n || n < 1) return;
+
+        const base = Math.floor((total / n) * 100) / 100;
+        const last = Math.round((total - base * (n - 1)) * 100) / 100;
+
+        const generated: InstallmentRow[] = Array.from({ length: n }, (_, i) => ({
+            amount: String(i === n - 1 ? last : base).replace('.', ','),
+            due_date: addMonths(firstDueDate, i),
+            notes: '',
+            paid_at: null,
+        }));
+        setRows(generated);
+    };
 
     const handleCreate = async () => {
         const parsed = rows.map(r => ({
@@ -156,7 +194,7 @@ export const PaymentPlanModal: React.FC<Props> = ({ lead, client, onClose }) => 
         }
     };
 
-    const installments = plan?.installments ?? [];
+    const installments = (plan?.installments ?? []).slice().sort((a, b) => a.due_date.localeCompare(b.due_date));
     const paid = installments.filter(i => i.paid_at);
     const unpaid = installments.filter(i => !i.paid_at);
     const paidTotal = paid.reduce((s, i) => s + i.amount, 0);
@@ -166,6 +204,8 @@ export const PaymentPlanModal: React.FC<Props> = ({ lead, client, onClose }) => 
         : 0;
 
     const inputCls = 'w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-slate-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500';
+
+    const canCalculate = !!parseFloat(totalAmount.replace(',', '.')) && parseInt(numInstallments) > 0;
 
     return (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4" onClick={e => e.target === e.currentTarget && onClose()}>
@@ -195,10 +235,7 @@ export const PaymentPlanModal: React.FC<Props> = ({ lead, client, onClose }) => 
                                     <span className="text-sm font-bold text-slate-800 dark:text-gray-100">{progressPct}%</span>
                                 </div>
                                 <div className="w-full h-2.5 rounded-full bg-slate-200 dark:bg-slate-600 overflow-hidden">
-                                    <div
-                                        className="h-full rounded-full bg-green-500 transition-all duration-500"
-                                        style={{ width: `${progressPct}%` }}
-                                    />
+                                    <div className="h-full rounded-full bg-green-500 transition-all duration-500" style={{ width: `${progressPct}%` }} />
                                 </div>
                                 <div className="flex justify-between text-xs text-slate-500 dark:text-gray-400">
                                     <span className="text-green-600 dark:text-green-400 font-medium">Pagato: {fmt(paidTotal)}</span>
@@ -211,124 +248,131 @@ export const PaymentPlanModal: React.FC<Props> = ({ lead, client, onClose }) => 
                             <div>
                                 <div className="flex items-center justify-between mb-3">
                                     <h3 className="text-sm font-semibold text-slate-700 dark:text-gray-200">Rate ({installments.length})</h3>
-                                    <button
-                                        onClick={handleAddRow}
-                                        disabled={saving}
-                                        className="flex items-center gap-1 text-xs text-primary-600 dark:text-primary-400 hover:text-primary-800 font-medium"
-                                    >
+                                    <button onClick={handleAddRow} disabled={saving} className="flex items-center gap-1 text-xs text-primary-600 dark:text-primary-400 hover:text-primary-800 font-medium">
                                         <Plus size={14} /> Aggiungi rata
                                     </button>
                                 </div>
 
                                 <div className="space-y-2">
-                                    {installments
-                                        .slice()
-                                        .sort((a, b) => a.due_date.localeCompare(b.due_date))
-                                        .map((inst, idx) => {
-                                            const isOverdue = !inst.paid_at && inst.due_date < today();
-                                            return (
-                                                <div
-                                                    key={inst.id}
-                                                    className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${
-                                                        inst.paid_at
-                                                            ? 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20'
-                                                            : isOverdue
-                                                            ? 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20'
-                                                            : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800'
-                                                    }`}
-                                                >
-                                                    <button
-                                                        onClick={() => handleTogglePaid(inst)}
-                                                        disabled={saving}
-                                                        title={inst.paid_at ? 'Segna come non pagata' : 'Segna come pagata'}
-                                                        className="flex-shrink-0"
-                                                    >
-                                                        {inst.paid_at ? (
-                                                            <CheckCircle size={20} className="text-green-500" />
-                                                        ) : isOverdue ? (
-                                                            <AlertCircle size={20} className="text-red-400" />
-                                                        ) : (
-                                                            <Clock size={20} className="text-slate-300 dark:text-slate-600" />
-                                                        )}
-                                                    </button>
-
-                                                    <div className="flex-1 grid grid-cols-2 gap-2 min-w-0">
-                                                        <input
-                                                            type="text"
-                                                            defaultValue={String(inst.amount).replace('.', ',')}
-                                                            onBlur={e => handleInstallmentUpdate(inst, 'amount', e.target.value)}
-                                                            className="px-2 py-1 rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm font-medium text-slate-800 dark:text-gray-100"
-                                                            placeholder="Importo €"
-                                                        />
-                                                        <input
-                                                            type="date"
-                                                            defaultValue={inst.due_date}
-                                                            onBlur={e => handleInstallmentUpdate(inst, 'due_date', e.target.value)}
-                                                            className="px-2 py-1 rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-slate-800 dark:text-gray-100"
-                                                        />
-                                                    </div>
-
-                                                    <div className="flex-shrink-0 text-right">
-                                                        {inst.paid_at && (
-                                                            <p className="text-xs text-green-600 dark:text-green-400">
-                                                                Pagato {fmtDate(inst.paid_at)}
-                                                            </p>
-                                                        )}
-                                                    </div>
-
-                                                    <button
-                                                        onClick={() => handleDeleteInstallment(inst.id)}
-                                                        disabled={saving}
-                                                        className="flex-shrink-0 p-1 text-slate-300 hover:text-red-500 dark:text-slate-600 dark:hover:text-red-400 transition-colors"
-                                                    >
-                                                        <Trash2 size={14} />
-                                                    </button>
+                                    {installments.map(inst => {
+                                        const isOverdue = !inst.paid_at && inst.due_date < today();
+                                        return (
+                                            <div key={inst.id} className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${
+                                                inst.paid_at ? 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20'
+                                                : isOverdue ? 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20'
+                                                : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800'
+                                            }`}>
+                                                <button onClick={() => handleTogglePaid(inst)} disabled={saving} title={inst.paid_at ? 'Segna come non pagata' : 'Segna come pagata'} className="flex-shrink-0">
+                                                    {inst.paid_at ? <CheckCircle size={20} className="text-green-500" />
+                                                    : isOverdue ? <AlertCircle size={20} className="text-red-400" />
+                                                    : <Clock size={20} className="text-slate-300 dark:text-slate-600" />}
+                                                </button>
+                                                <div className="flex-1 grid grid-cols-2 gap-2 min-w-0">
+                                                    <input type="text" defaultValue={String(inst.amount).replace('.', ',')}
+                                                        onBlur={e => handleInstallmentUpdate(inst, 'amount', e.target.value)}
+                                                        className="px-2 py-1 rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm font-medium text-slate-800 dark:text-gray-100"
+                                                        placeholder="Importo €" />
+                                                    <input type="date" defaultValue={inst.due_date}
+                                                        onBlur={e => handleInstallmentUpdate(inst, 'due_date', e.target.value)}
+                                                        className="px-2 py-1 rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-slate-800 dark:text-gray-100" />
                                                 </div>
-                                            );
-                                        })}
+                                                <div className="flex-shrink-0 text-right">
+                                                    {inst.paid_at && <p className="text-xs text-green-600 dark:text-green-400">Pagato {fmtDate(inst.paid_at)}</p>}
+                                                </div>
+                                                <button onClick={() => handleDeleteInstallment(inst.id)} disabled={saving} className="flex-shrink-0 p-1 text-slate-300 hover:text-red-500 dark:text-slate-600 dark:hover:text-red-400 transition-colors">
+                                                    <Trash2 size={14} />
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
 
                             {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
-
-                            <button
-                                onClick={handleDelete}
-                                disabled={saving}
-                                className="text-xs text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 underline"
-                            >
+                            <button onClick={handleDelete} disabled={saving} className="text-xs text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 underline">
                                 Elimina piano rate
                             </button>
                         </>
                     ) : (
-                        /* Create new plan */
                         <div className="space-y-5">
-                            <p className="text-sm text-slate-600 dark:text-gray-300">
-                                Nessun piano rate per questa lead. Creane uno definendo l'importo totale e le singole rate.
-                            </p>
-
+                            {/* Selezione preventivo */}
                             <div>
                                 <label className="text-xs font-medium text-slate-500 dark:text-gray-400 block mb-1">
                                     Importo totale (€)
                                 </label>
-                                <input
-                                    type="text"
-                                    value={totalAmount}
-                                    onChange={e => setTotalAmount(e.target.value)}
-                                    onFocus={e => e.target.select()}
-                                    placeholder="Es. 1500"
-                                    className={inputCls}
-                                />
-                                <p className="text-xs text-slate-400 mt-1">Lascia vuoto per calcolare automaticamente dalla somma delle rate.</p>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        value={totalAmount}
+                                        onChange={e => setTotalAmount(e.target.value)}
+                                        onFocus={e => e.target.select()}
+                                        placeholder="Es. 1500"
+                                        className={`${inputCls} flex-1`}
+                                    />
+                                    {quotes.length > 0 && (
+                                        <select
+                                            defaultValue=""
+                                            onChange={e => handleSelectQuote(e.target.value)}
+                                            className={`${inputCls} flex-1`}
+                                        >
+                                            <option value="" disabled>Importa da preventivo…</option>
+                                            {quotes.map(q => (
+                                                <option key={q.id} value={q.id}>
+                                                    #{q.quote_number_display || q.id.slice(0, 6)} — {fmt(q.total_amount)}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    )}
+                                </div>
                             </div>
 
+                            {/* Calcolatore automatico */}
+                            <div className="p-4 rounded-xl border border-primary-200 dark:border-primary-800 bg-primary-50 dark:bg-primary-900/20 space-y-3">
+                                <div className="flex items-center gap-2 text-sm font-medium text-primary-700 dark:text-primary-300">
+                                    <Calculator size={15} />
+                                    Calcola rate automaticamente
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="text-xs text-slate-500 dark:text-gray-400 block mb-1">Numero rate</label>
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            value={numInstallments}
+                                            onChange={e => setNumInstallments(e.target.value)}
+                                            onFocus={e => e.target.select()}
+                                            placeholder="Es. 3"
+                                            className={inputCls}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-slate-500 dark:text-gray-400 block mb-1">Prima scadenza</label>
+                                        <input
+                                            type="date"
+                                            value={firstDueDate}
+                                            onChange={e => setFirstDueDate(e.target.value)}
+                                            className={inputCls}
+                                        />
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={handleCalculate}
+                                    disabled={!canCalculate}
+                                    className="w-full py-2 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                >
+                                    Genera rate mensili
+                                </button>
+                                <p className="text-xs text-slate-400 dark:text-gray-500">
+                                    Divide l'importo in rate mensili uguali a partire dalla prima scadenza. L'ultima rata copre eventuali centesimi di differenza.
+                                </p>
+                            </div>
+
+                            {/* Rate manuali */}
                             <div>
                                 <div className="flex items-center justify-between mb-2">
                                     <label className="text-xs font-medium text-slate-500 dark:text-gray-400">Rate</label>
-                                    <button
-                                        type="button"
-                                        onClick={handleAddRow}
-                                        className="flex items-center gap-1 text-xs text-primary-600 dark:text-primary-400 font-medium"
-                                    >
+                                    <button type="button" onClick={handleAddRow} className="flex items-center gap-1 text-xs text-primary-600 dark:text-primary-400 font-medium">
                                         <Plus size={13} /> Aggiungi rata
                                     </button>
                                 </div>
@@ -350,16 +394,20 @@ export const PaymentPlanModal: React.FC<Props> = ({ lead, client, onClose }) => 
                                                 className={`${inputCls} flex-1`}
                                             />
                                             {rows.length > 1 && (
-                                                <button
-                                                    onClick={() => setRows(prev => prev.filter((_, j) => j !== i))}
-                                                    className="p-1 text-slate-300 hover:text-red-500 dark:text-slate-600 dark:hover:text-red-400"
-                                                >
+                                                <button onClick={() => setRows(prev => prev.filter((_, j) => j !== i))} className="p-1 text-slate-300 hover:text-red-500 dark:text-slate-600 dark:hover:text-red-400">
                                                     <Trash2 size={14} />
                                                 </button>
                                             )}
                                         </div>
                                     ))}
                                 </div>
+                                {rows.length > 1 && (
+                                    <p className="text-xs text-slate-400 mt-2">
+                                        Totale rate: <span className="font-medium text-slate-600 dark:text-gray-300">
+                                            {fmt(rows.reduce((s, r) => s + (parseFloat(r.amount.replace(',', '.')) || 0), 0))}
+                                        </span>
+                                    </p>
+                                )}
                             </div>
 
                             <div>
