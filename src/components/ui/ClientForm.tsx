@@ -169,6 +169,23 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
         setServices(updatedServices);
     };
     
+    const handleDuplicateService = (index: number) => {
+        const src = services[index];
+        const copy = {
+            ...src,
+            id: `new_${Date.now()}_${Math.random()}`,
+            name: `${src.name} (copia)`,
+            fields: src.fields.map(f => ({
+                ...f,
+                id: `field_${Date.now()}_${Math.random()}`,
+            })),
+            isExpanded: true,
+        };
+        const updated = [...services];
+        updated.splice(index + 1, 0, copy);
+        setServices(updated);
+    };
+
     const handleRemoveService = (index: number) => {
         if (services[index]?.is_base) return;
         setDeleteServiceConfirm({ isOpen: true, serviceIndex: index });
@@ -565,8 +582,16 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
                                         onClick={e => e.stopPropagation()}
                                         className="flex-grow font-bold bg-transparent focus:outline-none focus:ring-0 border-0 p-0 text-slate-900 dark:text-white"
                                     />
+                                    <button
+                                        type="button"
+                                        onClick={(e) => { e.stopPropagation(); handleDuplicateService(serviceIndex); }}
+                                        title="Duplica servizio"
+                                        className="p-2 text-slate-400 hover:text-primary-500 dark:hover:text-primary-400 ml-1"
+                                    >
+                                        <Copy size={15} />
+                                    </button>
                                     {!service.is_base && (
-                                        <button type="button" onClick={(e) => { e.stopPropagation(); handleRemoveService(serviceIndex); }} className="p-2 text-red-500 hover:text-red-400 ml-2">
+                                        <button type="button" onClick={(e) => { e.stopPropagation(); handleRemoveService(serviceIndex); }} className="p-2 text-red-500 hover:text-red-400 ml-1">
                                             <Trash2 size={16} />
                                         </button>
                                     )}
