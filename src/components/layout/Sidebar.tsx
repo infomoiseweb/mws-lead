@@ -23,7 +23,7 @@ interface NavItem {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle, onNavigate }) => {
-    const { user, logout } = useAuth();
+    const { user, logout, client } = useAuth();
     const { t } = useTranslation();
     const navigate = useNavigate();
     const location = useLocation();
