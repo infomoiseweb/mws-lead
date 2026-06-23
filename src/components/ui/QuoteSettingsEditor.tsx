@@ -56,17 +56,18 @@ interface PresetFormProps {
     inputCls: string;
     isCategory: boolean;
     hideService?: boolean;
+    distanceEnabled?: boolean;
     onChange: (p: QuotePricePreset) => void;
     onSave: () => void;
     onCancel: () => void;
 }
 
-const PresetForm: React.FC<PresetFormProps> = ({ buffer, services, inputCls, hideService, onChange, onSave, onCancel }) => {
+const PresetForm: React.FC<PresetFormProps> = ({ buffer, services, inputCls, hideService, distanceEnabled, onChange, onSave, onCancel }) => {
     const isPerKm = buffer.type === 'per_km';
     return (
     <div className="p-4 space-y-3 bg-white dark:bg-slate-800">
-        {/* Toggle tipo preset */}
-        <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600">
+        {/* Toggle tipo preset — visibile solo se il calcolo distanza è attivo per il cliente */}
+        {distanceEnabled && <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600">
             <div>
                 <p className="text-xs font-medium text-slate-700 dark:text-gray-200">Prezzo basato sulla distanza (€/km)</p>
                 <p className="text-xs text-slate-400 dark:text-gray-500">La quantità verrà impostata automaticamente dai km calcolati da Google Maps.</p>
@@ -78,7 +79,7 @@ const PresetForm: React.FC<PresetFormProps> = ({ buffer, services, inputCls, hid
             >
                 <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ${isPerKm ? 'translate-x-4' : 'translate-x-0'}`} />
             </button>
-        </div>
+        </div>}
 
         <div className={`grid grid-cols-1 gap-3 ${hideService ? '' : 'sm:grid-cols-2'}`}>
             <div>
@@ -189,6 +190,7 @@ const QuoteSettingsEditor: React.FC<Props> = ({ client, onSave }) => {
     const [error, setError] = useState('');
 
     const services = (client.services || []).filter(s => s.name !== '__default_fields__');
+    const distanceEnabled = client.distance_settings?.enabled === true;
 
     // Tutti i campi lead disponibili (deduplicati per nome) tra tutti i servizi del cliente
     const availableLeadFields = (() => {
@@ -561,6 +563,7 @@ const QuoteSettingsEditor: React.FC<Props> = ({ client, onSave }) => {
                                         services={services}
                                         inputCls={inputCls}
                                         isCategory={false}
+                                        distanceEnabled={distanceEnabled}
                                         onChange={setEditBuffer}
                                         onSave={saveEdit}
                                         onCancel={cancelEdit}
@@ -620,6 +623,7 @@ const QuoteSettingsEditor: React.FC<Props> = ({ client, onSave }) => {
                                                                 inputCls={inputCls}
                                                                 isCategory={false}
                                                                 hideService
+                                                                distanceEnabled={distanceEnabled}
                                                                 onChange={setEditBuffer}
                                                                 onSave={saveChild}
                                                                 onCancel={cancelChildEdit}
