@@ -23,6 +23,7 @@ import { useTranslation } from 'react-i18next';
 import CalendarPage from './src/pages/CalendarPage';
 import QuotesPage from './src/pages/QuotesPage';
 import MailMarketingPage from './src/pages/client/MailMarketingPage';
+import InstallmentsPage from './src/pages/client/InstallmentsPage';
 import { supabase } from './src/lib/supabase';
 
 const ProtectedRoute: React.FC<{ children: React.ReactElement; role: 'admin' | 'client' }> = ({ children, role }) => {
@@ -111,6 +112,7 @@ const AppRoutes: React.FC = () => {
                 <Route path="calendar" element={<CalendarPage />} />
                 <Route path="quotes" element={<QuotesPage />} />
                 <Route path="mail-marketing" element={<MailMarketingPage />} />
+                <Route path="installments" element={<InstallmentsPage />} />
                 <Route path="analytics" element={<AnalyticsPage />} />
                 <Route path="revenue" element={<MwsRevenuePage />} />
                 <Route path="settings" element={<AccountSettingsPage />} />

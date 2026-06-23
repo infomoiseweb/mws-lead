@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { getClientMailMarketingFlag } from '@api/clients';
 import {
     LogOut, User as UserIcon, LayoutGrid, List, Users, BarChart3, DollarSign,
-    FileCode, Activity, Calendar, FileText, ChevronsLeft, ChevronsRight, Plug, Send
+    FileCode, Activity, Calendar, FileText, ChevronsLeft, ChevronsRight, Plug, Send, Layers
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -33,6 +33,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle, onNavigate }) =>
     const userId = user?.id || params.userId;
 
     const [mailMarketingEnabled, setMailMarketingEnabled] = useState(false);
+    const installmentsEnabled = client?.installments_enabled ?? false;
 
     useEffect(() => {
         if (isAdmin || !userId) return;
@@ -161,6 +162,12 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle, onNavigate }) =>
             icon: <Send size={20} />,
             label: t('nav_mail_marketing'),
             isActive: (pathname: string) => pathname === `/client/${userId}/mail-marketing`,
+        }] : []),
+        ...(installmentsEnabled ? [{
+            to: `/client/${userId}/installments`,
+            icon: <Layers size={20} />,
+            label: 'Rate',
+            isActive: (pathname: string) => pathname === `/client/${userId}/installments`,
         }] : []),
         {
             to: `/client/${userId}/analytics`,

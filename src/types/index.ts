@@ -159,6 +159,31 @@ export interface QuotePricePreset {
     children?: QuotePricePreset[]; // Sotto-voci — se presente, questo preset è una categoria
 }
 
+export interface Installment {
+    id: string;
+    payment_plan_id: string;
+    amount: number;
+    due_date: string; // YYYY-MM-DD
+    paid_at: string | null;
+    notes?: string;
+    created_at: string;
+}
+
+export interface PaymentPlan {
+    id: string;
+    client_id: string;
+    lead_id: string;
+    quote_id?: string | null;
+    total_amount: number;
+    notes?: string;
+    created_at: string;
+    installments?: Installment[];
+    // join data
+    leads?: { data: Record<string, string>; service?: string } | null;
+    clients?: { name: string } | null;
+    quotes?: { quote_number_display: string } | null;
+}
+
 export interface DistanceSettings {
     enabled: boolean;
     company_address: string;   // indirizzo sede del cliente
@@ -223,6 +248,7 @@ export interface Client {
     api_token?: string;
     can_delete_leads?: boolean;
     distance_settings?: DistanceSettings;
+    installments_enabled?: boolean;
     // These are loaded separately
     leads: Lead[];
     adSpends?: AdSpend[];

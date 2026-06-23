@@ -11,6 +11,7 @@ import QuoteDetailModal from '@components/quote/QuoteDetailModal';
 import AppointmentsMap from './AppointmentsMap';
 import { geocodeAddress } from '@lib/geocoding';
 import { useLeadDistance } from '@hooks/useLeadDistance';
+import { PaymentPlanModal } from './PaymentPlanModal';
 
 // Funzione di copia robusta con fallback
 const copyTextToClipboard = async (text: string): Promise<boolean> => {
@@ -414,6 +415,7 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
     const [quotes, setQuotes] = useState<Quote[]>([]);
     const [isLoadingQuotes, setIsLoadingQuotes] = useState(false);
     const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
+    const [isPaymentPlanOpen, setIsPaymentPlanOpen] = useState(false);
     const [quoteToEdit, setQuoteToEdit] = useState<Quote | null>(null);
     const [selectedQuoteId, setSelectedQuoteId] = useState('');
     const [isQuoteDetailModalOpen, setIsQuoteDetailModalOpen] = useState(false);
@@ -1337,11 +1339,20 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
             case 'preventivi':
                  return (
                     <div>
-                        <div className="mb-4 flex items-center justify-between">
+                        <div className="mb-4 flex items-center justify-between flex-wrap gap-2">
                             <button onClick={handleCreateQuote} className="flex items-center text-sm font-semibold bg-primary-600 text-white hover:bg-primary-700 px-4 py-2 rounded-lg">
                                 <PlusCircle size={18} className="mr-2" />
                                 Crea Nuovo Preventivo
                             </button>
+                            {client?.installments_enabled && (
+                                <button
+                                    onClick={() => setIsPaymentPlanOpen(true)}
+                                    className="flex items-center text-sm font-semibold border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-gray-200 hover:bg-slate-100 dark:hover:bg-slate-700 px-4 py-2 rounded-lg"
+                                >
+                                    <DollarSign size={16} className="mr-2" />
+                                    Piano rate
+                                </button>
+                            )}
                         </div>
                         <div className="space-y-3 max-h-80 overflow-y-auto pr-2">
                             {isLoadingQuotes ? (
@@ -1970,6 +1981,14 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
                 </div>
             </Modal>
             
+            {isPaymentPlanOpen && client && (
+                <PaymentPlanModal
+                    lead={lead}
+                    client={client}
+                    onClose={() => setIsPaymentPlanOpen(false)}
+                />
+            )}
+
             {client && (
                 <QuoteCreatorModal
                     isOpen={isQuoteModalOpen}

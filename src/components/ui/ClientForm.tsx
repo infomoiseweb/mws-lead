@@ -45,6 +45,7 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
     const [mwsProfitPercentage, setMwsProfitPercentage] = useState<string>('');
     const [quoteWebhookUrl, setQuoteWebhookUrl] = useState('');
     const [canDeleteLeads, setCanDeleteLeads] = useState(false);
+    const [installmentsEnabled, setInstallmentsEnabled] = useState(false);
     const [distanceSettings, setDistanceSettings] = useState<DistanceSettings>({
         enabled: false,
         company_address: '',
@@ -123,6 +124,7 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
             setMwsProfitPercentage(String(client.mws_profit_percentage || ''));
             setQuoteWebhookUrl(client.quote_webhook_url || '');
             setCanDeleteLeads(client.can_delete_leads ?? false);
+            setInstallmentsEnabled(client.installments_enabled ?? false);
             setDistanceSettings(client.distance_settings ?? { enabled: false, company_address: '', location_field: '' });
         } else {
             setName('');
@@ -301,6 +303,7 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
                     mws_profit_percentage: mwsProfitPercentage ? parseFloat(mwsProfitPercentage) : 0,
                     quote_webhook_url: quoteWebhookUrl,
                     can_delete_leads: canDeleteLeads,
+                    installments_enabled: installmentsEnabled,
                     distance_settings: distanceSettings,
                 };
                 await ApiService.updateClient(client.id, updates);
@@ -402,6 +405,21 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
                             className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${canDeleteLeads ? 'bg-primary-600' : 'bg-slate-300 dark:bg-slate-600'}`}
                         >
                             <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${canDeleteLeads ? 'translate-x-5' : 'translate-x-0'}`} />
+                        </button>
+                    </div>
+
+                    {/* Pagamento a rate */}
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50 mb-4">
+                        <div>
+                            <p className="text-sm font-medium text-slate-700 dark:text-gray-200">Abilita pagamento a rate</p>
+                            <p className="text-xs text-slate-500 dark:text-gray-400 mt-0.5">Il cliente potrà gestire piani di pagamento a rate sulle lead vinte.</p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setInstallmentsEnabled(v => !v)}
+                            className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${installmentsEnabled ? 'bg-primary-600' : 'bg-slate-300 dark:bg-slate-600'}`}
+                        >
+                            <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${installmentsEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
                         </button>
                     </div>
 
