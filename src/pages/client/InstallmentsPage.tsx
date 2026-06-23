@@ -3,7 +3,7 @@ import {
     CheckCircle, Clock, AlertCircle, Euro, TrendingUp,
     AlertTriangle, CalendarClock, ListChecks, ChevronDown, ChevronUp,
 } from 'lucide-react';
-import { getPaymentPlans, markInstallmentPaid, getInstallmentRevenueByMonth } from '@api/index';
+import { getPaymentPlans, markInstallmentPaid, getInstallmentRevenueByMonth, getInstallmentForecast } from '@api/index';
 import type { PaymentPlan, Installment } from '../../types';
 import { useAuth } from '@contexts/AuthContext';
 
@@ -241,6 +241,7 @@ const InstallmentsPage: React.FC = () => {
     const { client } = useAuth();
     const [plans, setPlans] = useState<PaymentPlan[]>([]);
     const [revenueByMonth, setRevenueByMonth] = useState<{ month: string; total_paid: number }[]>([]);
+    const [forecast, setForecast] = useState<{ month: string; expected: number }[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [activeTab, setActiveTab] = useState<TabId>('all');
@@ -248,12 +249,14 @@ const InstallmentsPage: React.FC = () => {
     const load = useCallback(async () => {
         setLoading(true);
         try {
-            const [p, r] = await Promise.all([
+            const [p, r, f] = await Promise.all([
                 getPaymentPlans(client?.id),
                 getInstallmentRevenueByMonth(client?.id).catch(() => []),
+                getInstallmentForecast(client?.id, 6).catch(() => []),
             ]);
             setPlans(p);
             setRevenueByMonth(r);
+            setForecast(f);
         } finally {
             setLoading(false);
         }
@@ -311,6 +314,41 @@ const InstallmentsPage: React.FC = () => {
                 <StatCard label="Piani completati" value={`${stats.completedPlans} / ${plans.length}`}
                     sub="tutti i pagamenti ricevuti" color="text-primary-600 dark:text-primary-400" icon={<CheckCircle size={18} />} />
             </div>
+
+            {/* Proiezione prossimi 6 mesi */}
+            {forecast.some(f => f.expected > 0) && (
+                <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5">
+                    <div className="flex items-center justify-between mb-4">
+                        <p className="text-sm font-semibold text-slate-700 dark:text-gray-200">Proiezione incassi — prossimi 6 mesi</p>
+                        <span className="text-xs text-slate-400 dark:text-gray-500">Solo rate non ancora pagate</span>
+                    </div>
+                    <div className="flex items-end gap-2 h-32">
+                        {forecast.map(f => {
+                            const max = Math.max(...forecast.map(x => x.expected), 1);
+                            const pct = Math.round((f.expected / max) * 100);
+                            const lbl = new Date(f.month + '-01').toLocaleDateString('it-IT', { month: 'short' });
+                            const isCurrent = f.month === thisMonthStr();
+                            return (
+                                <div key={f.month} className="flex-1 flex flex-col items-center gap-1">
+                                    <span className="text-xs text-slate-500 dark:text-gray-400 tabular-nums text-center leading-tight">
+                                        {f.expected > 0 ? fmt(f.expected).replace(' €', '€') : '—'}
+                                    </span>
+                                    <div className="w-full flex items-end" style={{ height: '72px' }}>
+                                        <div
+                                            className={`w-full rounded-t-lg transition-all duration-700 ${isCurrent ? 'bg-teal-500' : 'bg-teal-200 dark:bg-teal-800/60'}`}
+                                            style={{ height: f.expected > 0 ? `${Math.max(pct, 6)}%` : '2px' }}
+                                        />
+                                    </div>
+                                    <span className={`text-xs capitalize ${isCurrent ? 'font-semibold text-teal-600 dark:text-teal-400' : 'text-slate-400 dark:text-gray-500'}`}>{lbl}</span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                    <p className="text-xs text-slate-400 dark:text-gray-500 mt-3 text-center">
+                        Totale atteso nei prossimi 6 mesi: <span className="font-semibold text-slate-700 dark:text-gray-200">{fmt(forecast.reduce((s, f) => s + f.expected, 0))}</span>
+                    </p>
+                </div>
+            )}
 
             {/* Mini grafico ultimi 6 mesi */}
             {revenueByMonth.length > 0 && (

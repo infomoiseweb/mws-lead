@@ -81,7 +81,8 @@ export default {
         Vinto: "Vinto",
         "Preventivo Inviato": "Prev. Inviato",
         "Preventivo Accettato": "Prev. Accettato",
-        "Preventivo Rifiutato": "Prev. Rifiutato"
+        "Preventivo Rifiutato": "Prev. Rifiutato",
+        "A Rate": "A Rate"
     },
 
     overview: {

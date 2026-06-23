@@ -63,6 +63,9 @@ const statusColors: Record<Lead['status'], string> = {
     'Perso': 'bg-red-500 text-white',
     'Vinto': 'bg-green-500 text-white',
     'Preventivo Inviato': 'bg-blue-500 dark:bg-blue-600 text-white',
+    'Preventivo Accettato': 'bg-emerald-500 dark:bg-emerald-600 text-white',
+    'Preventivo Rifiutato': 'bg-orange-500 dark:bg-orange-600 text-white',
+    'A Rate': 'bg-teal-500 dark:bg-teal-600 text-white',
 };
 
 const normalizePhoneNumber = (phone: string | undefined): string => {

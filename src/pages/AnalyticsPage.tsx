@@ -17,6 +17,7 @@ const statusColors: Record<Lead['status'], string> = {
     'Preventivo Inviato': 'bg-blue-500',
     'Preventivo Accettato': 'bg-emerald-500',
     'Preventivo Rifiutato': 'bg-orange-500',
+    'A Rate': 'bg-teal-500',
 };
 
 const StatCard: React.FC<{ title: string; value: string; icon: React.ReactNode }> = ({ title, value, icon }) => (
@@ -201,7 +202,7 @@ const AnalyticsPage: React.FC = () => {
         const leadsByStatus = filteredLeads.reduce((acc: Record<Lead['status'], number>, lead) => {
             acc[lead.status] = (acc[lead.status] || 0) + 1;
             return acc;
-        }, { 'Nuovo': 0, 'Contattato': 0, 'In Lavorazione': 0, 'Perso': 0, 'Vinto': 0, 'Preventivo Inviato': 0, 'Preventivo Accettato': 0, 'Preventivo Rifiutato': 0 });
+        }, { 'Nuovo': 0, 'Contattato': 0, 'In Lavorazione': 0, 'Perso': 0, 'Vinto': 0, 'Preventivo Inviato': 0, 'Preventivo Accettato': 0, 'Preventivo Rifiutato': 0, 'A Rate': 0 });
 
         return {
             totalRevenue,

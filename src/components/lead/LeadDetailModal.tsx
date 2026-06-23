@@ -3,7 +3,7 @@ import Modal from '@components/ui/Modal';
 import type { Lead, Client, Quote, QuoteWithDetails, CalendarAppointment } from '../types';
 import * as ApiService from '@api';
 // FIX: Cannot find name 'CheckCircle'. Import it from lucide-react.
-import { Tag, Calendar, Info, DollarSign, Briefcase, MessageCircle, History, Sparkles, Copy, Loader2, Check, Phone, Edit, Trash2, Mail, Save, X, Database, FileText, PlusCircle, Clock, CheckCircle, Eye, Send, ChevronDown, MapPin, RefreshCw } from 'lucide-react';
+import { Tag, Calendar, Info, DollarSign, Briefcase, MessageCircle, History, Sparkles, Copy, Loader2, Check, Phone, Edit, Trash2, Mail, Save, X, Database, FileText, PlusCircle, Clock, CheckCircle, Eye, Send, ChevronDown, MapPin, RefreshCw, Layers } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import QuoteCreatorModal from '@components/quote/QuoteCreatorModal';
 import { useAuth } from '@contexts/AuthContext';
@@ -76,6 +76,7 @@ const statusColors: Record<Lead['status'], string> = {
     'Preventivo Inviato': 'bg-blue-500 dark:bg-blue-600 text-white',
     'Preventivo Accettato': 'bg-emerald-500 dark:bg-emerald-600 text-white',
     'Preventivo Rifiutato': 'bg-orange-500 dark:bg-orange-600 text-white',
+    'A Rate': 'bg-teal-500 dark:bg-teal-600 text-white',
 };
 
 const WhatsAppIcon: React.FC<{className?: string}> = ({className}) => (
@@ -1936,6 +1937,7 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
                                             <option value="Preventivo Inviato">{t('lead_status.Preventivo Inviato')}</option>
                                             <option value="Preventivo Accettato">{t('lead_status.Preventivo Accettato')}</option>
                                             <option value="Preventivo Rifiutato">{t('lead_status.Preventivo Rifiutato')}</option>
+                                            <option value="A Rate">{t('lead_status.A Rate')}</option>
                                         </select>
                                         <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-white pointer-events-none" />
                                     </div>

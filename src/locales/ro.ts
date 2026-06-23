@@ -81,7 +81,8 @@ export default {
         Vinto: "Câștigat",
         "Preventivo Inviato": "Ofertă Trimisă",
         "Preventivo Accettato": "Ofertă Acceptată",
-        "Preventivo Rifiutato": "Ofertă Respinsă"
+        "Preventivo Rifiutato": "Ofertă Respinsă",
+        "A Rate": "În Rate"
     },
 
     overview: {

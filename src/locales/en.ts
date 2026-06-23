@@ -81,7 +81,8 @@ export default {
         Vinto: "Won",
         "Preventivo Inviato": "Quote Sent",
         "Preventivo Accettato": "Quote Accepted",
-        "Preventivo Rifiutato": "Quote Rejected"
+        "Preventivo Rifiutato": "Quote Rejected",
+        "A Rate": "Installments"
     },
 
     overview: {
