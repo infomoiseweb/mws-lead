@@ -103,6 +103,7 @@ const AnalyticsPage: React.FC = () => {
     const [allClients, setAllClients] = useState<Client[]>([]);
     const [filteredLeads, setFilteredLeads] = useState<Lead[]>([]);
     const [filteredSpends, setFilteredSpends] = useState<AdSpend[]>([]);
+    const [installmentRevenue, setInstallmentRevenue] = useState<{ month: string; total_paid: number }[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -117,6 +118,7 @@ const AnalyticsPage: React.FC = () => {
         if (!isRefreshing) setIsLoading(true);
         try {
             let clientsData: Client[] = [];
+            const clientIdForRevenue = selectedClientId !== 'all' ? selectedClientId : undefined;
             if (isAdmin) {
                 clientsData = await ApiService.getClients();
             } else if (user) {
@@ -124,6 +126,10 @@ const AnalyticsPage: React.FC = () => {
                 if (client) clientsData = [client];
             }
             setAllClients(clientsData);
+            try {
+                const ir = await ApiService.getInstallmentRevenueByMonth(clientIdForRevenue);
+                setInstallmentRevenue(ir);
+            } catch { /* tabella potrebbe non esistere ancora */ }
         } catch (e) {
             console.error(e);
         } finally {
@@ -174,7 +180,14 @@ const AnalyticsPage: React.FC = () => {
 
     const analyticsData = useMemo(() => {
         const wonLeads = filteredLeads.filter(l => l.status === 'Vinto');
-        const totalRevenue = wonLeads.reduce((sum, l) => sum + (l.value || 0), 0);
+        // Revenue da lead vinte a pagamento unico + rate incassate nel periodo
+        const leadsRevenue = wonLeads.reduce((sum, l) => sum + (l.value || 0), 0);
+        const irStart = dateRange.start ? dateRange.start.toISOString().slice(0, 7) : null;
+        const irEnd = dateRange.end ? dateRange.end.toISOString().slice(0, 7) : null;
+        const installmentTotal = installmentRevenue
+            .filter(r => (!irStart || r.month >= irStart) && (!irEnd || r.month <= irEnd))
+            .reduce((s, r) => s + r.total_paid, 0);
+        const totalRevenue = leadsRevenue + installmentTotal;
         const totalAdSpend = filteredSpends.reduce((sum, s) => sum + s.amount, 0);
         const netRevenue = totalRevenue - totalAdSpend;
         const totalLeadsCount = filteredLeads.length;

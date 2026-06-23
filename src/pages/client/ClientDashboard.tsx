@@ -41,6 +41,20 @@ const normalizePhoneNumber = (phone: string | undefined): string => {
 const ClientLiveOverview: React.FC<{ client: Client }> = ({ client }) => {
     const [dateRange, setDateRange] = useState<{ start: Date | null; end: Date | null }>({ start: null, end: null });
     const [selectedService, setSelectedService] = useState<string>('all');
+    const [installmentStats, setInstallmentStats] = useState<{ collectedThisMonth: number; expectedThisMonth: number; overdueCount: number } | null>(null);
+
+    useEffect(() => {
+        if (!client.installments_enabled) return;
+        ApiService.getPaymentPlans(client.id).then(plans => {
+            const today = new Date().toISOString().slice(0, 10);
+            const thisMonth = new Date().toISOString().slice(0, 7);
+            const all = plans.flatMap((p: any) => p.installments || []);
+            const collectedThisMonth = all.filter((i: any) => i.paid_at?.startsWith(thisMonth)).reduce((s: number, i: any) => s + i.amount, 0);
+            const expectedThisMonth = all.filter((i: any) => i.due_date?.startsWith(thisMonth)).reduce((s: number, i: any) => s + i.amount, 0);
+            const overdueCount = all.filter((i: any) => !i.paid_at && i.due_date < today).length;
+            setInstallmentStats({ collectedThisMonth, expectedThisMonth, overdueCount });
+        }).catch(() => {});
+    }, [client.id, client.installments_enabled]);
 
     const filteredLeads = useMemo(() => {
         let leads = client.leads.filter(l => l.data?._is_historical !== 'true');
@@ -97,6 +111,36 @@ const ClientLiveOverview: React.FC<{ client: Client }> = ({ client }) => {
                 </div>
             </div>
             
+            {/* Widget Rate del mese */}
+            {client.installments_enabled && installmentStats && (
+                <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 mb-6">
+                    <h4 className="text-sm font-semibold text-slate-700 dark:text-gray-200 mb-3 flex items-center gap-2">
+                        <DollarSign size={16} className="text-primary-500" />
+                        Rate — {new Date().toLocaleDateString('it-IT', { month: 'long', year: 'numeric' })}
+                    </h4>
+                    <div className="grid grid-cols-3 gap-3">
+                        <div className="text-center">
+                            <p className="text-xs text-slate-500 dark:text-gray-400">Incassato</p>
+                            <p className="text-lg font-bold text-green-600 dark:text-green-400">
+                                {installmentStats.collectedThisMonth.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' })}
+                            </p>
+                        </div>
+                        <div className="text-center border-x border-slate-100 dark:border-slate-700">
+                            <p className="text-xs text-slate-500 dark:text-gray-400">Atteso</p>
+                            <p className="text-lg font-bold text-amber-600 dark:text-amber-400">
+                                {installmentStats.expectedThisMonth.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' })}
+                            </p>
+                        </div>
+                        <div className="text-center">
+                            <p className="text-xs text-slate-500 dark:text-gray-400">Rate scadute</p>
+                            <p className={`text-lg font-bold ${installmentStats.overdueCount > 0 ? 'text-red-500 dark:text-red-400' : 'text-slate-400'}`}>
+                                {installmentStats.overdueCount}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <LiveOverview
                 leads={filteredLeads}
                 clients={[client]}

@@ -74,3 +74,31 @@ export async function deleteInstallment(id: string): Promise<void> {
     const { error } = await supabase.from('installments').delete().eq('id', id);
     if (error) throw new Error(error.message);
 }
+
+// Ritorna il fatturato mensile da rate pagate per un cliente (o tutti se adminMode)
+export async function getInstallmentRevenueByMonth(clientId?: string): Promise<{ month: string; total_paid: number }[]> {
+    let q = supabase.from('installment_revenue_by_month').select('month, total_paid');
+    if (clientId) q = q.eq('client_id', clientId);
+    const { data, error } = await q;
+    if (error) throw new Error(error.message);
+    return (data || []).map(r => ({ month: r.month as string, total_paid: Number(r.total_paid) }));
+}
+
+// Tutte le rate con scadenza nel mese corrente (o specificato YYYY-MM)
+export async function getInstallmentsDueThisMonth(clientId?: string, month?: string): Promise<(Installment & { payment_plans: { lead_id: string; client_id: string; total_amount: number; leads: { data: Record<string, string>; service?: string } | null } | null })[]> {
+    const m = month || new Date().toISOString().slice(0, 7);
+    const start = `${m}-01`;
+    const end = new Date(new Date(start).getFullYear(), new Date(start).getMonth() + 1, 0).toISOString().slice(0, 10);
+
+    let q = supabase
+        .from('installments')
+        .select('*, payment_plans(lead_id, client_id, total_amount, leads(data, service))')
+        .gte('due_date', start)
+        .lte('due_date', end)
+        .order('due_date');
+
+    if (clientId) q = q.eq('payment_plans.client_id', clientId);
+    const { data, error } = await q;
+    if (error) throw new Error(error.message);
+    return (data || []) as any;
+}
