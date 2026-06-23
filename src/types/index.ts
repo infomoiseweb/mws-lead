@@ -155,6 +155,7 @@ export interface QuotePricePreset {
     unit: string;    // Es. "ettaro", "mq", "ora"
     price: number;
     vat: number;
+    type?: 'fixed' | 'per_km'; // per_km: quantità = km calcolati da Google Maps
     children?: QuotePricePreset[]; // Sotto-voci — se presente, questo preset è una categoria
 }
 

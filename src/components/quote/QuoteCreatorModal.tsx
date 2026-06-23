@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Modal from '@components/ui/Modal';
 import * as ApiService from '@api';
 import type { Client, Lead, Quote, QuoteItem, QuotePricePreset } from '../types';
 import { Plus, Trash2, Save, Loader2, X, ChevronDown, ChevronRight, User, Phone, Mail, Tag, Calendar, Eye, RotateCcw, MessageCircle } from 'lucide-react';
 import { incrementQuoteNumber } from '@lib/quoteNumbering';
 import QuotePreviewDocument from './QuotePreviewDocument';
+import { useLeadDistance } from '@hooks/useLeadDistance';
 
 interface QuoteCreatorModalProps {
     isOpen: boolean;
@@ -72,6 +73,7 @@ const QuoteCreatorModal: React.FC<QuoteCreatorModalProps> = ({ isOpen, onClose, 
 
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
+    const { result: distanceResult } = useLeadDistance(client, lead);
 
     const descriptionSuggestions = useMemo(() => {
         const presets = client.quote_settings?.price_presets || [];
@@ -244,10 +246,15 @@ const QuoteCreatorModal: React.FC<QuoteCreatorModalProps> = ({ isOpen, onClose, 
     };
 
     const handleAddPresetItem = (preset: QuotePricePreset) => {
+        const isPerKm = preset.type === 'per_km';
+        const km = distanceResult?.km ?? null;
+        const quantity = isPerKm && km != null
+            ? String(parseFloat(km.toFixed(1))).replace('.', ',')
+            : '1';
         setItems([...items, {
             id: crypto.randomUUID(),
-            description: preset.description,
-            quantity: '1',
+            description: preset.description || preset.label,
+            quantity,
             price: String(preset.price).replace('.', ','),
             vat: String(preset.vat).replace('.', ','),
         }]);
@@ -679,6 +686,11 @@ const QuoteCreatorModal: React.FC<QuoteCreatorModalProps> = ({ isOpen, onClose, 
                                         }`}
                                     >
                                         <Plus size={12} /> {preset.label}
+                                        {preset.type === 'per_km' && (
+                                            <span className="ml-0.5 text-xs opacity-70">
+                                                {distanceResult ? `· ${distanceResult.km.toFixed(1)} km` : '· €/km'}
+                                            </span>
+                                        )}
                                     </button>
                                 );
                             })}

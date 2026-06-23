@@ -61,8 +61,25 @@ interface PresetFormProps {
     onCancel: () => void;
 }
 
-const PresetForm: React.FC<PresetFormProps> = ({ buffer, services, inputCls, hideService, onChange, onSave, onCancel }) => (
+const PresetForm: React.FC<PresetFormProps> = ({ buffer, services, inputCls, hideService, onChange, onSave, onCancel }) => {
+    const isPerKm = buffer.type === 'per_km';
+    return (
     <div className="p-4 space-y-3 bg-white dark:bg-slate-800">
+        {/* Toggle tipo preset */}
+        <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600">
+            <div>
+                <p className="text-xs font-medium text-slate-700 dark:text-gray-200">Prezzo basato sulla distanza (€/km)</p>
+                <p className="text-xs text-slate-400 dark:text-gray-500">La quantità verrà impostata automaticamente dai km calcolati da Google Maps.</p>
+            </div>
+            <button
+                type="button"
+                onClick={() => onChange({ ...buffer, type: isPerKm ? 'fixed' : 'per_km', unit: isPerKm ? '' : 'km' })}
+                className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${isPerKm ? 'bg-primary-600' : 'bg-slate-300 dark:bg-slate-600'}`}
+            >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ${isPerKm ? 'translate-x-4' : 'translate-x-0'}`} />
+            </button>
+        </div>
+
         <div className={`grid grid-cols-1 gap-3 ${hideService ? '' : 'sm:grid-cols-2'}`}>
             <div>
                 <label className="text-xs font-medium text-slate-500 dark:text-gray-400">Nome</label>
@@ -88,11 +105,14 @@ const PresetForm: React.FC<PresetFormProps> = ({ buffer, services, inputCls, hid
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
                 <label className="text-xs font-medium text-slate-500 dark:text-gray-400">Unità di misura</label>
-                <input type="text" value={buffer.unit} onChange={e => onChange({ ...buffer, unit: e.target.value })}
-                    placeholder="Es. ettaro, mq, ora" className={inputCls} />
+                <input type="text" value={isPerKm ? 'km' : buffer.unit}
+                    disabled={isPerKm}
+                    onChange={e => onChange({ ...buffer, unit: e.target.value })}
+                    placeholder="Es. ettaro, mq, ora"
+                    className={`${inputCls} ${isPerKm ? 'opacity-60 cursor-not-allowed' : ''}`} />
             </div>
             <div>
-                <label className="text-xs font-medium text-slate-500 dark:text-gray-400">Prezzo unitario (€)</label>
+                <label className="text-xs font-medium text-slate-500 dark:text-gray-400">{isPerKm ? 'Prezzo per km (€)' : 'Prezzo unitario (€)'}</label>
                 <input type="number" step="0.01" value={buffer.price}
                     onChange={e => onChange({ ...buffer, price: parseFloat(e.target.value) || 0 })}
                     onFocus={e => e.target.select()}
@@ -114,7 +134,8 @@ const PresetForm: React.FC<PresetFormProps> = ({ buffer, services, inputCls, hid
             </button>
         </div>
     </div>
-);
+    );
+};
 
 const QuoteSettingsEditor: React.FC<Props> = ({ client, onSave }) => {
     const [numbering, setNumbering] = useState(client.quote_settings?.numbering || { enabled: false, next_number: '' });
