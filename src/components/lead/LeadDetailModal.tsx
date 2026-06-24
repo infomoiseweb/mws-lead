@@ -1541,8 +1541,10 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
                         )}
 
                         {(() => {
+                            // Mostra: template universali (*), template del servizio della lead,
+                            // oppure tutti i template se la lead non ha un servizio assegnato.
                             const templates = (client?.message_templates || []).filter(t =>
-                                t.service === '*' || t.service === lead?.service
+                                t.service === '*' || !lead?.service || t.service === lead?.service
                             );
                             if (templates.length === 0) {
                                 return (
