@@ -751,16 +751,14 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
 
     const normalizeForWhatsApp = (phone: string | undefined): string => {
         if (!phone) return '';
-        let normalized = phone.replace(/[\s-()]/g, '');
+        let normalized = phone.replace(/[\s\-()\s]/g, '');
+        // Rimuovi solo il + iniziale (wa.me vuole il numero senza +)
         if (normalized.startsWith('+')) {
             normalized = normalized.substring(1);
         } else if (normalized.startsWith('00')) {
             normalized = normalized.substring(2);
         }
-        
-        if (normalized.length >= 9 && normalized.length <= 11 && !normalized.startsWith('39')) {
-            normalized = `39${normalized}`;
-        }
+        // Non aggiungere prefissi automatici: il numero potrebbe non essere italiano
         return normalized;
     };
 
