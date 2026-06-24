@@ -480,7 +480,7 @@ const QuoteSettingsEditor: React.FC<Props> = ({ client, onSave }) => {
 
                         <div className="grid grid-cols-2 gap-3">
                             <div>
-                                <label className="text-xs font-medium text-slate-500 dark:text-gray-400">Colore principale</label>
+                                <label className="text-xs font-medium text-slate-500 dark:text-gray-400">Colore sfondo intestazione</label>
                                 <div className="mt-1 flex items-center gap-2">
                                     <input
                                         type="color"
@@ -492,17 +492,29 @@ const QuoteSettingsEditor: React.FC<Props> = ({ client, onSave }) => {
                                 </div>
                             </div>
                             <div>
-                                <label className="text-xs font-medium text-slate-500 dark:text-gray-400">Font</label>
-                                <select
-                                    value={branding.font || 'sans'}
-                                    onChange={e => setBranding(prev => ({ ...prev, font: e.target.value as QuoteBranding['font'] }))}
-                                    className={inputCls}
-                                >
-                                    {FONT_OPTIONS.map(opt => (
-                                        <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                    ))}
-                                </select>
+                                <label className="text-xs font-medium text-slate-500 dark:text-gray-400">Colore testo intestazione</label>
+                                <div className="mt-1 flex items-center gap-2">
+                                    <input
+                                        type="color"
+                                        value={branding.header_text_color || '#ffffff'}
+                                        onChange={e => setBranding(prev => ({ ...prev, header_text_color: e.target.value }))}
+                                        className="h-9 w-12 rounded-md border border-slate-300 dark:border-slate-600 cursor-pointer bg-transparent"
+                                    />
+                                    <span className="text-xs text-slate-500 dark:text-gray-400">{branding.header_text_color || '#ffffff'}</span>
+                                </div>
                             </div>
+                        </div>
+                        <div>
+                            <label className="text-xs font-medium text-slate-500 dark:text-gray-400">Font</label>
+                            <select
+                                value={branding.font || 'sans'}
+                                onChange={e => setBranding(prev => ({ ...prev, font: e.target.value as QuoteBranding['font'] }))}
+                                className={inputCls}
+                            >
+                                {FONT_OPTIONS.map(opt => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                ))}
+                            </select>
                         </div>
 
                         <div>

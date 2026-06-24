@@ -40,6 +40,7 @@ const formatDate = (value?: string) => value ? new Date(value + 'T00:00:00').toL
 
 const QuotePreviewDocument = React.forwardRef<HTMLDivElement, QuotePreviewDocumentProps>(({ clientName, branding, data }, ref) => {
     const primaryColor = branding?.primary_color || '#2563eb';
+    const headerTextColor = branding?.header_text_color || '#ffffff';
     const fontFamily = FONT_FAMILIES[branding?.font || 'sans'];
 
     return (
@@ -93,7 +94,7 @@ const QuotePreviewDocument = React.forwardRef<HTMLDivElement, QuotePreviewDocume
             {/* Items table */}
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', marginBottom: '20px' }}>
                 <thead>
-                    <tr style={{ background: primaryColor, color: '#ffffff' }}>
+                    <tr style={{ background: primaryColor, color: headerTextColor }}>
                         <th style={{ padding: '8px 10px', textAlign: 'left' }}>Descrizione</th>
                         <th style={{ padding: '8px 10px', textAlign: 'center', width: '60px' }}>Q.tà</th>
                         <th style={{ padding: '8px 10px', textAlign: 'right', width: '90px' }}>Prezzo</th>
