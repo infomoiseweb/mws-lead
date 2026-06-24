@@ -293,7 +293,9 @@ const ClientDashboard: React.FC = () => {
     const fetchClientData = useCallback(async () => {
         if (!userId) return;
         try {
-            const data = await ApiService.getClientByUserId(userId, dateRange.start, dateRange.end);
+            // Fetcha tutte le lead senza filtro data lato DB — il filtraggio avviene in memoria
+            // in filteredLeads, così il filtro per servizio e per stato funziona su tutti i dati.
+            const data = await ApiService.getClientByUserId(userId);
             setClient(data);
         } catch (error) {
             console.error("Failed to fetch client data:", error);
@@ -301,7 +303,7 @@ const ClientDashboard: React.FC = () => {
             setIsLoading(false);
             setIsRefreshing(false);
         }
-    }, [userId, dateRange.start, dateRange.end]);
+    }, [userId]);
 
     useEffect(() => {
         fetchClientData();

@@ -41,14 +41,19 @@ const LeadForm: React.FC<LeadFormProps> = ({ clients, client, onSuccess }) => {
     // Combine default __default_fields__ with specific service fields
     const stepsConfig = useMemo(() => {
         const fieldChunks: LeadField[][] = [];
-        
+
         const defaultService = selectedClient?.services.find(isBaseService);
         const defaultFields = defaultService?.fields || [];
 
         // Exclude base fields from being appended twice
         const activeServiceFields = !isBaseService(currentService) ? (currentService?.fields || []) : [];
 
-        const fields = [...defaultFields, ...activeServiceFields];
+        // Deduplica per nome: i campi del servizio base vengono prima,
+        // poi solo i campi del servizio selezionato che non sono già presenti nel base.
+        const defaultNames = new Set(defaultFields.map(f => f.name.toLowerCase()));
+        const uniqueServiceFields = activeServiceFields.filter(f => !defaultNames.has(f.name.toLowerCase()));
+
+        const fields = [...defaultFields, ...uniqueServiceFields];
         
         // Divide in clusters of 4 fields per step
         for (let i = 0; i < fields.length; i += 4) {
@@ -340,7 +345,7 @@ const LeadForm: React.FC<LeadFormProps> = ({ clients, client, onSuccess }) => {
             )}
             
             {selectedClient && totalSteps > 0 && (
-                <div className="border border-slate-200 dark:border-slate-700 rounded-lg p-6">
+                <div key={service} className="border border-slate-200 dark:border-slate-700 rounded-lg p-6">
                     {totalSteps > 1 && (
                         <div className="flex items-center justify-center mb-8">
                             {stepsConfig.map(({ step, title }) => (
