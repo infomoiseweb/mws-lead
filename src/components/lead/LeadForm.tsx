@@ -76,7 +76,6 @@ const LeadForm: React.FC<LeadFormProps> = ({ clients, client, onSuccess }) => {
     useEffect(() => {
         // When client changes, reset everything
         if (selectedClient) {
-            // Find first real (named) service, excluding the un-renamed base-fields marker
             const otherServices = selectedClient.services.filter(s => s.name !== '__default_fields__');
             const firstService = otherServices[0]?.name || '';
             setService(firstService);
@@ -87,6 +86,13 @@ const LeadForm: React.FC<LeadFormProps> = ({ clients, client, onSuccess }) => {
             setCreationDate('');
         }
     }, [selectedClient]);
+
+    useEffect(() => {
+        // When service changes, reset form data and go back to step 1
+        setLeadData({});
+        setCurrentStep(1);
+        setError('');
+    }, [service]);
 
     const handleDataChange = (fieldName: string, fieldValue: string) => {
         setLeadData(prev => ({ ...prev, [fieldName]: fieldValue }));
@@ -352,7 +358,7 @@ const LeadForm: React.FC<LeadFormProps> = ({ clients, client, onSuccess }) => {
                     )}
 
                     {/* Step Content */}
-                    <div className="min-h-[150px]">
+                    <div key={`${service}-step-${currentStep}`} className="min-h-[150px]">
                         {renderStepContent()}
                     </div>
                 </div>
