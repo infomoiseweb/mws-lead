@@ -21,6 +21,14 @@ export interface QuotePreviewData {
     taxableAmount: number;
     vatAmount: number;
     totalAmount: number;
+    customBlocks?: {
+        title?: string;
+        text: string;
+        position: 'before_totals' | 'after_totals' | 'after_terms';
+        bg_color: string;
+        text_color: string;
+        border_color: string;
+    }[];
 }
 
 interface QuotePreviewDocumentProps {
@@ -38,10 +46,18 @@ const FONT_FAMILIES: Record<NonNullable<QuoteBranding['font']>, string> = {
 const formatCurrency = (value: number) => value.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const formatDate = (value?: string) => value ? new Date(value + 'T00:00:00').toLocaleDateString('it-IT') : '';
 
+const CustomBlockRenderer = ({ block }: { block: NonNullable<QuotePreviewData['customBlocks']>[number] }) => (
+    <div style={{ marginBottom: '20px', padding: '12px 16px', background: block.bg_color, color: block.text_color, border: `1px solid ${block.border_color}`, borderRadius: '4px' }}>
+        {block.title && <p style={{ margin: '0 0 6px', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '1px', color: block.text_color, opacity: 0.7 }}>{block.title}</p>}
+        <p style={{ margin: 0, fontSize: '11px', whiteSpace: 'pre-line', lineHeight: 1.6 }}>{block.text}</p>
+    </div>
+);
+
 const QuotePreviewDocument = React.forwardRef<HTMLDivElement, QuotePreviewDocumentProps>(({ clientName, branding, data }, ref) => {
     const primaryColor = branding?.primary_color || '#2563eb';
     const headerTextColor = branding?.header_text_color || '#ffffff';
     const fontFamily = FONT_FAMILIES[branding?.font || 'sans'];
+    const blocksAt = (pos: string) => (data.customBlocks || []).filter(b => b.position === pos);
 
     return (
         <div
@@ -91,6 +107,9 @@ const QuotePreviewDocument = React.forwardRef<HTMLDivElement, QuotePreviewDocume
                 </div>
             )}
 
+            {/* Custom blocks — before_totals */}
+            {blocksAt('before_totals').map((b, i) => <CustomBlockRenderer key={i} block={b} />)}
+
             {/* Items table */}
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', marginBottom: '20px' }}>
                 <thead>
@@ -133,6 +152,9 @@ const QuotePreviewDocument = React.forwardRef<HTMLDivElement, QuotePreviewDocume
                 </div>
             </div>
 
+            {/* Custom blocks — after_totals */}
+            {blocksAt('after_totals').map((b, i) => <CustomBlockRenderer key={i} block={b} />)}
+
             {/* Notes */}
             {data.notes && (
                 <div style={{ marginBottom: '20px' }}>
@@ -148,6 +170,9 @@ const QuotePreviewDocument = React.forwardRef<HTMLDivElement, QuotePreviewDocume
                     <p style={{ margin: '4px 0 0', fontSize: '10px', whiteSpace: 'pre-line', lineHeight: 1.6, color: '#475569' }}>{data.termsAndConditions}</p>
                 </div>
             )}
+
+            {/* Custom blocks — after_terms */}
+            {blocksAt('after_terms').map((b, i) => <CustomBlockRenderer key={i} block={b} />)}
         </div>
     );
 });

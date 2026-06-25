@@ -211,6 +211,18 @@ export interface QuoteTermsPreset {
     text: string;
 }
 
+export interface QuoteCustomBlock {
+    id: string;
+    service: string;       // Nome del servizio o "*" per tutti
+    label: string;         // Nome del preset (uso interno)
+    title?: string;        // Titolo opzionale mostrato nel documento
+    text: string;          // Testo del blocco
+    position: 'before_totals' | 'after_totals' | 'after_terms'; // Posizione nel documento
+    bg_color: string;      // Colore sfondo (hex)
+    text_color: string;    // Colore testo (hex)
+    border_color: string;  // Colore bordo (hex)
+}
+
 export interface QuoteShareMessageSettings {
     // Se false, il messaggio WhatsApp/Email non includerà il link per scaricare il PDF
     include_pdf_link?: boolean;
@@ -225,6 +237,7 @@ export interface QuoteSettings {
     price_presets?: QuotePricePreset[];
     branding?: QuoteBranding;
     terms_presets?: QuoteTermsPreset[];
+    custom_block_presets?: QuoteCustomBlock[];
     // Nomi dei campi lead (lead.data) da includere automaticamente nei nuovi preventivi
     default_extra_fields?: string[];
     share_message?: QuoteShareMessageSettings;

@@ -58,6 +58,7 @@ const QuoteCreatorModal: React.FC<QuoteCreatorModalProps> = ({ isOpen, onClose, 
     const [notes, setNotes] = useState('');
     const [manualQuoteNumber, setManualQuoteNumber] = useState('');
     const [termsAndConditions, setTermsAndConditions] = useState('');
+    const [selectedCustomBlockId, setSelectedCustomBlockId] = useState<string>('');
     const [selectedExtraFieldKeys, setSelectedExtraFieldKeys] = useState<string[]>([]);
     const [leftTab, setLeftTab] = useState<'lead' | 'preview'>('preview');
     const [isExtraFieldsOpen, setIsExtraFieldsOpen] = useState(false);
@@ -89,6 +90,9 @@ const QuoteCreatorModal: React.FC<QuoteCreatorModalProps> = ({ isOpen, onClose, 
         const fallback = presets.find(p => p.service === '*');
         return (matching || fallback || presets[0])?.text || '';
     };
+
+    const customBlockPresets = client.quote_settings?.custom_block_presets || [];
+    const selectedCustomBlock = customBlockPresets.find(b => b.id === selectedCustomBlockId) || null;
 
     useEffect(() => {
         if (isOpen) {
@@ -492,6 +496,7 @@ const QuoteCreatorModal: React.FC<QuoteCreatorModalProps> = ({ isOpen, onClose, 
                                         taxableAmount,
                                         vatAmount,
                                         totalAmount,
+                                        customBlocks: selectedCustomBlock ? [selectedCustomBlock] : [],
                                     }}
                                 />
                             </div>
@@ -746,6 +751,29 @@ const QuoteCreatorModal: React.FC<QuoteCreatorModalProps> = ({ isOpen, onClose, 
                         <div className="flex justify-between font-bold text-lg pt-2 border-t border-slate-300 dark:border-slate-600"><span>TOTALE</span> <span>{formatCurrency(totalAmount)} €</span></div>
                     </div>
                 </div>
+
+                {/* Custom Block */}
+                {customBlockPresets.length > 0 && (
+                    <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
+                        <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-1">Blocco personalizzato</label>
+                        <select
+                            value={selectedCustomBlockId}
+                            onChange={e => setSelectedCustomBlockId(e.target.value)}
+                            className="w-full p-2 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-sm"
+                        >
+                            <option value="">— Nessun blocco —</option>
+                            {customBlockPresets.map(b => (
+                                <option key={b.id} value={b.id}>{b.label}{b.service !== '*' ? ` (${b.service})` : ''}</option>
+                            ))}
+                        </select>
+                        {selectedCustomBlock && (
+                            <div className="mt-2 rounded-md px-3 py-2 text-xs" style={{ background: selectedCustomBlock.bg_color, color: selectedCustomBlock.text_color, border: `1px solid ${selectedCustomBlock.border_color}` }}>
+                                {selectedCustomBlock.title && <p className="font-semibold mb-1 opacity-70 uppercase tracking-wide" style={{ fontSize: '10px' }}>{selectedCustomBlock.title}</p>}
+                                <p className="whitespace-pre-line leading-relaxed">{selectedCustomBlock.text}</p>
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 {/* Terms and Conditions */}
                 <div className="pt-4 border-t border-slate-200 dark:border-slate-700">

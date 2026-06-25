@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import type { Client, QuoteSettings, QuotePricePreset, QuoteBranding, QuoteTermsPreset } from '../../types';
+import type { Client, QuoteSettings, QuotePricePreset, QuoteBranding, QuoteTermsPreset, QuoteCustomBlock } from '../../types';
 import { PlusCircle, Trash2, Edit2, Save, X, Upload, Image as ImageIcon, ChevronDown, ChevronRight, Plus } from 'lucide-react';
 import { uploadClientLogo } from '@api/storage';
 import QuotePreviewDocument from '@components/quote/QuotePreviewDocument';
@@ -25,6 +25,18 @@ const emptyTermsPreset = (): QuoteTermsPreset => ({
     service: '*',
     label: '',
     text: '',
+});
+
+const emptyCustomBlock = (): QuoteCustomBlock => ({
+    id: `block_${Date.now()}_${Math.random()}`,
+    service: '*',
+    label: '',
+    title: '',
+    text: '',
+    position: 'after_totals',
+    bg_color: '#f0f9ff',
+    text_color: '#0c4a6e',
+    border_color: '#bae6fd',
 });
 
 const SAMPLE_PREVIEW_DATA = {
@@ -177,6 +189,10 @@ const QuoteSettingsEditor: React.FC<Props> = ({ client, onSave }) => {
     const [termsPresets, setTermsPresets] = useState<QuoteTermsPreset[]>(client.quote_settings?.terms_presets || []);
     const [editingTermsId, setEditingTermsId] = useState<string | null>(null);
     const [editTermsBuffer, setEditTermsBuffer] = useState<QuoteTermsPreset | null>(null);
+
+    const [customBlockPresets, setCustomBlockPresets] = useState<QuoteCustomBlock[]>(client.quote_settings?.custom_block_presets || []);
+    const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
+    const [editBlockBuffer, setEditBlockBuffer] = useState<QuoteCustomBlock | null>(null);
 
     const [defaultExtraFields, setDefaultExtraFields] = useState<string[]>(client.quote_settings?.default_extra_fields || []);
 
@@ -339,6 +355,35 @@ const QuoteSettingsEditor: React.FC<Props> = ({ client, onSave }) => {
         setTermsPresets(prev => prev.filter(p => p.id !== id));
     };
 
+    const startNewBlock = () => {
+        const b = emptyCustomBlock();
+        setCustomBlockPresets(prev => [...prev, b]);
+        setEditingBlockId(b.id);
+        setEditBlockBuffer({ ...b });
+    };
+
+    const startEditBlock = (block: QuoteCustomBlock) => {
+        setEditingBlockId(block.id);
+        setEditBlockBuffer({ ...block });
+    };
+
+    const cancelEditBlock = () => {
+        setCustomBlockPresets(prev => prev.filter(p => !(p.id === editingBlockId && !p.label)));
+        setEditingBlockId(null);
+        setEditBlockBuffer(null);
+    };
+
+    const saveEditBlock = () => {
+        if (!editBlockBuffer?.label.trim()) return;
+        setCustomBlockPresets(prev => prev.map(p => p.id === editingBlockId ? editBlockBuffer : p));
+        setEditingBlockId(null);
+        setEditBlockBuffer(null);
+    };
+
+    const deleteBlockPreset = (id: string) => {
+        setCustomBlockPresets(prev => prev.filter(p => p.id !== id));
+    };
+
     const handleLogoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -359,7 +404,7 @@ const QuoteSettingsEditor: React.FC<Props> = ({ client, onSave }) => {
         setIsSaving(true);
         setError('');
         try {
-            await onSave({ numbering, price_presets: presets, branding, terms_presets: termsPresets, default_extra_fields: defaultExtraFields, validity_days: validityDays, share_message: { include_pdf_link: includePdfLink, email_subject_template: emailSubjectTemplate, email_body_template: emailBodyTemplate, whatsapp_message_template: whatsappMessageTemplate } });
+            await onSave({ numbering, price_presets: presets, branding, terms_presets: termsPresets, custom_block_presets: customBlockPresets, default_extra_fields: defaultExtraFields, validity_days: validityDays, share_message: { include_pdf_link: includePdfLink, email_subject_template: emailSubjectTemplate, email_body_template: emailBodyTemplate, whatsapp_message_template: whatsappMessageTemplate } });
             setSaved(true);
             setTimeout(() => setSaved(false), 2000);
         } catch (err: any) {
@@ -761,6 +806,177 @@ const QuoteSettingsEditor: React.FC<Props> = ({ client, onSave }) => {
                                             <Edit2 className="w-4 h-4" />
                                         </button>
                                         <button onClick={() => deleteTermsPreset(preset.id)} className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md text-slate-400 hover:text-red-500 transition-colors">
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {/* Blocchi personalizzati */}
+            <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-700">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h3 className="text-sm font-semibold text-slate-700 dark:text-gray-200">Blocchi personalizzati</h3>
+                        <p className="text-xs text-slate-500 dark:text-gray-400 mt-0.5">
+                            Crea blocchi di testo custom con colori personalizzati (sfondo, testo, bordo) da inserire nel preventivo in posizioni specifiche.
+                        </p>
+                    </div>
+                    <button onClick={startNewBlock} className="flex items-center gap-1.5 px-3 py-1.5 bg-primary-600 hover:bg-primary-700 text-white text-xs font-medium rounded-lg transition-colors">
+                        <PlusCircle className="w-3.5 h-3.5" /> Nuovo blocco
+                    </button>
+                </div>
+
+                <div className="space-y-3">
+                    {customBlockPresets.length === 0 && (
+                        <p className="text-sm text-slate-400 dark:text-gray-500 text-center py-6 border border-dashed border-slate-200 dark:border-slate-700 rounded-lg">
+                            Nessun blocco. Clicca "Nuovo blocco" per iniziare.
+                        </p>
+                    )}
+
+                    {customBlockPresets.map(block => (
+                        <div key={block.id} className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
+                            {editingBlockId === block.id && editBlockBuffer ? (
+                                <div className="p-4 space-y-3 bg-white dark:bg-slate-800">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="text-xs font-medium text-slate-500 dark:text-gray-400">Nome preset</label>
+                                            <input
+                                                type="text"
+                                                value={editBlockBuffer.label}
+                                                onChange={e => setEditBlockBuffer({ ...editBlockBuffer, label: e.target.value })}
+                                                placeholder="Es. Banner pagamento"
+                                                className={inputCls}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-medium text-slate-500 dark:text-gray-400">Servizio</label>
+                                            <select value={editBlockBuffer.service} onChange={e => setEditBlockBuffer({ ...editBlockBuffer, service: e.target.value })} className={inputCls}>
+                                                <option value="*">Tutti i servizi</option>
+                                                {services.map(s => (
+                                                    <option key={s.id} value={s.name}>{s.name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="text-xs font-medium text-slate-500 dark:text-gray-400">Titolo blocco (opzionale)</label>
+                                            <input
+                                                type="text"
+                                                value={editBlockBuffer.title || ''}
+                                                onChange={e => setEditBlockBuffer({ ...editBlockBuffer, title: e.target.value })}
+                                                placeholder="Es. Modalità di pagamento"
+                                                className={inputCls}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-medium text-slate-500 dark:text-gray-400">Posizione nel documento</label>
+                                            <select value={editBlockBuffer.position} onChange={e => setEditBlockBuffer({ ...editBlockBuffer, position: e.target.value as QuoteCustomBlock['position'] })} className={inputCls}>
+                                                <option value="before_totals">Prima dei totali</option>
+                                                <option value="after_totals">Dopo i totali</option>
+                                                <option value="after_terms">Dopo i termini e condizioni</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="text-xs font-medium text-slate-500 dark:text-gray-400">Testo del blocco</label>
+                                        <textarea
+                                            value={editBlockBuffer.text}
+                                            onChange={e => setEditBlockBuffer({ ...editBlockBuffer, text: e.target.value })}
+                                            rows={3}
+                                            placeholder="Es. Il pagamento dovrà essere effettuato entro 30 giorni tramite bonifico bancario..."
+                                            className={inputCls}
+                                        />
+                                    </div>
+
+                                    <div className="grid grid-cols-3 gap-3">
+                                        <div>
+                                            <label className="text-xs font-medium text-slate-500 dark:text-gray-400">Colore sfondo</label>
+                                            <div className="mt-1 flex items-center gap-2">
+                                                <input
+                                                    type="color"
+                                                    value={editBlockBuffer.bg_color}
+                                                    onChange={e => setEditBlockBuffer({ ...editBlockBuffer, bg_color: e.target.value })}
+                                                    className="h-9 w-12 rounded-md border border-slate-300 dark:border-slate-600 cursor-pointer bg-transparent"
+                                                />
+                                                <span className="text-xs text-slate-500 dark:text-gray-400">{editBlockBuffer.bg_color}</span>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-medium text-slate-500 dark:text-gray-400">Colore testo</label>
+                                            <div className="mt-1 flex items-center gap-2">
+                                                <input
+                                                    type="color"
+                                                    value={editBlockBuffer.text_color}
+                                                    onChange={e => setEditBlockBuffer({ ...editBlockBuffer, text_color: e.target.value })}
+                                                    className="h-9 w-12 rounded-md border border-slate-300 dark:border-slate-600 cursor-pointer bg-transparent"
+                                                />
+                                                <span className="text-xs text-slate-500 dark:text-gray-400">{editBlockBuffer.text_color}</span>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-medium text-slate-500 dark:text-gray-400">Colore bordo</label>
+                                            <div className="mt-1 flex items-center gap-2">
+                                                <input
+                                                    type="color"
+                                                    value={editBlockBuffer.border_color}
+                                                    onChange={e => setEditBlockBuffer({ ...editBlockBuffer, border_color: e.target.value })}
+                                                    className="h-9 w-12 rounded-md border border-slate-300 dark:border-slate-600 cursor-pointer bg-transparent"
+                                                />
+                                                <span className="text-xs text-slate-500 dark:text-gray-400">{editBlockBuffer.border_color}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Mini-anteprima del blocco */}
+                                    <div>
+                                        <label className="text-xs font-medium text-slate-500 dark:text-gray-400 block mb-1">Anteprima</label>
+                                        <div style={{ background: editBlockBuffer.bg_color, color: editBlockBuffer.text_color, border: `1px solid ${editBlockBuffer.border_color}`, borderRadius: '4px', padding: '10px 14px' }}>
+                                            {editBlockBuffer.title && (
+                                                <p style={{ margin: '0 0 5px', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.7 }}>{editBlockBuffer.title}</p>
+                                            )}
+                                            <p style={{ margin: 0, fontSize: '12px', whiteSpace: 'pre-line', lineHeight: 1.5 }}>{editBlockBuffer.text || 'Testo del blocco...'}</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex gap-2 justify-end">
+                                        <button onClick={cancelEditBlock} className="flex items-center gap-1 px-3 py-1.5 text-xs text-slate-600 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors">
+                                            <X className="w-3.5 h-3.5" /> Annulla
+                                        </button>
+                                        <button onClick={saveEditBlock} disabled={!editBlockBuffer.label.trim()}
+                                            className="flex items-center gap-1 px-3 py-1.5 bg-primary-600 hover:bg-primary-700 disabled:opacity-40 text-white text-xs font-medium rounded-lg transition-colors">
+                                            <Save className="w-3.5 h-3.5" /> Salva blocco
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="flex items-start gap-3 p-3 bg-white dark:bg-slate-800">
+                                    <div className="w-5 h-5 rounded shrink-0 mt-0.5 border" style={{ background: block.bg_color, borderColor: block.border_color }} />
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                            <span className="text-sm font-medium text-slate-800 dark:text-white truncate">{block.label}</span>
+                                            {block.service !== '*' && (
+                                                <span className="text-xs px-2 py-0.5 rounded-full bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300">
+                                                    {block.service}
+                                                </span>
+                                            )}
+                                            <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-gray-400">
+                                                {block.position === 'before_totals' ? 'Prima totali' : block.position === 'after_totals' ? 'Dopo totali' : 'Dopo T&C'}
+                                            </span>
+                                        </div>
+                                        <p className="text-xs text-slate-400 dark:text-gray-500 line-clamp-2 whitespace-pre-line">{block.text}</p>
+                                    </div>
+                                    <div className="flex gap-1 shrink-0">
+                                        <button onClick={() => startEditBlock(block)} className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-md text-slate-400 hover:text-primary-500 transition-colors">
+                                            <Edit2 className="w-4 h-4" />
+                                        </button>
+                                        <button onClick={() => deleteBlockPreset(block.id)} className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md text-slate-400 hover:text-red-500 transition-colors">
                                             <Trash2 className="w-4 h-4" />
                                         </button>
                                     </div>
