@@ -308,46 +308,50 @@ const InstallmentsPage: React.FC = () => {
                 </div>
 
                 {/* Selettore mese */}
-                <div className="flex items-center gap-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-1 shadow-sm self-start sm:self-auto">
-                    <button
-                        onClick={() => shiftMonth(-1)}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-gray-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                    >
-                        <ChevronLeft size={16} />
-                    </button>
-
+                <div className="flex items-center gap-2 self-start sm:self-auto">
+                    {/* Bottone Tutti */}
                     <button
                         onClick={() => setSelectedMonth(null)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                            isAllMonths ? 'bg-primary-600 text-white shadow-sm' : 'text-slate-500 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-slate-700'
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
+                            isAllMonths
+                                ? 'bg-primary-600 text-white border-primary-600 shadow-sm'
+                                : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-gray-400 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
                         }`}
                     >
                         Tutti
                     </button>
 
-                    <button
-                        onClick={() => setSelectedMonth(currentMonth)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ${
-                            isCurrentMonth ? 'bg-primary-600 text-white shadow-sm' : 'text-slate-500 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-slate-700'
-                        }`}
-                    >
-                        Questo mese
-                    </button>
+                    {/* Navigatore mese */}
+                    <div className="flex items-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm overflow-hidden">
+                        <button
+                            onClick={() => shiftMonth(-1)}
+                            disabled={isAllMonths}
+                            className="px-2.5 py-2 text-slate-400 hover:text-slate-700 dark:hover:text-gray-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                            <ChevronLeft size={15} />
+                        </button>
 
-                    {/* Label mese selezionato quando non è quello corrente */}
-                    {selectedMonth && !isCurrentMonth && (
-                        <div className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary-600 text-white shadow-sm capitalize whitespace-nowrap">
-                            {monthLabel(selectedMonth)}
-                        </div>
-                    )}
+                        <button
+                            onClick={() => setSelectedMonth(currentMonth)}
+                            className="px-3 py-1.5 text-xs font-semibold min-w-[120px] text-center transition-all hover:bg-slate-50 dark:hover:bg-slate-700 capitalize"
+                        >
+                            {isAllMonths ? (
+                                <span className="text-slate-400">— mese —</span>
+                            ) : (
+                                <span className={isCurrentMonth ? 'text-primary-600 dark:text-primary-400' : 'text-slate-700 dark:text-gray-200'}>
+                                    {monthLabel(selectedMonth!)}
+                                </span>
+                            )}
+                        </button>
 
-                    <button
-                        onClick={() => shiftMonth(1)}
-                        disabled={isAllMonths}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-gray-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                    >
-                        <ChevronRight size={16} />
-                    </button>
+                        <button
+                            onClick={() => shiftMonth(1)}
+                            disabled={isAllMonths}
+                            className="px-2.5 py-2 text-slate-400 hover:text-slate-700 dark:hover:text-gray-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                            <ChevronRight size={15} />
+                        </button>
+                    </div>
                 </div>
             </div>
 
