@@ -104,8 +104,9 @@ export async function updateAppointment(
 }
 
 export async function deleteAppointment(appointmentId: string, clientId?: string): Promise<void> {
+    // Sync prima del delete: il backend legge google_event_id dal DB, che deve ancora esistere
     if (clientId) {
-        syncGoogleCalendar('delete', clientId, appointmentId);
+        await syncGoogleCalendar('delete', clientId, appointmentId);
     }
     const { error } = await supabase.from('appointments').delete().eq('id', appointmentId);
     if (error) throw new Error(error.message);
