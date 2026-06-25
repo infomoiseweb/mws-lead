@@ -18,7 +18,7 @@ async function syncGoogleCalendar(
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) return;
 
-        await fetch('/api/google-calendar-event', {
+        await fetch('/api/google-calendar', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

@@ -591,7 +591,7 @@ ${buildApiJsonSnippet(service)}`}
             </div>
           </div>
           <a
-            href={`/api/google-calendar-auth?client_id=${client.id}&redirect_to=client`}
+            href={`/api/google-calendar?client_id=${client.id}&redirect_to=client`}
             className={`flex-shrink-0 flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all shadow-sm ${
               client.google_calendar_enabled
                 ? 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-gray-200 hover:bg-slate-200 dark:hover:bg-slate-600'

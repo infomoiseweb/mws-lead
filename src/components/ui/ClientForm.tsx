@@ -455,7 +455,7 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
                                 </p>
                             </div>
                             <a
-                                href={`/api/google-calendar-auth?client_id=${client.id}`}
+                                href={`/api/google-calendar?client_id=${client.id}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg text-xs font-semibold text-slate-700 dark:text-gray-200 hover:border-primary-400 transition"
