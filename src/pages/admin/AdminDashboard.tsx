@@ -951,9 +951,21 @@ const AdminDashboard: React.FC = () => {
     const [editingClient, setEditingClient] = useState<Client | null>(null);
     const [isUserModalOpen, setIsUserModalOpen] = useState(false);
     const [editingClientForUser, setEditingClientForUser] = useState<Client | null>(null);
-    const [searchParams] = useSearchParams();
+    const [searchParams, setSearchParams] = useSearchParams();
     const navigate = useNavigate();
     const activeView = searchParams.get('view') || 'leads';
+    const gcalSuccess = searchParams.get('gcal_success');
+    const gcalError = searchParams.get('gcal_error');
+
+    // Pulisce i parametri gcal dall'URL dopo averli letti
+    useEffect(() => {
+        if (gcalSuccess || gcalError) {
+            const next = new URLSearchParams(searchParams);
+            next.delete('gcal_success');
+            next.delete('gcal_error');
+            setSearchParams(next, { replace: true });
+        }
+    }, [gcalSuccess, gcalError]);
     const [filterClientId, setFilterClientId] = useState<string>('all');
     const [statusFilter, setStatusFilter] = useState<Lead['status'] | 'all'>('all');
     const [searchQuery, setSearchQuery] = useState('');
@@ -1795,6 +1807,16 @@ const AdminDashboard: React.FC = () => {
     
     return (
         <div>
+            {gcalSuccess && (
+                <div className="fixed top-4 right-4 z-50 bg-green-500 text-white px-5 py-3 rounded-xl shadow-lg font-semibold text-sm">
+                    ✅ Google Calendar collegato con successo!
+                </div>
+            )}
+            {gcalError && (
+                <div className="fixed top-4 right-4 z-50 bg-red-500 text-white px-5 py-3 rounded-xl shadow-lg font-semibold text-sm">
+                    ❌ Errore collegamento Google Calendar: {gcalError}
+                </div>
+            )}
             <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingClient ? 'Modifica Dettagli Cliente' : 'Nuovo Cliente'}>
                 <ClientForm client={editingClient} onSuccess={() => {
                     setIsModalOpen(false);

@@ -70,6 +70,7 @@ export async function getClients(startDate?: Date | null, endDate?: Date | null)
         const mappedLeads = (leads || []).map((l: any) => ({
             ...l,
             has_payment_plan: Array.isArray(l.payment_plans) && l.payment_plans.length > 0,
+            is_manual: !!l.is_manual,
             payment_plans: undefined,
         })) as Lead[];
 
@@ -138,7 +139,7 @@ export async function addClientForExistingUser(
 
 export async function updateClient(
     clientId: string,
-    updates: Partial<Pick<Client, 'name' | 'services' | 'mws_fixed_fee' | 'mws_profit_percentage' | 'quote_webhook_url' | 'message_templates' | 'quote_settings' | 'marketing_settings' | 'mail_marketing_enabled' | 'can_delete_leads' | 'distance_settings' | 'installments_enabled'>>
+    updates: Partial<Pick<Client, 'name' | 'services' | 'mws_fixed_fee' | 'mws_profit_percentage' | 'quote_webhook_url' | 'message_templates' | 'quote_settings' | 'marketing_settings' | 'mail_marketing_enabled' | 'can_delete_leads' | 'can_edit_leads' | 'google_calendar_enabled' | 'google_calendar_id' | 'distance_settings' | 'installments_enabled'>>
 ): Promise<Client> {
     const { mws_fixed_fee, mws_profit_percentage, ...otherUpdates } = updates;
     const payload: any = { ...otherUpdates };

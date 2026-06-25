@@ -5,7 +5,7 @@ import type { Client, Lead, LeadField } from '../types';
 import { isBaseService } from '@/utils/services';
 import {
   Trash2, ChevronDown, RefreshCw, Plus, Search, Settings, Activity,
-  Megaphone, DollarSign, Pin, SlidersHorizontal
+  Megaphone, DollarSign, Pin, SlidersHorizontal, Pencil
 } from 'lucide-react';
 import DateRangeFilter from '@components/ui/DateRangeFilter';
 import Modal from '@components/ui/Modal';
@@ -238,8 +238,19 @@ const ColumnManager: React.FC<{
 
 const ClientDashboard: React.FC = () => {
     const { userId } = useParams<{ userId: string }>();
-    const [searchParams] = useSearchParams();
+    const [searchParams, setSearchParams] = useSearchParams();
     const activeView = searchParams.get('view') || 'leads';
+    const gcalSuccess = searchParams.get('gcal_success');
+    const gcalError = searchParams.get('gcal_error');
+
+    useEffect(() => {
+        if (gcalSuccess || gcalError) {
+            const next = new URLSearchParams(searchParams);
+            next.delete('gcal_success');
+            next.delete('gcal_error');
+            setSearchParams(next, { replace: true });
+        }
+    }, [gcalSuccess, gcalError]);
     const [client, setClient] = useState<Client | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -282,6 +293,8 @@ const ClientDashboard: React.FC = () => {
     const [stickyColumns, setStickyColumns] = useState<Set<string>>(new Set());
     const [visibleColumns, setVisibleColumns] = useState<Set<string>>(new Set());
     const [isColumnManagerOpen, setIsColumnManagerOpen] = useState(false);
+
+    const [editingLead, setEditingLead] = useState<Lead | null>(null);
 
     const [revenueDateModalState, setRevenueDateModalState] = useState<{
         isOpen: boolean;
@@ -690,6 +703,14 @@ const ClientDashboard: React.FC = () => {
         }
     };
     
+    const canEditLead = (lead: Lead) => lead.is_manual || !!client?.can_edit_leads;
+
+    const handleStartEdit = (e: React.MouseEvent, lead: Lead) => {
+        e.stopPropagation();
+        setEditingLead(lead);
+        setIsLeadModalOpen(true);
+    };
+
     const handleViewLeadDetails = (lead: Lead) => {
         if (!client) return;
 
@@ -1208,7 +1229,7 @@ const ClientDashboard: React.FC = () => {
                                         const cellValue = getLeadFieldValue(lead.data, col.name);
                                         return (
                                             <td key={col.id} className={`${tdClasses} ${currentBg}`} style={styles}>
-                                                 {(col.name === 'nome' && selectedService === 'all') ? (
+                                                {(col.name === 'nome' && selectedService === 'all') ? (
                                                     <>
                                                         <div className="font-semibold text-slate-900 dark:text-white">{cellValue || 'N/D'}</div>
                                                         <div className="text-xs text-gray-500 dark:text-gray-400">{lead.service || 'N/D'}</div>
@@ -1217,6 +1238,7 @@ const ClientDashboard: React.FC = () => {
                                                     <span className={col.name === 'nome' ? 'font-semibold text-slate-900 dark:text-white' : ''}>{cellValue || '-'}</span>
                                                 )}
                                             </td>
+
                                         );
                                     })}
 
@@ -1242,9 +1264,12 @@ const ClientDashboard: React.FC = () => {
                                                     />
                                                 </div>
                                             </div>
-                                            <div className="px-6 py-4 text-right" style={{width: '96px'}}>
+                                            <div className="px-2 py-4 flex items-center gap-1" style={{width: '96px'}}>
+                                                {canEditLead(lead) && (
+                                                    <button onClick={(e) => handleStartEdit(e, lead)} className="text-gray-400 hover:text-primary-500 p-1.5 rounded-full" title="Modifica lead"><Pencil size={15}/></button>
+                                                )}
                                                 {client?.can_delete_leads && (
-                                                    <button onClick={(e) => { e.stopPropagation(); handleDeleteLead(lead.id); }} className="text-gray-400 hover:text-red-500 p-2 rounded-full"><Trash2 size={16}/></button>
+                                                    <button onClick={(e) => { e.stopPropagation(); handleDeleteLead(lead.id); }} className="text-gray-400 hover:text-red-500 p-1.5 rounded-full"><Trash2 size={15}/></button>
                                                 )}
                                             </div>
                                         </div>
@@ -1264,9 +1289,14 @@ const ClientDashboard: React.FC = () => {
                                         <div className="font-bold text-slate-900 dark:text-white">{getLeadFieldValue(lead.data, 'nome') || 'N/D'}</div>
                                         <div className="text-xs text-gray-500 dark:text-gray-400">{lead.service || 'N/D'}</div>
                                     </div>
-                                    {client?.can_delete_leads && (
-                                        <button onClick={(e) => { e.stopPropagation(); handleDeleteLead(lead.id); }} className="text-gray-400 hover:text-red-500 p-1"><Trash2 size={16}/></button>
-                                    )}
+                                    <div className="flex gap-1">
+                                        {canEditLead(lead) && (
+                                            <button onClick={(e) => handleStartEdit(e, lead)} className="text-gray-400 hover:text-primary-500 p-1" title="Modifica"><Pencil size={15}/></button>
+                                        )}
+                                        {client?.can_delete_leads && (
+                                            <button onClick={(e) => { e.stopPropagation(); handleDeleteLead(lead.id); }} className="text-gray-400 hover:text-red-500 p-1"><Trash2 size={16}/></button>
+                                        )}
+                                    </div>
                                 </div>
                                 <div className="text-sm text-slate-600 dark:text-gray-300 space-y-1 pt-2 mt-2 border-t border-slate-200 dark:border-slate-700">
                                     {dynamicColumns.filter(c => c.name !== 'nome').slice(0, 2).map(col => {
@@ -1328,14 +1358,25 @@ const ClientDashboard: React.FC = () => {
 
     return (
         <div className="space-y-6">
+            {gcalSuccess && (
+                <div className="fixed top-4 right-4 z-50 bg-green-500 text-white px-5 py-3 rounded-xl shadow-lg font-semibold text-sm">
+                    ✅ Google Calendar collegato con successo!
+                </div>
+            )}
+            {gcalError && (
+                <div className="fixed top-4 right-4 z-50 bg-red-500 text-white px-5 py-3 rounded-xl shadow-lg font-semibold text-sm">
+                    ❌ Errore collegamento Google Calendar: {gcalError}
+                </div>
+            )}
             {/* Inside Content View Container */}
             <div className="min-h-[400px]">
                 {renderContent()}
             </div>
 
-            <Modal isOpen={isLeadModalOpen} onClose={() => setIsLeadModalOpen(false)} title="Aggiungi Nuovo Lead">
-                <LeadForm clients={[]} client={client} onSuccess={() => {
+            <Modal isOpen={isLeadModalOpen} onClose={() => { setIsLeadModalOpen(false); setEditingLead(null); }} title={editingLead ? 'Modifica Lead' : 'Aggiungi Nuovo Lead'}>
+                <LeadForm clients={[]} client={client} editingLead={editingLead} onSuccess={() => {
                     setIsLeadModalOpen(false);
+                    setEditingLead(null);
                     fetchClientData();
                 }} />
             </Modal>

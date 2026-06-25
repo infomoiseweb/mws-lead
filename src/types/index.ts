@@ -123,6 +123,7 @@ export interface Appointment {
     location_address?: string;
     location_lat?: number;
     location_lng?: number;
+    google_event_id?: string;
 }
 
 export interface Lead {
@@ -137,6 +138,7 @@ export interface Lead {
     quotes?: Quote[];
     appointments?: Appointment[];
     has_payment_plan?: boolean;
+    is_manual?: boolean;
 }
 
 // Variabili disponibili nei template: {{nome}}, {{telefono}}, {{email}}, {{servizio}}, {{data}}, + qualsiasi campo della lead
@@ -263,6 +265,9 @@ export interface Client {
     lead_intake_mode?: 'form' | 'api';
     api_token?: string;
     can_delete_leads?: boolean;
+    can_edit_leads?: boolean;
+    google_calendar_enabled?: boolean;
+    google_calendar_id?: string;
     distance_settings?: DistanceSettings;
     installments_enabled?: boolean;
     // These are loaded separately

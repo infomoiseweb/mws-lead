@@ -8,15 +8,17 @@ interface AddLeadOptions {
     status?: Lead['status'];
     value?: number;
     createdAt?: string;
+    isManual?: boolean;
 }
 
-export async function addLead({ clientId, leadData, service, status, value, createdAt }: AddLeadOptions): Promise<Lead> {
+export async function addLead({ clientId, leadData, service, status, value, createdAt, isManual }: AddLeadOptions): Promise<Lead> {
     const payload: Record<string, any> = {
         client_id: clientId,
         data: leadData,
         service,
         status: status || 'Nuovo',
         value,
+        is_manual: isManual ?? false,
     };
     if (createdAt) payload.created_at = new Date(createdAt).toISOString();
 

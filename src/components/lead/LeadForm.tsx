@@ -8,18 +8,20 @@ interface LeadFormProps {
     clients: Client[];
     client?: Client | null;
     onSuccess: () => void;
+    editingLead?: Lead | null;
 }
 
-const LeadForm: React.FC<LeadFormProps> = ({ clients, client, onSuccess }) => {
+const LeadForm: React.FC<LeadFormProps> = ({ clients, client, onSuccess, editingLead }) => {
     const { t } = useTranslation();
     const { user } = useAuth();
     const isAdmin = user?.role === 'admin';
+    const isEditMode = !!editingLead;
 
     const [selectedClientId, setSelectedClientId] = useState<string>(client?.id || (isAdmin && clients.length > 0 ? clients[0].id : ''));
-    const [leadData, setLeadData] = useState<Record<string, string>>({});
-    const [service, setService] = useState('');
-    const [status, setStatus] = useState<Lead['status']>('Nuovo');
-    const [value, setValue] = useState<number | ''>('');
+    const [leadData, setLeadData] = useState<Record<string, string>>(editingLead?.data || {});
+    const [service, setService] = useState(editingLead?.service || '');
+    const [status, setStatus] = useState<Lead['status']>(editingLead?.status || 'Nuovo');
+    const [value, setValue] = useState<number | ''>(editingLead?.value ?? '');
     const [creationDate, setCreationDate] = useState('');
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -42,9 +44,9 @@ const LeadForm: React.FC<LeadFormProps> = ({ clients, client, onSuccess }) => {
         return currentService?.fields || [];
     }, [currentService]);
 
-    // Reset when client changes
+    // Reset when client changes (non in edit mode)
     useEffect(() => {
-        if (selectedClient) {
+        if (selectedClient && !isEditMode) {
             const firstService = realServices[0]?.name || '';
             setService(firstService);
             setLeadData({});
@@ -55,10 +57,12 @@ const LeadForm: React.FC<LeadFormProps> = ({ clients, client, onSuccess }) => {
         }
     }, [selectedClient]);
 
-    // Reset form data when service changes
+    // Reset form data when service changes (non in edit mode)
     useEffect(() => {
-        setLeadData({});
-        setError('');
+        if (!isEditMode) {
+            setLeadData({});
+            setError('');
+        }
     }, [service]);
 
     const handleDataChange = (fieldName: string, fieldValue: string) => {
@@ -81,14 +85,24 @@ const LeadForm: React.FC<LeadFormProps> = ({ clients, client, onSuccess }) => {
         setError('');
         setIsLoading(true);
         try {
-            await ApiService.addLead({
-                clientId: selectedClientId,
-                leadData,
-                service,
-                status,
-                value: value === '' ? undefined : Number(value),
-                createdAt: creationDate || undefined,
-            });
+            if (isEditMode && editingLead) {
+                await ApiService.updateLead(selectedClientId, editingLead.id, {
+                    data: leadData,
+                    service,
+                    status,
+                    value: value === '' ? undefined : Number(value),
+                });
+            } else {
+                await ApiService.addLead({
+                    clientId: selectedClientId,
+                    leadData,
+                    service,
+                    status,
+                    value: value === '' ? undefined : Number(value),
+                    createdAt: creationDate || undefined,
+                    isManual: true,
+                });
+            }
             onSuccess();
         } catch (err: any) {
             setError(err.message || t('generic_error'));
@@ -205,7 +219,7 @@ const LeadForm: React.FC<LeadFormProps> = ({ clients, client, onSuccess }) => {
 
             <div className="flex justify-end pt-4 border-t border-slate-200 dark:border-slate-700">
                 <button type="submit" disabled={isLoading || !selectedClient || realServices.length === 0} className="bg-primary-600 text-white px-4 py-2 rounded-lg shadow hover:bg-primary-700 transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed">
-                    {isLoading ? t('component_leadForm.adding_lead') : t('component_leadForm.add_lead_button')}
+                    {isLoading ? (isEditMode ? 'Salvataggio...' : t('component_leadForm.adding_lead')) : (isEditMode ? 'Salva modifiche' : t('component_leadForm.add_lead_button'))}
                 </button>
             </div>
         </form>

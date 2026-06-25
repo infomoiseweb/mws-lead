@@ -1,9 +1,43 @@
 import { supabase } from '../lib/supabase';
 import type { Appointment, Lead, CalendarAppointment } from '../types';
 
+async function syncGoogleCalendar(
+    action: 'create' | 'update' | 'delete',
+    clientId: string,
+    appointmentId: string,
+    appointment?: Partial<Appointment>
+): Promise<void> {
+    try {
+        const { data: clientData } = await supabase
+            .from('clients')
+            .select('google_calendar_enabled')
+            .eq('id', clientId)
+            .single();
+        if (!clientData?.google_calendar_enabled) return;
+
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+
+        await fetch('/api/google-calendar-event', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({ action, client_id: clientId, appointment_id: appointmentId, appointment }),
+        });
+    } catch {
+        // Non blocca il flusso principale
+    }
+}
+
 export async function addAppointment(appointmentData: Omit<Appointment, 'id' | 'created_at'>): Promise<Lead> {
-    const { error } = await supabase.from('appointments').insert(appointmentData);
+    const { data: inserted, error } = await supabase.from('appointments').insert(appointmentData).select().single();
     if (error) throw new Error(error.message);
+
+    if (appointmentData.client_id) {
+        syncGoogleCalendar('create', appointmentData.client_id, inserted.id, appointmentData);
+    }
 
     const { data, error: leadErr } = await supabase
         .from('leads')
@@ -28,9 +62,16 @@ export async function updateAppointment(
 ): Promise<void> {
     const { error } = await supabase.from('appointments').update(updates).eq('id', appointmentId);
     if (error) throw new Error(error.message);
+
+    if (updates.client_id) {
+        syncGoogleCalendar('update', updates.client_id, appointmentId, updates);
+    }
 }
 
-export async function deleteAppointment(appointmentId: string): Promise<void> {
+export async function deleteAppointment(appointmentId: string, clientId?: string): Promise<void> {
+    if (clientId) {
+        syncGoogleCalendar('delete', clientId, appointmentId);
+    }
     const { error } = await supabase.from('appointments').delete().eq('id', appointmentId);
     if (error) throw new Error(error.message);
 }
