@@ -30,8 +30,9 @@ const LeadForm: React.FC<LeadFormProps> = ({ clients, client, onSuccess }) => {
         return clients.find(c => c.id === selectedClientId) || null;
     }, [selectedClientId, clients, isAdmin, client]);
 
+    // Escludi il servizio base — non deve essere selezionabile, i suoi campi vengono sempre inclusi automaticamente
     const realServices = useMemo(() => {
-        return selectedClient ? selectedClient.services.filter(s => s.name !== '__default_fields__') : [];
+        return selectedClient ? selectedClient.services.filter(s => !isBaseService(s)) : [];
     }, [selectedClient]);
 
     const currentService = useMemo(() => {
@@ -45,8 +46,12 @@ const LeadForm: React.FC<LeadFormProps> = ({ clients, client, onSuccess }) => {
         const activeServiceFields = !isBaseService(currentService) ? (currentService?.fields || []) : [];
         const defaultNames = new Set(defaultFields.map((f: LeadField) => f.name.toLowerCase()));
         const uniqueServiceFields = activeServiceFields.filter((f: LeadField) => !defaultNames.has(f.name.toLowerCase()));
-        return [...defaultFields, ...uniqueServiceFields];
-    }, [selectedClient, currentService]);
+        const result = [...defaultFields, ...uniqueServiceFields];
+        if (import.meta.env.DEV) {
+            console.log('[LeadForm] service:', service, '| defaultService:', defaultService?.name, '| currentService:', currentService?.name, '| fields:', result.map(f => f.name));
+        }
+        return result;
+    }, [selectedClient, currentService, service]);
 
     // Reset when client changes
     useEffect(() => {
@@ -158,7 +163,7 @@ const LeadForm: React.FC<LeadFormProps> = ({ clients, client, onSuccess }) => {
                     </div>
                 )}
                 {selectedClient && realServices.length > 1 && (
-                    <div>
+                    <div className={isAdmin ? '' : 'md:col-span-2'}>
                         <label htmlFor="service-select" className={labelCls}>{t('component_leadForm.service_label')}</label>
                         <select id="service-select" value={service} onChange={e => setService(e.target.value)} className={inputCls}>
                             {realServices.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
