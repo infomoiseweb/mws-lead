@@ -236,9 +236,7 @@ const InstallmentsPage: React.FC = () => {
         const base = selectedMonth || currentMonth;
         const [y, m] = base.split('-').map(Number);
         const next = new Date(y, m - 1 + dir, 1);
-        const nextStr = monthStr(next);
-        if (dir === 1 && nextStr > currentMonth) return;
-        setSelectedMonth(nextStr);
+        setSelectedMonth(monthStr(next));
     };
 
     const plansInPeriod = useMemo(() => {
@@ -294,7 +292,6 @@ const InstallmentsPage: React.FC = () => {
 
     const isCurrentMonth = selectedMonth === currentMonth;
     const isAllMonths = selectedMonth === null;
-    const canGoForward = !isCurrentMonth && !isAllMonths;
 
     return (
         <div className="space-y-6 pb-10">
@@ -346,7 +343,7 @@ const InstallmentsPage: React.FC = () => {
 
                     <button
                         onClick={() => shiftMonth(1)}
-                        disabled={!canGoForward}
+                        disabled={isAllMonths}
                         className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-gray-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                     >
                         <ChevronRight size={16} />
@@ -360,14 +357,14 @@ const InstallmentsPage: React.FC = () => {
                     icon={<Euro size={22} />}
                     label={`Incassato — ${new Date().toLocaleDateString('it-IT', { month: 'long' })}`}
                     value={fmt(stats.collected)}
-                    subValue={`Atteso: ${fmt(stats.expected)}`}
+                    subValue={`Atteso questo mese: ${fmt(stats.expected)}`}
                     gradient="from-emerald-500 to-emerald-700"
                 />
                 <StatCard
                     icon={<TrendingUp size={22} />}
                     label={isAllMonths ? 'Da incassare — totale' : `Da incassare — ${new Date((selectedMonth || currentMonth) + '-01').toLocaleDateString('it-IT', { month: 'long' })}`}
                     value={fmt(stats.filtPending)}
-                    subValue={`Incassato: ${fmt(stats.filtCollected)}`}
+                    subValue={`Già incassato: ${fmt(stats.filtCollected)}`}
                     gradient="from-primary-400 to-primary-600"
                 />
                 <StatCard
