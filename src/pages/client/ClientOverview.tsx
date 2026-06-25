@@ -1,12 +1,14 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
-import { Activity, Target, DollarSign, TrendingUp, Loader2 } from 'lucide-react';
+import { Activity, Target, DollarSign, TrendingUp, Loader2, Eye, EyeOff } from 'lucide-react';
 import * as ApiService from '@api';
 import type { Client } from '../../types';
 import StatCard from '@components/dashboard/StatCard';
 import { StatusDonutChart, MonthlyTrendChart } from '@components/dashboard/OverviewCharts';
 import DateRangeFilter from '@components/ui/DateRangeFilter';
+
+const NET_REVENUE_KEY = 'overview_show_net_revenue';
 
 const formatCurrency = (value: number) =>
     new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(value);
@@ -18,6 +20,13 @@ const ClientOverview: React.FC = () => {
     const [installmentRevenue, setInstallmentRevenue] = useState<{ month: string; total_paid: number }[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [dateRange, setDateRange] = useState<{ start: Date | null; end: Date | null }>({ start: null, end: null });
+    const [showNet, setShowNet] = useState<boolean>(() => localStorage.getItem(NET_REVENUE_KEY) === 'true');
+
+    const toggleNet = () => setShowNet(prev => {
+        const next = !prev;
+        localStorage.setItem(NET_REVENUE_KEY, String(next));
+        return next;
+    });
 
     useEffect(() => {
         if (!userId) return;
@@ -89,7 +98,21 @@ const ClientOverview: React.FC = () => {
                     <h1 className="text-2xl font-bold text-slate-800 dark:text-white">{t('overview.title')}</h1>
                     <p className="text-sm text-slate-500 dark:text-slate-400">{t('overview.client_subtitle')}</p>
                 </div>
-                <DateRangeFilter onDateChange={(range) => setDateRange(range as { start: Date | null; end: Date | null })} />
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={toggleNet}
+                        title={showNet ? 'Mostra fatturato lordo' : 'Mostra fatturato netto'}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                            showNet
+                                ? 'bg-slate-800 dark:bg-slate-700 text-white border-slate-800 dark:border-slate-600'
+                                : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-gray-400 border-slate-200 dark:border-slate-700 hover:border-slate-400'
+                        }`}
+                    >
+                        {showNet ? <EyeOff size={13} /> : <Eye size={13} />}
+                        Netto
+                    </button>
+                    <DateRangeFilter onDateChange={(range) => setDateRange(range as { start: Date | null; end: Date | null })} />
+                </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -109,10 +132,12 @@ const ClientOverview: React.FC = () => {
                 />
                 <StatCard
                     icon={<DollarSign size={22} />}
-                    label={t('overview.stat_revenue')}
-                    value={formatCurrency(stats.revenue)}
-                    subValue={`${t('overview.stat_ad_spend')}: ${formatCurrency(stats.adSpend)}`}
-                    gradient="from-slate-700 to-slate-900"
+                    label={showNet ? 'Fatturato netto' : t('overview.stat_revenue')}
+                    value={formatCurrency(showNet ? stats.revenue - stats.adSpend : stats.revenue)}
+                    subValue={showNet
+                        ? `Lordo: ${formatCurrency(stats.revenue)}`
+                        : `${t('overview.stat_ad_spend')}: ${formatCurrency(stats.adSpend)}`}
+                    gradient={showNet ? 'from-emerald-600 to-emerald-900' : 'from-slate-700 to-slate-900'}
                 />
                 <StatCard
                     icon={<TrendingUp size={22} />}
