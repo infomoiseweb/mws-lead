@@ -149,6 +149,16 @@ const LeadForm: React.FC<LeadFormProps> = ({ clients, client, onSuccess }) => {
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
+            {/* DEBUG TEMPORANEO */}
+            {selectedClient && (
+                <div className="text-xs bg-yellow-100 border border-yellow-400 rounded p-2 space-y-1">
+                    <p><b>Servizi totali:</b> {selectedClient.services.map(s => `${s.name}(base:${String(!!s.is_base)})`).join(', ')}</p>
+                    <p><b>realServices:</b> {realServices.map(s => s.name).join(', ') || '(nessuno)'}</p>
+                    <p><b>service selezionato:</b> {service || '(vuoto)'}</p>
+                    <p><b>currentService:</b> {currentService?.name || '(null)'}</p>
+                    <p><b>campi mostrati:</b> {allFields.map(f => f.name).join(', ')}</p>
+                </div>
+            )}
             {/* Selezione cliente (solo admin) e servizio */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {isAdmin && (
