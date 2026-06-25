@@ -162,7 +162,7 @@ const LeadForm: React.FC<LeadFormProps> = ({ clients, client, onSuccess }) => {
                         </select>
                     </div>
                 )}
-                {selectedClient && realServices.length > 1 && (
+                {selectedClient && realServices.length >= 1 && (
                     <div className={isAdmin ? '' : 'md:col-span-2'}>
                         <label htmlFor="service-select" className={labelCls}>{t('component_leadForm.service_label')}</label>
                         <select id="service-select" value={service} onChange={e => setService(e.target.value)} className={inputCls}>
