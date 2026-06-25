@@ -59,10 +59,20 @@ const QuotePreviewDocument = React.forwardRef<HTMLDivElement, QuotePreviewDocume
     const fontFamily = FONT_FAMILIES[branding?.font || 'sans'];
     const blocksAt = (pos: string) => (data.customBlocks || []).filter(b => b.position === pos);
 
+    // Colore base del testo e varianti derivate per label/note/date
+    const textColor = branding?.text_color || '#1e293b';
+    // Produce un colore attenuato mescolando textColor con bianco al 55% — evita dipendenze esterne
+    const mutedColor = branding?.text_color
+        ? `color-mix(in srgb, ${textColor} 55%, #ffffff)`
+        : '#64748b';
+    const subtleColor = branding?.text_color
+        ? `color-mix(in srgb, ${textColor} 35%, #ffffff)`
+        : '#94a3b8';
+
     return (
         <div
             ref={ref}
-            style={{ fontFamily, color: '#1e293b', background: '#ffffff', width: '794px', padding: '40px', boxSizing: 'border-box' }}
+            style={{ fontFamily, color: textColor, background: '#ffffff', width: '794px', padding: '40px', boxSizing: 'border-box' }}
         >
             {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: `3px solid ${primaryColor}`, paddingBottom: '20px', marginBottom: '24px' }}>
@@ -73,24 +83,24 @@ const QuotePreviewDocument = React.forwardRef<HTMLDivElement, QuotePreviewDocume
                         <h1 style={{ margin: 0, fontSize: '22px', color: primaryColor }}>{branding?.brand_name || clientName}</h1>
                     )}
                     {branding?.company_details && (
-                        <p style={{ margin: '6px 0 0', fontSize: '11px', color: '#64748b', whiteSpace: 'pre-line', lineHeight: 1.5 }}>{branding.company_details}</p>
+                        <p style={{ margin: '6px 0 0', fontSize: '11px', color: mutedColor, whiteSpace: 'pre-line', lineHeight: 1.5 }}>{branding.company_details}</p>
                     )}
                 </div>
                 <div style={{ textAlign: 'right' }}>
                     <h2 style={{ margin: 0, fontSize: '20px', color: primaryColor, letterSpacing: '1px' }}>PREVENTIVO</h2>
                     <p style={{ margin: '6px 0 0', fontSize: '13px', fontWeight: 'bold' }}>N. {data.quoteNumber || '—'}</p>
-                    <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#64748b' }}>Data: {formatDate(data.quoteDate)}</p>
-                    {data.dueDate && <p style={{ margin: '2px 0 0', fontSize: '11px', color: '#64748b' }}>Scadenza: {formatDate(data.dueDate)}</p>}
+                    <p style={{ margin: '4px 0 0', fontSize: '11px', color: mutedColor }}>Data: {formatDate(data.quoteDate)}</p>
+                    {data.dueDate && <p style={{ margin: '2px 0 0', fontSize: '11px', color: mutedColor }}>Scadenza: {formatDate(data.dueDate)}</p>}
                 </div>
             </div>
 
             {/* Destinatario */}
             <div style={{ marginBottom: '20px' }}>
-                <p style={{ margin: 0, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '1px', color: '#94a3b8' }}>Destinatario</p>
+                <p style={{ margin: 0, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '1px', color: subtleColor }}>Destinatario</p>
                 <p style={{ margin: '4px 0 0', fontSize: '14px', fontWeight: 'bold' }}>{data.recipientName || '—'}</p>
                 {data.extraFields && Object.entries(data.extraFields).filter(([, v]) => v).map(([key, value]) => (
-                    <p key={key} style={{ margin: '2px 0 0', fontSize: '11px', color: '#475569' }}>
-                        <span style={{ color: '#94a3b8' }}>{key}: </span>{value}
+                    <p key={key} style={{ margin: '2px 0 0', fontSize: '11px', color: mutedColor }}>
+                        <span style={{ color: subtleColor }}>{key}: </span>{value}
                     </p>
                 ))}
             </div>
@@ -100,7 +110,7 @@ const QuotePreviewDocument = React.forwardRef<HTMLDivElement, QuotePreviewDocume
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', marginBottom: '20px', fontSize: '11px' }}>
                     {Object.entries(data.vehicleDetails).filter(([, v]) => v).map(([key, value]) => (
                         <div key={key}>
-                            <span style={{ color: '#94a3b8' }}>{key}: </span>
+                            <span style={{ color: subtleColor }}>{key}: </span>
                             <span style={{ fontWeight: 'bold' }}>{value}</span>
                         </div>
                     ))}
@@ -158,7 +168,7 @@ const QuotePreviewDocument = React.forwardRef<HTMLDivElement, QuotePreviewDocume
             {/* Notes */}
             {data.notes && (
                 <div style={{ marginBottom: '20px' }}>
-                    <p style={{ margin: 0, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '1px', color: '#94a3b8' }}>Note</p>
+                    <p style={{ margin: 0, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '1px', color: subtleColor }}>Note</p>
                     <p style={{ margin: '4px 0 0', fontSize: '11px', whiteSpace: 'pre-line', lineHeight: 1.5 }}>{data.notes}</p>
                 </div>
             )}
@@ -166,8 +176,8 @@ const QuotePreviewDocument = React.forwardRef<HTMLDivElement, QuotePreviewDocume
             {/* Terms and conditions */}
             {data.termsAndConditions && (
                 <div style={{ marginTop: '24px', paddingTop: '12px', borderTop: '1px solid #e2e8f0' }}>
-                    <p style={{ margin: 0, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '1px', color: '#94a3b8' }}>Termini e Condizioni</p>
-                    <p style={{ margin: '4px 0 0', fontSize: '10px', whiteSpace: 'pre-line', lineHeight: 1.6, color: '#475569' }}>{data.termsAndConditions}</p>
+                    <p style={{ margin: 0, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '1px', color: subtleColor }}>Termini e Condizioni</p>
+                    <p style={{ margin: '4px 0 0', fontSize: '10px', whiteSpace: 'pre-line', lineHeight: 1.6, color: mutedColor }}>{data.termsAndConditions}</p>
                 </div>
             )}
 

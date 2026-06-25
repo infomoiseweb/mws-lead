@@ -200,6 +200,7 @@ export interface QuoteBranding {
     brand_name?: string;      // nome azienda mostrato nell'intestazione quando manca il logo
     primary_color?: string;   // hex, es. "#2563eb" — usato per intestazioni/accenti
     header_text_color?: string; // hex colore testo nelle intestazioni colorate (default #ffffff)
+    text_color?: string;      // hex colore base di tutti i testi del documento (default #1e293b)
     font?: 'sans' | 'serif' | 'mono'; // famiglia font del documento preventivo
     company_details?: string; // testo libero multi-riga: indirizzo, P.IVA, contatti
 }

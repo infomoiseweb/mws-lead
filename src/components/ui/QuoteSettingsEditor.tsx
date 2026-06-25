@@ -523,7 +523,7 @@ const QuoteSettingsEditor: React.FC<Props> = ({ client, onSave }) => {
                             </p>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-3 gap-3">
                             <div>
                                 <label className="text-xs font-medium text-slate-500 dark:text-gray-400">Colore sfondo intestazione</label>
                                 <div className="mt-1 flex items-center gap-2">
@@ -546,6 +546,18 @@ const QuoteSettingsEditor: React.FC<Props> = ({ client, onSave }) => {
                                         className="h-9 w-12 rounded-md border border-slate-300 dark:border-slate-600 cursor-pointer bg-transparent"
                                     />
                                     <span className="text-xs text-slate-500 dark:text-gray-400">{branding.header_text_color || '#ffffff'}</span>
+                                </div>
+                            </div>
+                            <div>
+                                <label className="text-xs font-medium text-slate-500 dark:text-gray-400">Colore testo documento</label>
+                                <div className="mt-1 flex items-center gap-2">
+                                    <input
+                                        type="color"
+                                        value={branding.text_color || '#1e293b'}
+                                        onChange={e => setBranding(prev => ({ ...prev, text_color: e.target.value }))}
+                                        className="h-9 w-12 rounded-md border border-slate-300 dark:border-slate-600 cursor-pointer bg-transparent"
+                                    />
+                                    <span className="text-xs text-slate-500 dark:text-gray-400">{branding.text_color || '#1e293b'}</span>
                                 </div>
                             </div>
                         </div>
