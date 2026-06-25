@@ -1,6 +1,14 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 
+function extractLeadField(data: Record<string, string>, keys: string[]): string {
+    for (const key of keys) {
+        const entry = Object.entries(data).find(([k]) => k.toLowerCase().replace(/[\s_-]/g, '') === key.replace(/[\s_-]/g, ''));
+        if (entry?.[1]?.trim()) return entry[1].trim();
+    }
+    return '';
+}
+
 const CLIENT_ID = process.env.GOOGLE_CALENDAR_CLIENT_ID!;
 const CLIENT_SECRET = process.env.GOOGLE_CALENDAR_CLIENT_SECRET!;
 const REDIRECT_URI = process.env.GOOGLE_CALENDAR_REDIRECT_URI!;
@@ -83,12 +91,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const calendarId = clientData?.google_calendar_id || 'primary';
 
         if (action === 'create' || action === 'update') {
-            const { appointment_date, appointment_time, duration_hours, title, notes, location_address } = appointment;
+            const { appointment_date, appointment_time, duration_hours, title, notes, location_address, lead_data, lead_service } = appointment;
             const startDateTime = new Date(`${appointment_date}T${appointment_time}:00`);
             const endDateTime = new Date(startDateTime.getTime() + duration_hours * 60 * 60 * 1000);
+
+            // Estrai info del lead per titolo e descrizione
+            const leadName = lead_data ? extractLeadField(lead_data, ['nome', 'name', 'nome_cognome', 'full_name', 'nominativo']) : '';
+            const leadPhone = lead_data ? extractLeadField(lead_data, ['telefono', 'phone', 'tel', 'cellulare', 'mobile', 'numero']) : '';
+            const leadEmail = lead_data ? extractLeadField(lead_data, ['email', 'mail', 'e-mail']) : '';
+
+            const summary = title || (leadName ? `Appuntamento — ${leadName}` : 'Appuntamento');
+
+            const descParts: string[] = [];
+            if (leadName) descParts.push(`👤 Cliente: ${leadName}`);
+            if (leadPhone) descParts.push(`📞 Telefono: ${leadPhone}`);
+            if (leadEmail) descParts.push(`✉️ Email: ${leadEmail}`);
+            if (lead_service) descParts.push(`🏷️ Servizio: ${lead_service}`);
+            if (notes) descParts.push(`📝 Note: ${notes}`);
+
             const event = {
-                summary: title || 'Appuntamento',
-                description: notes || '',
+                summary,
+                description: descParts.join('\n'),
                 location: location_address || '',
                 start: { dateTime: startDateTime.toISOString(), timeZone: 'Europe/Rome' },
                 end: { dateTime: endDateTime.toISOString(), timeZone: 'Europe/Rome' },

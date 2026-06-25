@@ -84,9 +84,10 @@ const CalendarPage: React.FC = () => {
     const handleDeleteAppointment = async (appointmentId: string) => {
         if (window.confirm("Sei sicuro di voler eliminare questo appuntamento?")) {
             try {
-                await ApiService.deleteAppointment(appointmentId);
-                await fetchData(); // Refresh data
-                setIsDetailModalOpen(false); // Close detail modal
+                const clientId = selectedAppointment?.client_id;
+                await ApiService.deleteAppointment(appointmentId, clientId);
+                await fetchData();
+                setIsDetailModalOpen(false);
             } catch (err) {
                 console.error(err);
                 alert("Errore durante l'eliminazione dell'appuntamento.");

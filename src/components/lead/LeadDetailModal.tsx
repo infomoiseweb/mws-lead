@@ -930,7 +930,7 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
         if (!client || !lead || !onLeadUpdate) return;
         if (window.confirm("Sei sicuro di voler eliminare questo appuntamento?")) {
             try {
-                await ApiService.deleteAppointment(appointmentId);
+                await ApiService.deleteAppointment(appointmentId, lead.client_id);
                 const updatedLead = {
                     ...lead,
                     appointments: lead.appointments?.filter(a => a.id !== appointmentId)

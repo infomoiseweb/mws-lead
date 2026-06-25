@@ -1,11 +1,40 @@
 import { supabase } from '../lib/supabase';
 import type { Appointment, Lead, CalendarAppointment } from '../types';
 
+function extractLeadName(data: Record<string, string>): string {
+    const nameKeys = ['nome', 'name', 'nome_cognome', 'full_name', 'nominativo', 'nome e cognome'];
+    for (const key of nameKeys) {
+        const val = Object.entries(data).find(([k]) => k.toLowerCase().replace(/\s/g, '_') === key.replace(/\s/g, '_'))?.[1];
+        if (val?.trim()) return val.trim();
+    }
+    // fallback: primo campo non vuoto
+    return Object.values(data).find(v => v?.trim()) || '';
+}
+
+function extractLeadPhone(data: Record<string, string>): string {
+    const phoneKeys = ['telefono', 'phone', 'tel', 'cellulare', 'mobile', 'numero'];
+    for (const key of phoneKeys) {
+        const val = Object.entries(data).find(([k]) => k.toLowerCase().includes(key))?.[1];
+        if (val?.trim()) return val.trim();
+    }
+    return '';
+}
+
+function extractLeadEmail(data: Record<string, string>): string {
+    const val = Object.entries(data).find(([k]) => k.toLowerCase().includes('mail') || k.toLowerCase().includes('email'))?.[1];
+    return val?.trim() || '';
+}
+
+interface SyncPayload extends Partial<Appointment> {
+    lead_data?: Record<string, string>;
+    lead_service?: string;
+}
+
 async function syncGoogleCalendar(
     action: 'create' | 'update' | 'delete',
     clientId: string,
     appointmentId: string,
-    appointment?: Partial<Appointment>
+    payload?: SyncPayload
 ): Promise<void> {
     try {
         const { data: clientData } = await supabase
@@ -24,7 +53,7 @@ async function syncGoogleCalendar(
                 'Content-Type': 'application/json',
                 Authorization: `Bearer ${session.access_token}`,
             },
-            body: JSON.stringify({ action, client_id: clientId, appointment_id: appointmentId, appointment }),
+            body: JSON.stringify({ action, client_id: clientId, appointment_id: appointmentId, appointment: payload }),
         });
     } catch {
         // Non blocca il flusso principale
@@ -35,17 +64,23 @@ export async function addAppointment(appointmentData: Omit<Appointment, 'id' | '
     const { data: inserted, error } = await supabase.from('appointments').insert(appointmentData).select().single();
     if (error) throw new Error(error.message);
 
-    if (appointmentData.client_id) {
-        syncGoogleCalendar('create', appointmentData.client_id, inserted.id, appointmentData);
-    }
-
     const { data, error: leadErr } = await supabase
         .from('leads')
         .select('*, notes(*), appointments(*)')
         .eq('id', appointmentData.lead_id)
         .single();
-
     if (leadErr) throw new Error(leadErr.message);
+
+    if (appointmentData.client_id) {
+        const leadData = (data as Lead).data || {};
+        const leadService = (data as Lead).service;
+        syncGoogleCalendar('create', appointmentData.client_id, inserted.id, {
+            ...appointmentData,
+            lead_data: leadData,
+            lead_service: leadService,
+        });
+    }
+
     return data as Lead;
 }
 
@@ -100,3 +135,6 @@ export async function getAppointmentsForCalendar(): Promise<CalendarAppointment[
     if (error) throw new Error(error.message);
     return data as CalendarAppointment[];
 }
+
+// Helper esportato per estrarre nome lead (usato da CalendarPage per passare clientId al delete)
+export { extractLeadName, extractLeadPhone, extractLeadEmail };
