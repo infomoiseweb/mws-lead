@@ -39,17 +39,10 @@ const LeadForm: React.FC<LeadFormProps> = ({ clients, client, onSuccess }) => {
         return selectedClient?.services.find(s => s.name === service) || null;
     }, [selectedClient, service]);
 
-    // All fields for the selected service, deduplicated
+    // Mostra solo i campi del servizio selezionato
     const allFields = useMemo(() => {
-        const defaultService = selectedClient?.services.find(isBaseService);
-        const defaultFields = defaultService?.fields || [];
-        const activeServiceFields = !isBaseService(currentService) ? (currentService?.fields || []) : [];
-        const defaultNames = new Set(defaultFields.map((f: LeadField) => f.name.toLowerCase()));
-        const uniqueServiceFields = activeServiceFields.filter((f: LeadField) => !defaultNames.has(f.name.toLowerCase()));
-        const result = [...defaultFields, ...uniqueServiceFields];
-        console.log('[LeadForm] service:', service, '| defaultService:', defaultService?.name, '| currentService:', currentService?.name, '| fields:', result.map(f => f.name));
-        return result;
-    }, [selectedClient, currentService, service]);
+        return currentService?.fields || [];
+    }, [currentService]);
 
     // Reset when client changes
     useEffect(() => {
@@ -81,7 +74,7 @@ const LeadForm: React.FC<LeadFormProps> = ({ clients, client, onSuccess }) => {
             return;
         }
 
-        const missingRequired = allFields.filter((f: LeadField) => f.required && !leadData[f.name]?.trim());
+        const missingRequired = (currentService?.fields || []).filter((f: LeadField) => f.required && !leadData[f.name]?.trim());
         if (missingRequired.length > 0) {
             setError(`Il campo obbligatorio "${missingRequired[0].label}" non può essere vuoto.`);
             return;
@@ -149,16 +142,6 @@ const LeadForm: React.FC<LeadFormProps> = ({ clients, client, onSuccess }) => {
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
-            {/* DEBUG TEMPORANEO */}
-            {selectedClient && (
-                <div className="text-xs bg-yellow-100 border border-yellow-400 rounded p-2 space-y-1">
-                    <p><b>Servizi totali:</b> {selectedClient.services.map(s => `${s.name}(base:${String(!!s.is_base)})`).join(', ')}</p>
-                    <p><b>realServices:</b> {realServices.map(s => s.name).join(', ') || '(nessuno)'}</p>
-                    <p><b>service selezionato:</b> {service || '(vuoto)'}</p>
-                    <p><b>currentService:</b> {currentService?.name || '(null)'}</p>
-                    <p><b>campi mostrati:</b> {allFields.map(f => f.name).join(', ')}</p>
-                </div>
-            )}
             {/* Selezione cliente (solo admin) e servizio */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {isAdmin && (
