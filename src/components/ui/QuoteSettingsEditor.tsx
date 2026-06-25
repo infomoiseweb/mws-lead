@@ -578,7 +578,7 @@ const QuoteSettingsEditor: React.FC<Props> = ({ client, onSave }) => {
                         <label className="text-xs font-medium text-slate-500 dark:text-gray-400 mb-1 block">Anteprima</label>
                         <div ref={previewContainerRef} className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-900/50" style={{ height: previewHeight || undefined }}>
                             <div ref={previewContentRef} style={{ width: '794px', transform: `scale(${previewScale})`, transformOrigin: 'top left' }}>
-                                <QuotePreviewDocument clientName={client.name} branding={branding} data={SAMPLE_PREVIEW_DATA} />
+                                <QuotePreviewDocument clientName={client.name} branding={branding} data={{ ...SAMPLE_PREVIEW_DATA, customBlocks: customBlockPresets.length > 0 ? [customBlockPresets[0]] : [] }} />
                             </div>
                         </div>
                     </div>
