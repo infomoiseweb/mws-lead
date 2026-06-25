@@ -44,7 +44,8 @@ const AdminOverview: React.FC = () => {
         const openLeads = allLeads.filter(l => l.status !== 'Vinto' && l.status !== 'Perso' && l.status !== 'A Rate');
         const conversionRate = totalLeads > 0 ? (wonLeads.length / totalLeads) * 100 : 0;
 
-        const leadsRevenue = wonLeads.reduce((sum, l) => sum + (l.value || 0), 0);
+        // Escludi lead con piano rate: il loro valore è già contato in installmentRevenue
+        const leadsRevenue = wonLeads.filter(l => !l.has_payment_plan).reduce((sum, l) => sum + (l.value || 0), 0);
         const irStart = dateRange.start ? dateRange.start.toISOString().slice(0, 7) : null;
         const irEnd = dateRange.end ? dateRange.end.toISOString().slice(0, 7) : null;
         const irTotal = installmentRevenue

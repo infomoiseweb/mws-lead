@@ -136,6 +136,7 @@ export interface Lead {
     notes?: Note[];
     quotes?: Quote[];
     appointments?: Appointment[];
+    has_payment_plan?: boolean;
 }
 
 // Variabili disponibili nei template: {{nome}}, {{telefono}}, {{email}}, {{servizio}}, {{data}}, + qualsiasi campo della lead

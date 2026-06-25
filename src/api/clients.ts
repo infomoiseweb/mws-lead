@@ -58,7 +58,7 @@ export async function getClients(startDate?: Date | null, endDate?: Date | null)
     if (error) throw new Error(error.message);
 
     return Promise.all(clientsData.map(async (client) => {
-        let q = supabase.from('leads').select('*, notes(*), appointments(*)').eq('client_id', client.id).order('created_at', { ascending: false }).limit(10000);
+        let q = supabase.from('leads').select('*, notes(*), appointments(*), payment_plans(id)').eq('client_id', client.id).order('created_at', { ascending: false }).limit(10000);
         if (startDate) q = q.gte('created_at', startDate.toISOString());
         if (endDate) q = q.lte('created_at', endDate.toISOString());
 
@@ -67,7 +67,13 @@ export async function getClients(startDate?: Date | null, endDate?: Date | null)
             supabase.from('ad_spends').select('*').eq('client_id', client.id),
         ]);
 
-        return { ...unpackMwsSettings(client), leads: (leads || []) as Lead[], adSpends: (adSpends || []) as AdSpend[] };
+        const mappedLeads = (leads || []).map((l: any) => ({
+            ...l,
+            has_payment_plan: Array.isArray(l.payment_plans) && l.payment_plans.length > 0,
+            payment_plans: undefined,
+        })) as Lead[];
+
+        return { ...unpackMwsSettings(client), leads: mappedLeads, adSpends: (adSpends || []) as AdSpend[] };
     }));
 }
 
@@ -87,7 +93,7 @@ export async function getClientByUserId(userId: string, startDate?: Date | null,
     const { data: client, error } = await supabase.from('clients').select('*').eq('user_id', userId).single();
     if (error || !client) return null;
 
-    let q = supabase.from('leads').select('*, notes(*), appointments(*)').eq('client_id', client.id).order('created_at', { ascending: false }).limit(10000);
+    let q = supabase.from('leads').select('*, notes(*), appointments(*), payment_plans(id)').eq('client_id', client.id).order('created_at', { ascending: false }).limit(10000);
     if (startDate) q = q.gte('created_at', startDate.toISOString());
     if (endDate) q = q.lte('created_at', endDate.toISOString());
 
@@ -96,7 +102,13 @@ export async function getClientByUserId(userId: string, startDate?: Date | null,
         supabase.from('ad_spends').select('*').eq('client_id', client.id),
     ]);
 
-    return { ...unpackMwsSettings(client), leads: (leads || []) as Lead[], adSpends: (adSpends || []) as AdSpend[] } as Client;
+    const mappedLeads = (leads || []).map((l: any) => ({
+        ...l,
+        has_payment_plan: Array.isArray(l.payment_plans) && l.payment_plans.length > 0,
+        payment_plans: undefined,
+    })) as Lead[];
+
+    return { ...unpackMwsSettings(client), leads: mappedLeads, adSpends: (adSpends || []) as AdSpend[] } as Client;
 }
 
 export async function addClientForExistingUser(
