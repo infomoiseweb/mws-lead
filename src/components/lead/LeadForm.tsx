@@ -47,9 +47,7 @@ const LeadForm: React.FC<LeadFormProps> = ({ clients, client, onSuccess }) => {
         const defaultNames = new Set(defaultFields.map((f: LeadField) => f.name.toLowerCase()));
         const uniqueServiceFields = activeServiceFields.filter((f: LeadField) => !defaultNames.has(f.name.toLowerCase()));
         const result = [...defaultFields, ...uniqueServiceFields];
-        if (import.meta.env.DEV) {
-            console.log('[LeadForm] service:', service, '| defaultService:', defaultService?.name, '| currentService:', currentService?.name, '| fields:', result.map(f => f.name));
-        }
+        console.log('[LeadForm] service:', service, '| defaultService:', defaultService?.name, '| currentService:', currentService?.name, '| fields:', result.map(f => f.name));
         return result;
     }, [selectedClient, currentService, service]);
 
