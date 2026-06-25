@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import type { Client, Lead, LeadField } from '../types';
 import * as ApiService from '@api';
-import { isBaseService } from '@/utils/services';
 import { useAuth } from '@contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 
@@ -30,9 +29,8 @@ const LeadForm: React.FC<LeadFormProps> = ({ clients, client, onSuccess }) => {
         return clients.find(c => c.id === selectedClientId) || null;
     }, [selectedClientId, clients, isAdmin, client]);
 
-    // Escludi il servizio base — non deve essere selezionabile, i suoi campi vengono sempre inclusi automaticamente
     const realServices = useMemo(() => {
-        return selectedClient ? selectedClient.services.filter(s => !isBaseService(s)) : [];
+        return selectedClient ? selectedClient.services.filter(s => s.name !== '__default_fields__') : [];
     }, [selectedClient]);
 
     const currentService = useMemo(() => {
