@@ -12,7 +12,7 @@ import StatCard from '@components/dashboard/StatCard';
 const fmt = (n: number) => n.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' });
 const fmtDate = (d: string) => new Date(d + 'T00:00:00').toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' });
 const todayStr = () => new Date().toISOString().slice(0, 10);
-const monthStr = (d: Date) => d.toISOString().slice(0, 7);
+const monthStr = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 const monthLabel = (ym: string) => {
     const [y, m] = ym.split('-');
     return new Date(Number(y), Number(m) - 1, 1).toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
