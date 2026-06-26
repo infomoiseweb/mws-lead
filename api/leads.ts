@@ -77,7 +77,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const { data: clientRecord, error: clientError } = await supabaseAdmin
         .from('clients')
-        .select('id, name')
+        .select('id, name, services')
         .eq('api_token', apiToken)
         .single();
 
@@ -92,10 +92,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Rimuovi i campi riservati, tutto il resto va in lead.data
-    const { service, api_token: _token, ...leadData } = normalizedBody;
+    const { service: serviceFromBody, api_token: _token, ...leadData } = normalizedBody;
 
     if (!leadData || Object.keys(leadData).length === 0) {
         return res.status(400).json({ error: 'Nessun dato lead nel body.' });
+    }
+
+    // Auto-match servizio: se non passato nel body, cerca il servizio i cui campi
+    // corrispondono meglio alle chiavi presenti nel payload
+    let resolvedService: string | null = serviceFromBody || null;
+    if (!resolvedService) {
+        const services: { name: string; fields: { name: string }[] }[] = clientRecord.services || [];
+        const realServices = services.filter(s => s.name !== '__default_fields__');
+        const leadKeys = new Set(Object.keys(leadData));
+        let bestMatch = 0;
+        for (const svc of realServices) {
+            const matches = (svc.fields || []).filter(f => leadKeys.has(f.name)).length;
+            if (matches > bestMatch) { bestMatch = matches; resolvedService = svc.name; }
+        }
     }
 
     const { data: newLead, error: insertError } = await supabaseAdmin
@@ -103,7 +117,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .insert({
             client_id: clientRecord.id,
             data: leadData,
-            service: service || null,
+            service: resolvedService,
             status: 'Nuovo',
         })
         .select()

@@ -380,6 +380,9 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
     const { t } = useTranslation();
     const { user } = useAuth();
     const { result: distanceResult, isLoading: isLoadingDistance, refresh: refreshDistance } = useLeadDistance(client, lead);
+    const [editingService, setEditingService] = useState(false);
+    const [pendingService, setPendingService] = useState('');
+    const [isSavingService, setIsSavingService] = useState(false);
     const [newNote, setNewNote] = useState('');
     const [isSubmittingNote, setIsSubmittingNote] = useState(false);
     const [generatedMessage, setGeneratedMessage] = useState('');
@@ -450,6 +453,20 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
     }>({ isOpen: false, leadId: null, leadCreationDate: null, updates: null });
 
     const [quoteSentModalState, setQuoteSentModalState] = useState<{ isOpen: boolean; selectedQuoteId: string }>({ isOpen: false, selectedQuoteId: '' });
+
+    const handleSaveService = async () => {
+        if (!lead || !client || !onLeadUpdate) return;
+        setIsSavingService(true);
+        try {
+            const updated = await ApiService.updateLead(client.id, lead.id, { service: pendingService || undefined });
+            onLeadUpdate(updated);
+            setEditingService(false);
+        } catch (e: any) {
+            alert(e.message);
+        } finally {
+            setIsSavingService(false);
+        }
+    };
 
     const completeLeadUpdate = async (attributionChoice: 'creation' | 'current') => {
         const { leadId, updates } = revenueDateModalState;
@@ -1286,11 +1303,52 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
                             label={t('component_leadDetailModal.reception_date')}
                             value={new Date(lead.created_at).toLocaleString('it-IT')}
                         />
-                        <DetailRow
-                            icon={<Tag size={16} className="text-primary-500 dark:text-primary-400" />}
-                            label={t('component_leadDetailModal.service_label')}
-                            value={lead.service || <span className="text-gray-500">{t('component_leadDetailModal.not_specified')}</span>}
-                        />
+                        {/* Servizio — modificabile */}
+                        <div className="flex items-start gap-3 py-3">
+                            <span className="mt-0.5 flex-shrink-0"><Tag size={16} className="text-primary-500 dark:text-primary-400" /></span>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-xs text-slate-500 dark:text-gray-400 mb-1">{t('component_leadDetailModal.service_label')}</p>
+                                {editingService ? (
+                                    <div className="flex items-center gap-2">
+                                        <select
+                                            value={pendingService}
+                                            onChange={e => setPendingService(e.target.value)}
+                                            className="flex-1 text-sm px-2 py-1 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                        >
+                                            <option value="">— Nessun servizio —</option>
+                                            {(client?.services || []).filter(s => s.name !== '__default_fields__').map(s => (
+                                                <option key={s.id} value={s.name}>{s.name}</option>
+                                            ))}
+                                        </select>
+                                        <button
+                                            onClick={handleSaveService}
+                                            disabled={isSavingService}
+                                            className="px-3 py-1 bg-primary-600 text-white text-xs font-semibold rounded-md hover:bg-primary-700 disabled:opacity-50 transition"
+                                        >
+                                            {isSavingService ? '...' : 'Salva'}
+                                        </button>
+                                        <button
+                                            onClick={() => setEditingService(false)}
+                                            className="px-2 py-1 text-xs text-slate-500 hover:text-slate-700 dark:hover:text-gray-300 transition"
+                                        >
+                                            Annulla
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-sm font-medium text-slate-800 dark:text-gray-100">
+                                            {lead.service || <span className="text-gray-400 dark:text-gray-500">{t('component_leadDetailModal.not_specified')}</span>}
+                                        </span>
+                                        <button
+                                            onClick={() => { setPendingService(lead.service || ''); setEditingService(true); }}
+                                            className="text-xs text-primary-500 hover:text-primary-700 underline underline-offset-2 transition"
+                                        >
+                                            {lead.service ? 'Cambia' : 'Assegna'}
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
                         <DetailRow
                             icon={<Info size={16} className="text-primary-500 dark:text-primary-400" />}
                             label={t('component_leadDetailModal.status_label')}
