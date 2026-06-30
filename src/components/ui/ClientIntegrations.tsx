@@ -1,11 +1,12 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import * as ApiService from '@api';
 import type { Client, Service, LeadField } from '../types';
 import { isBaseService } from '@/utils/services';
 import {
   Code, Copy, Check, CheckCircle2,
-  ExternalLink, FileCode, Sparkles, AlertCircle, Globe, Tag
+  ExternalLink, FileCode, Sparkles, AlertCircle, Globe, Tag, Settings, BookOpen
 } from 'lucide-react';
+import ServicesEditor, { type ServiceState } from './ServicesEditor';
 
 interface ClientIntegrationsProps {
   client: Client;
@@ -13,9 +14,69 @@ interface ClientIntegrationsProps {
 }
 
 export const ClientIntegrations: React.FC<ClientIntegrationsProps> = ({ client, onLeadAdded }) => {
-  const [activeSubTab, setActiveSubTab] = useState<'services' | 'token'>('services');
+  const [activeSubTab, setActiveSubTab] = useState<'services' | 'manage' | 'guide' | 'token'>('services');
   const [copiedText, setCopiedText] = useState<string | null>(null);
   const [expandedServiceId, setExpandedServiceId] = useState<string | null>(null);
+
+  // Stato editor servizi self-service del cliente
+  const [editableServices, setEditableServices] = useState<ServiceState[]>([]);
+  const [isSavingServices, setIsSavingServices] = useState(false);
+  const [servicesSaveError, setServicesSaveError] = useState('');
+  const [servicesSaved, setServicesSaved] = useState(false);
+
+  useEffect(() => {
+    const rawServices = client.services || [];
+    const baseService = rawServices.find(isBaseService);
+    const baseServiceState: ServiceState = baseService ? {
+      ...baseService,
+      id: baseService.id || 'service_default_fields',
+      name: baseService.name === '__default_fields__' ? 'Generale' : baseService.name,
+      is_base: true,
+      isExpanded: false,
+      fields: (baseService.fields || []).map(f => ({ ...f, type: f.type || 'text' })),
+    } : {
+      id: 'service_default_fields',
+      name: 'Generale',
+      is_base: true,
+      isExpanded: false,
+      fields: [],
+    };
+    const otherServices = rawServices.filter(s => s.name !== '__lead_mode__' && !isBaseService(s));
+    setEditableServices([
+      baseServiceState,
+      ...otherServices.map(s => ({ ...s, isExpanded: false, fields: (s.fields || []).map(f => ({ ...f, type: f.type || 'text' })) })),
+    ]);
+  }, [client.services]);
+
+  const handleSaveServices = async () => {
+    setIsSavingServices(true);
+    setServicesSaveError('');
+    try {
+      const finalServices = editableServices
+        .map(s => {
+          if (!s || typeof s.name !== 'string' || s.name.trim() === '') return null;
+          const { isExpanded, ...serviceForApi } = s;
+          const validFields = (s.fields || []).filter(f => f && f.label?.trim() && f.name?.trim()).map(f =>
+            f.options ? { ...f, options: f.options.map(opt => opt.trim()).filter(Boolean) } : f
+          );
+          return { ...serviceForApi, fields: validFields };
+        })
+        .filter(Boolean) as Service[];
+
+      // Preserva l'entry __lead_mode__ esistente (modalità di default), se presente
+      const existingLeadMode = (client.services || []).find((s: any) => s.name === '__lead_mode__');
+      const mergedServices = existingLeadMode ? [existingLeadMode, ...finalServices] : finalServices;
+
+      await ApiService.updateClient(client.id, { services: mergedServices });
+      setServicesSaved(true);
+      setTimeout(() => setServicesSaved(false), 2500);
+      onLeadAdded?.();
+    } catch (err: any) {
+      setServicesSaveError(err.message || 'Errore durante il salvataggio.');
+    } finally {
+      setIsSavingServices(false);
+    }
+  };
 
   // Servizi reali del cliente (esclude il marker tecnico __default_fields__)
   const realServices = useMemo(
@@ -193,36 +254,51 @@ ${fieldsHtml}
             <p className="text-sm text-slate-600 dark:text-gray-400 mt-1 mb-3">
               Usa questi nomi chiave (non le etichette) come chiavi del payload quando invii lead via API o form. Clicca per copiare.
             </p>
-            <div className="space-y-3">
-              {fieldGroups.map(group => (
-                <div key={group.label}>
-                  <p className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-gray-400 mb-1.5">{group.label}</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {group.fields.map(field => {
-                      const copyId = `field-${group.label}-${field.name}`;
-                      return (
-                        <button
-                          key={field.id || field.name}
-                          type="button"
-                          onClick={() => triggerCopy(field.name, copyId)}
-                          title="Copia il nome chiave"
-                          className="flex items-center justify-between gap-2 p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-left hover:border-primary-400 dark:hover:border-primary-600 transition"
-                        >
-                          <span className="min-w-0">
-                            <span className="block text-xs text-slate-500 dark:text-gray-400 truncate">{field.label}</span>
-                            <span className="block font-mono text-xs font-bold text-primary-600 dark:text-primary-400 truncate">{field.name}</span>
-                          </span>
-                          {copiedText === copyId ? (
-                            <Check size={15} className="text-green-500 shrink-0" />
-                          ) : (
-                            <Copy size={15} className="text-slate-400 shrink-0" />
-                          )}
-                        </button>
-                      );
-                    })}
+            <div className="space-y-4">
+              {fieldGroups.map(group => {
+                const isBase = group.label === 'Campi Base (sempre presenti)';
+                return (
+                  <div key={group.label} className="rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-900">
+                    <div className={`flex items-center gap-2 px-3 py-2 ${isBase ? 'bg-indigo-50 dark:bg-indigo-950/40' : 'bg-primary-50 dark:bg-primary-950/30'}`}>
+                      {isBase ? (
+                        <Sparkles size={14} className="text-indigo-500 shrink-0" />
+                      ) : (
+                        <Tag size={14} className="text-primary-500 shrink-0" />
+                      )}
+                      <span className={`text-xs font-bold uppercase tracking-wide ${isBase ? 'text-indigo-700 dark:text-indigo-300' : 'text-primary-700 dark:text-primary-300'}`}>
+                        {group.label}
+                      </span>
+                      <span className="ml-auto text-[10px] font-semibold px-2 py-0.5 rounded-full bg-white/70 dark:bg-black/20 text-slate-500 dark:text-gray-400">
+                        {group.fields.length} {group.fields.length === 1 ? 'campo' : 'campi'}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-3">
+                      {group.fields.map(field => {
+                        const copyId = `field-${group.label}-${field.name}`;
+                        return (
+                          <button
+                            key={field.id || field.name}
+                            type="button"
+                            onClick={() => triggerCopy(field.name, copyId)}
+                            title="Copia il nome chiave"
+                            className="flex items-center justify-between gap-2 p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-left hover:border-primary-400 dark:hover:border-primary-600 transition"
+                          >
+                            <span className="min-w-0">
+                              <span className="block text-xs text-slate-500 dark:text-gray-400 truncate">{field.label}</span>
+                              <span className="block font-mono text-xs font-bold text-primary-600 dark:text-primary-400 truncate">{field.name}</span>
+                            </span>
+                            {copiedText === copyId ? (
+                              <Check size={15} className="text-green-500 shrink-0" />
+                            ) : (
+                              <Copy size={15} className="text-slate-400 shrink-0" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
@@ -240,6 +316,16 @@ ${fieldsHtml}
             Per Servizio
           </button>
           <button
+            onClick={() => setActiveSubTab('manage')}
+            className={`flex-1 py-4 text-center text-sm font-semibold border-b-2 transition-all flex items-center justify-center gap-1.5 ${
+              activeSubTab === 'manage'
+                ? 'border-primary-500 text-primary-600 dark:text-primary-400 bg-white dark:bg-slate-800'
+                : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-gray-400 dark:hover:text-gray-200'
+            }`}
+          >
+            <Settings size={14} /> Gestisci Servizi
+          </button>
+          <button
             onClick={() => setActiveSubTab('token')}
             className={`flex-1 py-4 text-center text-sm font-semibold border-b-2 transition-all ${
               activeSubTab === 'token'
@@ -248,6 +334,16 @@ ${fieldsHtml}
             }`}
           >
             Token API & Endpoint
+          </button>
+          <button
+            onClick={() => setActiveSubTab('guide')}
+            className={`flex-1 py-4 text-center text-sm font-semibold border-b-2 transition-all flex items-center justify-center gap-1.5 ${
+              activeSubTab === 'guide'
+                ? 'border-primary-500 text-primary-600 dark:text-primary-400 bg-white dark:bg-slate-800'
+                : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-gray-400 dark:hover:text-gray-200'
+            }`}
+          >
+            <BookOpen size={14} /> Guida Make
           </button>
         </div>
 
@@ -450,6 +546,111 @@ ${buildApiJsonSnippet(service)}`}
                     </p>
                   </div>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {activeSubTab === 'manage' && (
+            <div className="space-y-4">
+              <p className="text-sm text-slate-600 dark:text-gray-400 bg-emerald-50 dark:bg-slate-800/50 p-3 rounded-lg border border-emerald-100 dark:border-emerald-950/40">
+                Crea, modifica o elimina i tuoi servizi e i campi che vuoi ricevere per ognuno. Il primo servizio è quello <strong>base</strong>: i suoi campi vengono inclusi automaticamente in tutti gli altri.
+              </p>
+
+              <ServicesEditor services={editableServices} onChange={setEditableServices} defaultIntakeMode="api" />
+
+              {servicesSaveError && <p className="text-sm text-red-500 font-semibold">{servicesSaveError}</p>}
+
+              <div className="flex justify-end pt-3 border-t border-slate-200 dark:border-slate-700">
+                <button
+                  type="button"
+                  onClick={handleSaveServices}
+                  disabled={isSavingServices}
+                  className="bg-primary-600 text-white font-bold px-5 py-2.5 rounded-lg shadow hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {isSavingServices ? 'Salvataggio...' : servicesSaved ? <><Check size={16} /> Salvato!</> : 'Salva Servizi'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {activeSubTab === 'guide' && (
+            <div className="space-y-5">
+              <p className="text-sm text-slate-600 dark:text-gray-400">
+                Guida passo-passo per collegare un modulo (es. Facebook Lead Ads, Typeform, Tilda) a questa piattaforma usando <strong>Make</strong> (ex Integromat), senza scrivere codice.
+              </p>
+
+              {[
+                {
+                  n: 1,
+                  title: 'Crea uno scenario su Make',
+                  body: 'Vai su make.com → "Create a new scenario". Scegli come primo modulo la tua sorgente lead (es. "Facebook Lead Ads → Watch Leads", oppure "Webhooks" se usi un form generico).',
+                },
+                {
+                  n: 2,
+                  title: 'Aggiungi un modulo HTTP',
+                  body: 'Clicca il "+" dopo il primo modulo e cerca "HTTP". Scegli l\'azione "Make a request".',
+                },
+                {
+                  n: 3,
+                  title: 'Imposta URL e Metodo',
+                  body: <>Incolla questo URL nel campo <strong>URL</strong> e imposta il <strong>Metodo</strong> su <code className="bg-slate-100 dark:bg-slate-900 px-1 rounded font-mono text-xs">POST</code>:
+                    <div className="mt-2 flex items-center justify-between gap-2 p-2.5 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg font-mono text-xs break-all">
+                      <span>{apiEndpointUrl}</span>
+                      <button onClick={() => triggerCopy(apiEndpointUrl, 'guide-url')} type="button" className="shrink-0 text-slate-400 hover:text-primary-500">
+                        {copiedText === 'guide-url' ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+                      </button>
+                    </div>
+                  </>,
+                },
+                {
+                  n: 4,
+                  title: 'Aggiungi l\'header di autenticazione',
+                  body: <>Nella sezione <strong>Headers</strong>, aggiungi una riga con Nome <code className="bg-slate-100 dark:bg-slate-900 px-1 rounded font-mono text-xs">Authorization</code> e Valore <code className="bg-slate-100 dark:bg-slate-900 px-1 rounded font-mono text-xs">Bearer {'<il_tuo_api_token>'}</code>:
+                    {apiToken && (
+                      <div className="mt-2 flex items-center justify-between gap-2 p-2.5 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg font-mono text-xs break-all">
+                        <span>Bearer {apiToken}</span>
+                        <button onClick={() => triggerCopy(`Bearer ${apiToken}`, 'guide-token')} type="button" className="shrink-0 text-amber-500 hover:text-amber-700">
+                          {copiedText === 'guide-token' ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+                        </button>
+                      </div>
+                    )}
+                  </>,
+                },
+                {
+                  n: 5,
+                  title: 'Imposta il Body Type',
+                  body: <>Imposta <strong>Body type</strong> su <code className="bg-slate-100 dark:bg-slate-900 px-1 rounded font-mono text-xs">Raw</code> e <strong>Content type</strong> su <code className="bg-slate-100 dark:bg-slate-900 px-1 rounded font-mono text-xs">JSON (application/json)</code>.</>,
+                },
+                {
+                  n: 6,
+                  title: 'Scrivi il Body (JSON) con i campi del servizio',
+                  body: <>Vai nella tab <strong>"Per Servizio"</strong>, apri il servizio interessato e copia l'esempio JSON già pronto (con <code className="bg-slate-100 dark:bg-slate-900 px-1 rounded font-mono text-xs">service</code> già impostato). Incollalo nel campo Body e sostituisci i valori statici con le variabili del modulo precedente (es. trascina il campo "nome" di Facebook dentro al posto del valore "Mario Rossi").</>,
+                },
+                {
+                  n: 7,
+                  title: 'Esegui un test',
+                  body: 'Clicca "Run once" in basso a sinistra su Make, poi fai arrivare una lead di prova (es. compila il form Facebook). Se tutto è corretto, lo stato HTTP risposta sarà 201 e la lead comparirà subito nella tua dashboard "I Miei Lead".',
+                },
+                {
+                  n: 8,
+                  title: 'Attiva lo scenario',
+                  body: 'Una volta verificato che funziona, attiva lo scenario (interruttore in alto a sinistra su ON) e imposta la frequenza di esecuzione (es. "ogni 15 minuti" o "immediato" se disponibile per la tua sorgente).',
+                },
+              ].map(step => (
+                <div key={step.n} className="flex gap-3 p-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl">
+                  <div className="flex-shrink-0 w-7 h-7 rounded-full bg-primary-600 text-white font-bold text-sm flex items-center justify-center">{step.n}</div>
+                  <div className="min-w-0">
+                    <h5 className="font-semibold text-sm text-slate-800 dark:text-white mb-1">{step.title}</h5>
+                    <div className="text-xs text-slate-600 dark:text-gray-400 leading-relaxed">{step.body}</div>
+                  </div>
+                </div>
+              ))}
+
+              <div className="p-4 bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-900/50 rounded-xl flex gap-2">
+                <AlertCircle className="text-indigo-600 dark:text-indigo-400 flex-shrink-0" size={18} />
+                <p className="text-xs text-indigo-700 dark:text-indigo-300">
+                  Hai bisogno di campi diversi (es. "Targa veicolo", "Budget"...)? Vai in <strong>"Gestisci Servizi"</strong> per crearli tu stesso: ogni campo aggiunto qui apparirà automaticamente nell'esempio JSON da incollare su Make.
+                </p>
               </div>
             </div>
           )}

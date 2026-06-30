@@ -110,7 +110,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const leadPhone = lead_data ? extractLeadField(lead_data, ['telefono', 'phone', 'tel', 'cellulare', 'mobile', 'numero']) : '';
             const leadEmail = lead_data ? extractLeadField(lead_data, ['email', 'mail', 'e-mail']) : '';
 
-            const summary = title || (leadName ? `Appuntamento — ${leadName}` : 'Appuntamento');
+            const summary = leadName || title || 'Appuntamento';
 
             const descParts: string[] = [];
             if (leadName) descParts.push(`👤 Cliente: ${leadName}`);
