@@ -92,8 +92,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         if (action === 'create' || action === 'update') {
             const { appointment_date, appointment_time, duration_hours, title, notes, location_address, lead_data, lead_service } = appointment;
-            const startDateTime = new Date(`${appointment_date}T${appointment_time}:00`);
-            const endDateTime = new Date(startDateTime.getTime() + duration_hours * 60 * 60 * 1000);
+            // Calcola data/ora di fine sommando la durata in minuti, gestendo l'overflow di giorno.
+            // Le stringhe vengono passate a Google senza suffisso Z: l'istante viene così interpretato
+            // nel fuso indicato da timeZone (Europe/Rome) invece di subire un doppio offset.
+            const [startHour, startMinute] = appointment_time.split(':').map(Number);
+            const [y, m, d] = appointment_date.split('-').map(Number);
+            const endDateObj = new Date(y, m - 1, d, startHour, startMinute);
+            endDateObj.setMinutes(endDateObj.getMinutes() + duration_hours * 60);
+            const pad = (n: number) => String(n).padStart(2, '0');
+            const endDateStr = `${endDateObj.getFullYear()}-${pad(endDateObj.getMonth() + 1)}-${pad(endDateObj.getDate())}`;
+            const endTimeStr = `${pad(endDateObj.getHours())}:${pad(endDateObj.getMinutes())}`;
+            const startDateTimeStr = `${appointment_date}T${appointment_time}:00`;
+            const endDateTimeStr = `${endDateStr}T${endTimeStr}:00`;
 
             // Estrai info del lead per titolo e descrizione
             const leadName = lead_data ? extractLeadField(lead_data, ['nome', 'name', 'nome_cognome', 'full_name', 'nominativo']) : '';
@@ -113,8 +123,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 summary,
                 description: descParts.join('\n'),
                 location: location_address || '',
-                start: { dateTime: startDateTime.toISOString(), timeZone: 'Europe/Rome' },
-                end: { dateTime: endDateTime.toISOString(), timeZone: 'Europe/Rome' },
+                start: { dateTime: startDateTimeStr, timeZone: 'Europe/Rome' },
+                end: { dateTime: endDateTimeStr, timeZone: 'Europe/Rome' },
             };
 
             if (action === 'create') {
