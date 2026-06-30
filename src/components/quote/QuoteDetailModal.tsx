@@ -93,6 +93,9 @@ const QuoteDetailModal: React.FC<QuoteDetailModalProps> = ({ isOpen, onClose, qu
         if (!previewRef.current || !recipientEmail || !client) return;
         setIsSendingEmail(true);
         setStatusMessage(null);
+        // Apri subito la scheda (entro il gesto utente sincrono), altrimenti alcuni browser
+        // (es. Edge su Windows) bloccano o disturbano il popup dopo le await successive.
+        const newTab = window.open('', '_blank');
         try {
             const quoteNumber = quote.quote_number_display || quote.id.substring(0, 6);
             let linkPdf = '';
@@ -107,9 +110,15 @@ const QuoteDetailModal: React.FC<QuoteDetailModalProps> = ({ isOpen, onClose, qu
             const subject = applyQuoteShareTemplate(shareSettings?.email_subject_template || DEFAULT_EMAIL_SUBJECT_TEMPLATE, vars);
             const body = applyQuoteShareTemplate(shareSettings?.email_body_template || DEFAULT_EMAIL_BODY_TEMPLATE, vars);
             const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(recipientEmail)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-            window.open(gmailUrl, '_blank');
+            if (newTab) {
+                newTab.location.href = gmailUrl;
+            } else {
+                setStatusMessage({ type: 'error', message: 'Il browser ha bloccato l\'apertura di Gmail. Consenti i popup per questo sito e riprova.' });
+                return;
+            }
             await markAsSent();
         } catch (err: any) {
+            newTab?.close();
             setStatusMessage({ type: 'error', message: err.message || 'Errore durante la preparazione del PDF.' });
         } finally {
             setIsSendingEmail(false);
@@ -120,6 +129,7 @@ const QuoteDetailModal: React.FC<QuoteDetailModalProps> = ({ isOpen, onClose, qu
         if (!previewRef.current || !recipientPhone || !client) return;
         setIsSendingWhatsApp(true);
         setStatusMessage(null);
+        const newTab = window.open('', '_blank');
         try {
             const quoteNumber = quote.quote_number_display || quote.id.substring(0, 6);
             let linkPdf = '';
@@ -133,9 +143,15 @@ const QuoteDetailModal: React.FC<QuoteDetailModalProps> = ({ isOpen, onClose, qu
             const shareSettings = client.quote_settings?.share_message;
             const message = applyQuoteShareTemplate(shareSettings?.whatsapp_message_template || DEFAULT_WHATSAPP_MESSAGE_TEMPLATE, vars);
             const waUrl = `https://wa.me/${normalizePhoneForWhatsApp(recipientPhone)}?text=${encodeURIComponent(message)}`;
-            window.open(waUrl, '_blank');
+            if (newTab) {
+                newTab.location.href = waUrl;
+            } else {
+                setStatusMessage({ type: 'error', message: 'Il browser ha bloccato l\'apertura di WhatsApp. Consenti i popup per questo sito e riprova.' });
+                return;
+            }
             await markAsSent();
         } catch (err: any) {
+            newTab?.close();
             setStatusMessage({ type: 'error', message: err.message || 'Errore durante la preparazione del PDF.' });
         } finally {
             setIsSendingWhatsApp(false);
