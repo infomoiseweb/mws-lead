@@ -132,9 +132,10 @@ const SocialPage: React.FC = () => {
         }
     };
 
-    const facebookConnected = !!(client?.meta_access_token && (client?.meta_pages as any[] || []).length > 0);
+    const facebookConnected = !!client?.meta_access_token;
+    const facebookPages = (client?.meta_pages as any[] || []);
     const instagramConnected = !!(client?.meta_instagram_active);
-    const canPostFacebook = platform !== 'instagram' && facebookConnected;
+    const canPostFacebook = platform !== 'instagram' && facebookConnected && facebookPages.length > 0;
     const canPostInstagram = platform !== 'facebook' && instagramConnected;
     const hasAnythingToPost = (platform === 'facebook' && canPostFacebook) || (platform === 'instagram' && canPostInstagram) || (platform === 'both' && (canPostFacebook || canPostInstagram));
     const instagramNeedsImage = (platform === 'instagram' || platform === 'both') && instagramConnected && !imageUrl.trim();
@@ -173,8 +174,10 @@ const SocialPage: React.FC = () => {
                     <FBIcon size={20} className={facebookConnected ? 'text-[#1877F2]' : 'text-slate-400'} />
                     <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-slate-700 dark:text-gray-200">Facebook</p>
-                        {facebookConnected ? (
-                            <p className="text-xs text-green-600 dark:text-green-400">✅ {(client.meta_pages as any[]).length} pagina/e</p>
+                        {facebookConnected && facebookPages.length > 0 ? (
+                            <p className="text-xs text-green-600 dark:text-green-400">✅ {facebookPages.length} pagina/e</p>
+                        ) : facebookConnected ? (
+                            <p className="text-xs text-amber-500">Collegato — nessuna pagina trovata</p>
                         ) : (
                             <p className="text-xs text-slate-400">Non collegato</p>
                         )}
