@@ -27,6 +27,7 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
     const [quoteWebhookUrl, setQuoteWebhookUrl] = useState('');
     const [canDeleteLeads, setCanDeleteLeads] = useState(false);
     const [canEditLeads, setCanEditLeads] = useState(false);
+    const [metaEnabled, setMetaEnabled] = useState(false);
     const [installmentsEnabled, setInstallmentsEnabled] = useState(false);
     const [distanceSettings, setDistanceSettings] = useState<DistanceSettings>({
         enabled: false,
@@ -95,6 +96,7 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
             setQuoteWebhookUrl(client.quote_webhook_url || '');
             setCanDeleteLeads(client.can_delete_leads ?? false);
             setCanEditLeads(client.can_edit_leads ?? false);
+            setMetaEnabled(client.meta_enabled ?? false);
             setInstallmentsEnabled(client.installments_enabled ?? false);
             setDistanceSettings(client.distance_settings ?? { enabled: false, company_address: '', location_field: '' });
         } else {
@@ -167,6 +169,7 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
                     quote_webhook_url: quoteWebhookUrl,
                     can_delete_leads: canDeleteLeads,
                     can_edit_leads: canEditLeads,
+                    meta_enabled: metaEnabled,
                     installments_enabled: installmentsEnabled,
                     distance_settings: distanceSettings,
                 };
@@ -308,6 +311,46 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
                                     <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
                                 </svg>
                                 {client.google_calendar_enabled ? 'Ricollega' : 'Collega'}
+                            </a>
+                        </div>
+                    )}
+
+                    {/* Meta Social */}
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50 mb-4">
+                        <div>
+                            <p className="text-sm font-medium text-slate-700 dark:text-gray-200">Social Meta (Facebook / Instagram)</p>
+                            <p className="text-xs text-slate-500 dark:text-gray-400 mt-0.5">
+                                {metaEnabled
+                                    ? 'Sezione Social attiva — il cliente può collegare il suo account Meta'
+                                    : 'Abilita la sezione Social per questo cliente'}
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setMetaEnabled(v => !v)}
+                            className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${metaEnabled ? 'bg-primary-600' : 'bg-slate-300 dark:bg-slate-600'}`}
+                        >
+                            <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${metaEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
+                        </button>
+                    </div>
+                    {client && metaEnabled && (
+                        <div className="flex items-center justify-between p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 mb-4">
+                            <div>
+                                <p className="text-sm font-medium text-slate-700 dark:text-gray-200">Account Meta collegato</p>
+                                <p className="text-xs text-slate-500 dark:text-gray-400 mt-0.5">
+                                    {client.meta_enabled
+                                        ? '✅ Collegato — il cliente può pubblicare su Facebook/Instagram'
+                                        : 'Non ancora collegato dal cliente'}
+                                </p>
+                            </div>
+                            <a
+                                href={`/api/meta?client_id=${client.id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg text-xs font-semibold text-slate-700 dark:text-gray-200 hover:border-blue-400 transition"
+                            >
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="#1877F2"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                                Collega come admin
                             </a>
                         </div>
                     )}

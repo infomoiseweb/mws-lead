@@ -809,6 +809,55 @@ ${buildApiJsonSnippet(service)}`}
           </a>
         </div>
       </div>
+
+      {/* Meta Social — solo se abilitato dall'admin */}
+      {client.meta_enabled && (
+        <div className="lg:col-span-12 bg-white dark:bg-slate-800 shadow-xl rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+          <div className="p-6 flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="flex items-center gap-4 flex-1 min-w-0">
+              <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="#1877F2"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-800 dark:text-white text-base">Facebook & Instagram</h3>
+                {client.meta_enabled && client.meta_access_token ? (
+                  <p className="text-sm text-green-600 dark:text-green-400 font-medium mt-0.5">
+                    ✅ Collegato — puoi pubblicare su Facebook e Instagram
+                  </p>
+                ) : (
+                  <p className="text-sm text-slate-500 dark:text-gray-400 mt-0.5">
+                    Collega il tuo account Meta per pubblicare post direttamente dalla piattaforma
+                  </p>
+                )}
+              </div>
+            </div>
+            <a
+              href={`/api/meta?client_id=${client.id}&redirect_to=client`}
+              className={`flex-shrink-0 flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all shadow-sm ${
+                client.meta_access_token
+                  ? 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-gray-200 hover:bg-slate-200 dark:hover:bg-slate-600'
+                  : 'bg-[#1877F2] text-white hover:bg-[#166FE5]'
+              }`}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+              {client.meta_access_token ? 'Ricollega account' : 'Collega Facebook & Instagram'}
+            </a>
+          </div>
+          {client.meta_access_token && client.meta_pages && (client.meta_pages as any[]).length > 0 && (
+            <div className="px-6 pb-4 border-t border-slate-100 dark:border-slate-700 pt-4">
+              <p className="text-xs font-semibold text-slate-500 dark:text-gray-400 uppercase tracking-wide mb-2">Pagine collegate</p>
+              <div className="flex flex-wrap gap-2">
+                {(client.meta_pages as any[]).map((page: any) => (
+                  <span key={page.id} className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-xs font-medium">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                    {page.name}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

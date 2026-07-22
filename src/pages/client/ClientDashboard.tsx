@@ -242,15 +242,19 @@ const ClientDashboard: React.FC = () => {
     const activeView = searchParams.get('view') || 'leads';
     const gcalSuccess = searchParams.get('gcal_success');
     const gcalError = searchParams.get('gcal_error');
+    const metaSuccess = searchParams.get('meta_success');
+    const metaError = searchParams.get('meta_error');
 
     useEffect(() => {
-        if (gcalSuccess || gcalError) {
+        if (gcalSuccess || gcalError || metaSuccess || metaError) {
             const next = new URLSearchParams(searchParams);
             next.delete('gcal_success');
             next.delete('gcal_error');
+            next.delete('meta_success');
+            next.delete('meta_error');
             setSearchParams(next, { replace: true });
         }
-    }, [gcalSuccess, gcalError]);
+    }, [gcalSuccess, gcalError, metaSuccess, metaError]);
     const [client, setClient] = useState<Client | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -1366,6 +1370,16 @@ const ClientDashboard: React.FC = () => {
             {gcalError && (
                 <div className="fixed top-4 right-4 z-50 bg-red-500 text-white px-5 py-3 rounded-xl shadow-lg font-semibold text-sm">
                     ❌ Errore collegamento Google Calendar: {gcalError}
+                </div>
+            )}
+            {metaSuccess && (
+                <div className="fixed top-4 right-4 z-50 bg-green-500 text-white px-5 py-3 rounded-xl shadow-lg font-semibold text-sm">
+                    ✅ Facebook & Instagram collegati con successo!
+                </div>
+            )}
+            {metaError && (
+                <div className="fixed top-4 right-4 z-50 bg-red-500 text-white px-5 py-3 rounded-xl shadow-lg font-semibold text-sm">
+                    ❌ Errore collegamento Meta: {metaError}
                 </div>
             )}
             {/* Inside Content View Container */}

@@ -268,6 +268,10 @@ export interface Client {
     can_edit_leads?: boolean;
     google_calendar_enabled?: boolean;
     google_calendar_id?: string;
+    meta_enabled?: boolean;
+    meta_access_token?: string;
+    meta_token_expiry?: number;
+    meta_pages?: Array<{ id: string; name: string; access_token: string }>;
     distance_settings?: DistanceSettings;
     installments_enabled?: boolean;
     // These are loaded separately
