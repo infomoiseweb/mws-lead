@@ -25,6 +25,7 @@ import QuotesPage from './src/pages/QuotesPage';
 import MailMarketingPage from './src/pages/client/MailMarketingPage';
 import InstallmentsPage from './src/pages/client/InstallmentsPage';
 import { supabase } from './src/lib/supabase';
+import PrivacyPage from './src/pages/PrivacyPage';
 
 const ProtectedRoute: React.FC<{ children: React.ReactElement; role: 'admin' | 'client' }> = ({ children, role }) => {
     const { user } = useAuth();
@@ -123,6 +124,7 @@ const AppRoutes: React.FC = () => {
             </Route>
 
             {/* Redirect from root path. This has lower precedence than specific routes. */}
+            <Route path="/privacy" element={<PrivacyPage />} />
             <Route path="/" element={<RootRedirector />} />
             
             {/* For any other un-matched path (404), redirect to the root. The root will then handle redirection to dashboard or login. */}
