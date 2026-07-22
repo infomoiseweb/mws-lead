@@ -26,6 +26,9 @@ import MailMarketingPage from './src/pages/client/MailMarketingPage';
 import InstallmentsPage from './src/pages/client/InstallmentsPage';
 import { supabase } from './src/lib/supabase';
 import PrivacyPage from './src/pages/PrivacyPage';
+import TermsPublicPage from './src/pages/TermsPublicPage';
+import CookiePage from './src/pages/CookiePage';
+import CookieBanner from './src/components/ui/CookieBanner';
 
 const ProtectedRoute: React.FC<{ children: React.ReactElement; role: 'admin' | 'client' }> = ({ children, role }) => {
     const { user } = useAuth();
@@ -125,6 +128,8 @@ const AppRoutes: React.FC = () => {
 
             {/* Redirect from root path. This has lower precedence than specific routes. */}
             <Route path="/privacy" element={<PrivacyPage />} />
+            <Route path="/termini" element={<TermsPublicPage />} />
+            <Route path="/cookie" element={<CookiePage />} />
             <Route path="/" element={<RootRedirector />} />
             
             {/* For any other un-matched path (404), redirect to the root. The root will then handle redirection to dashboard or login. */}
@@ -150,6 +155,7 @@ function App() {
                 <AuthProvider>
                     <HashRouter>
                         <AppCore />
+                        <CookieBanner />
                     </HashRouter>
                 </AuthProvider>
             </ThemeProvider>

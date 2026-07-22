@@ -401,6 +401,10 @@ const LoginPage: React.FC = () => {
                     <span>P.IVA: RO50469659</span>
                     <span className="hidden sm:inline">|</span>
                     <a href="#/privacy" className="hover:text-[#9cc9ff] transition-colors">Privacy Policy</a>
+                    <span className="hidden sm:inline">|</span>
+                    <a href="#/termini" className="hover:text-[#9cc9ff] transition-colors">Termini e Condizioni</a>
+                    <span className="hidden sm:inline">|</span>
+                    <a href="#/cookie" className="hover:text-[#9cc9ff] transition-colors">Cookie Policy</a>
                 </div>
             </footer>
         </div>
