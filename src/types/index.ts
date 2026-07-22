@@ -271,7 +271,9 @@ export interface Client {
     meta_enabled?: boolean;
     meta_access_token?: string;
     meta_token_expiry?: number;
-    meta_pages?: Array<{ id: string; name: string; access_token: string }>;
+    meta_pages?: Array<{ id: string; name: string; access_token: string; instagram_business_account?: { id: string } }>;
+    meta_instagram_accounts?: Array<{ id: string; page_id: string; page_name: string }>;
+    meta_instagram_active?: { id: string; page_id: string; page_name: string } | null;
     distance_settings?: DistanceSettings;
     installments_enabled?: boolean;
     // These are loaded separately

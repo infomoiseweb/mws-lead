@@ -51,14 +51,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // Converte in long-lived token (60 giorni)
             const { token: longToken, expiry } = await getLongLivedToken(tokenData.access_token);
 
-            // Recupera le Page Facebook collegate (per publishing)
-            const pagesRes = await fetch(`https://graph.facebook.com/me/accounts?access_token=${longToken}`);
+            // Recupera le Page Facebook + account Instagram Business collegati
+            const pagesRes = await fetch(`https://graph.facebook.com/me/accounts?fields=id,name,access_token,instagram_business_account&access_token=${longToken}`);
             const pagesData = await pagesRes.json();
+            const pages = pagesData.data || [];
+
+            // Estrai account Instagram da ogni pagina
+            const igAccounts: Array<{ id: string; page_id: string; page_name: string }> = [];
+            for (const page of pages) {
+                if (page.instagram_business_account?.id) {
+                    igAccounts.push({ id: page.instagram_business_account.id, page_id: page.id, page_name: page.name });
+                }
+            }
 
             await supabaseAdmin.from('clients').update({
                 meta_access_token: longToken,
                 meta_token_expiry: expiry,
-                meta_pages: pagesData.data || [],
+                meta_pages: pages,
+                meta_instagram_accounts: igAccounts,
                 meta_enabled: true,
             }).eq('id', clientId);
 
@@ -98,7 +108,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
         if (authError || !user) return res.status(401).json({ error: 'Non autorizzato' });
 
-        const { action, client_id, page_id, message, image_url, instagram_account_id } = req.body;
+        const { action, client_id, page_id, message, image_url, instagram_account_id, instagram_account } = req.body;
         if (!client_id) return res.status(400).json({ error: 'client_id mancante' });
 
         const { data: clientData } = await supabaseAdmin
@@ -162,7 +172,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
 
             if (action === 'get_pages') {
-                return res.status(200).json({ success: true, pages, days_left: Math.floor(daysLeft) });
+                const igAccounts = clientData.meta_instagram_accounts || [];
+                return res.status(200).json({ success: true, pages, instagram_accounts: igAccounts, days_left: Math.floor(daysLeft) });
+            }
+
+            if (action === 'set_instagram_account') {
+                // instagram_account: { id, page_id, page_name } oppure null per scollegare
+                await supabaseAdmin.from('clients').update({ meta_instagram_active: instagram_account || null }).eq('id', client_id);
+                return res.status(200).json({ success: true });
+            }
+
+            if (action === 'disconnect_facebook') {
+                await supabaseAdmin.from('clients').update({
+                    meta_access_token: null, meta_token_expiry: null,
+                    meta_pages: [], meta_instagram_accounts: [], meta_instagram_active: null,
+                }).eq('id', client_id);
+                return res.status(200).json({ success: true });
             }
 
             return res.status(400).json({ error: 'action non valida' });

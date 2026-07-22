@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import * as ApiService from '@api';
 import type { Client, Service, LeadField } from '../types';
 import { isBaseService } from '@/utils/services';
@@ -810,53 +810,115 @@ ${buildApiJsonSnippet(service)}`}
         </div>
       </div>
 
-      {/* Meta Social — solo se abilitato dall'admin */}
+      {/* ── Meta Social — solo se abilitato dall'admin ── */}
       {client.meta_enabled && (
-        <div className="lg:col-span-12 bg-white dark:bg-slate-800 shadow-xl rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
-          <div className="p-6 flex flex-col sm:flex-row sm:items-center gap-4">
-            <div className="flex items-center gap-4 flex-1 min-w-0">
-              <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="#1877F2"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+        <>
+          {/* Card Facebook */}
+          <div className="lg:col-span-12 bg-white dark:bg-slate-800 shadow-xl rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+            <div className="p-6 flex flex-col sm:flex-row sm:items-center gap-4">
+              <div className="flex items-center gap-4 flex-1 min-w-0">
+                <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="#1877F2"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-800 dark:text-white text-base">Facebook</h3>
+                  {client.meta_access_token ? (
+                    <p className="text-sm text-green-600 dark:text-green-400 font-medium mt-0.5">
+                      ✅ Collegato — {(client.meta_pages as any[] || []).length} pagina/e disponibile/i
+                    </p>
+                  ) : (
+                    <p className="text-sm text-slate-500 dark:text-gray-400 mt-0.5">
+                      Collega il tuo account Facebook per pubblicare post sulle tue pagine
+                    </p>
+                  )}
+                </div>
               </div>
-              <div>
-                <h3 className="font-bold text-slate-800 dark:text-white text-base">Facebook & Instagram</h3>
-                {client.meta_enabled && client.meta_access_token ? (
-                  <p className="text-sm text-green-600 dark:text-green-400 font-medium mt-0.5">
-                    ✅ Collegato — puoi pubblicare su Facebook e Instagram
-                  </p>
-                ) : (
-                  <p className="text-sm text-slate-500 dark:text-gray-400 mt-0.5">
-                    Collega il tuo account Meta per pubblicare post direttamente dalla piattaforma
-                  </p>
-                )}
-              </div>
+              <a
+                href={`/api/meta?client_id=${client.id}&redirect_to=client`}
+                className={`flex-shrink-0 flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all shadow-sm ${
+                  client.meta_access_token
+                    ? 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-gray-200 hover:bg-slate-200 dark:hover:bg-slate-600'
+                    : 'bg-[#1877F2] text-white hover:bg-[#166FE5]'
+                }`}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                {client.meta_access_token ? 'Ricollega' : 'Collega Facebook'}
+              </a>
             </div>
-            <a
-              href={`/api/meta?client_id=${client.id}&redirect_to=client`}
-              className={`flex-shrink-0 flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all shadow-sm ${
-                client.meta_access_token
-                  ? 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-gray-200 hover:bg-slate-200 dark:hover:bg-slate-600'
-                  : 'bg-[#1877F2] text-white hover:bg-[#166FE5]'
-              }`}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-              {client.meta_access_token ? 'Ricollega account' : 'Collega Facebook & Instagram'}
-            </a>
+            {client.meta_access_token && (client.meta_pages as any[] || []).length > 0 && (
+              <div className="px-6 pb-4 border-t border-slate-100 dark:border-slate-700 pt-4">
+                <p className="text-xs font-semibold text-slate-500 dark:text-gray-400 uppercase tracking-wide mb-2">Pagine collegate</p>
+                <div className="flex flex-wrap gap-2">
+                  {(client.meta_pages as any[]).map((page: any) => (
+                    <span key={page.id} className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-xs font-medium">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                      {page.name}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
-          {client.meta_access_token && client.meta_pages && (client.meta_pages as any[]).length > 0 && (
-            <div className="px-6 pb-4 border-t border-slate-100 dark:border-slate-700 pt-4">
-              <p className="text-xs font-semibold text-slate-500 dark:text-gray-400 uppercase tracking-wide mb-2">Pagine collegate</p>
-              <div className="flex flex-wrap gap-2">
-                {(client.meta_pages as any[]).map((page: any) => (
-                  <span key={page.id} className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-xs font-medium">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-                    {page.name}
-                  </span>
-                ))}
+
+          {/* Card Instagram — appare solo dopo aver collegato Facebook */}
+          {client.meta_access_token && (
+            <div className="lg:col-span-12 bg-white dark:bg-slate-800 shadow-xl rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+              <div className="p-6 flex flex-col sm:flex-row sm:items-start gap-4">
+                <div className="flex items-center gap-4 flex-1 min-w-0">
+                  <div className="flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)' }}>
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-bold text-slate-800 dark:text-white text-base">Instagram</h3>
+                    {client.meta_instagram_active ? (
+                      <p className="text-sm text-green-600 dark:text-green-400 font-medium mt-0.5">
+                        ✅ Collegato — account dalla pagina "{(client.meta_instagram_active as any).page_name}"
+                      </p>
+                    ) : (client.meta_instagram_accounts as any[] || []).length > 0 ? (
+                      <p className="text-sm text-amber-600 dark:text-amber-400 mt-0.5">
+                        Seleziona quale account Instagram vuoi usare per pubblicare
+                      </p>
+                    ) : (
+                      <p className="text-sm text-slate-500 dark:text-gray-400 mt-0.5">
+                        Nessun account Instagram Business trovato. Assicurati che la tua pagina Facebook sia collegata a un account Instagram Business.
+                      </p>
+                    )}
+                    {/* Selettore account Instagram */}
+                    {(client.meta_instagram_accounts as any[] || []).length > 0 && (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {(client.meta_instagram_accounts as any[]).map((acc: any) => {
+                          const isActive = (client.meta_instagram_active as any)?.id === acc.id;
+                          return (
+                            <button
+                              key={acc.id}
+                              onClick={async () => {
+                                const { data: { session } } = await (await import('../../lib/supabase')).supabase.auth.getSession();
+                                await fetch('/api/meta', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+                                  body: JSON.stringify({ action: 'set_instagram_account', client_id: client.id, instagram_account: isActive ? null : acc }),
+                                });
+                                window.location.reload();
+                              }}
+                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+                                isActive
+                                  ? 'bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 border-pink-300 dark:border-pink-700'
+                                  : 'bg-slate-50 dark:bg-slate-700 text-slate-600 dark:text-gray-300 border-slate-200 dark:border-slate-600 hover:border-pink-400'
+                              }`}
+                            >
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
+                              {acc.page_name} {isActive && '✓'}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           )}
-        </div>
+        </>
       )}
     </div>
   );
