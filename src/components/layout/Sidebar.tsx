@@ -2,10 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { NavLink, useNavigate, useLocation, useParams } from 'react-router-dom';
 import { useAuth } from '@contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
-import { getClientMailMarketingFlag, getClientInstallmentsFlag } from '@api/clients';
+import { getClientMailMarketingFlag, getClientInstallmentsFlag, getClientMetaFlag } from '@api/clients';
 import {
     LogOut, User as UserIcon, LayoutGrid, List, Users, BarChart3, DollarSign,
-    FileCode, Activity, Calendar, FileText, ChevronsLeft, ChevronsRight, Plug, Send, Layers
+    FileCode, Activity, Calendar, FileText, ChevronsLeft, ChevronsRight, Plug, Send, Layers, Share2
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -34,11 +34,13 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle, onNavigate }) =>
 
     const [mailMarketingEnabled, setMailMarketingEnabled] = useState(false);
     const [installmentsEnabled, setInstallmentsEnabled] = useState(false);
+    const [metaEnabled, setMetaEnabled] = useState(false);
 
     useEffect(() => {
         if (isAdmin || !userId) return;
         getClientMailMarketingFlag(userId).then(setMailMarketingEnabled).catch(() => setMailMarketingEnabled(false));
         getClientInstallmentsFlag(userId).then(setInstallmentsEnabled).catch(() => setInstallmentsEnabled(false));
+        getClientMetaFlag(userId).then(setMetaEnabled).catch(() => setMetaEnabled(false));
     }, [isAdmin, userId]);
 
     const handleLogout = () => {
@@ -169,6 +171,12 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle, onNavigate }) =>
             icon: <Layers size={20} />,
             label: 'Rate',
             isActive: (pathname: string) => pathname === `/client/${userId}/installments`,
+        }] : []),
+        ...(metaEnabled ? [{
+            to: `/client/${userId}/social`,
+            icon: <Share2 size={20} />,
+            label: 'Social',
+            isActive: (pathname: string) => pathname === `/client/${userId}/social`,
         }] : []),
         {
             to: `/client/${userId}/analytics`,

@@ -26,6 +26,7 @@ import MailMarketingPage from './src/pages/client/MailMarketingPage';
 import InstallmentsPage from './src/pages/client/InstallmentsPage';
 import { supabase } from './src/lib/supabase';
 import PrivacyPage from './src/pages/PrivacyPage';
+import SocialPage from './src/pages/client/SocialPage';
 import TermsPublicPage from './src/pages/TermsPublicPage';
 import CookiePage from './src/pages/CookiePage';
 import CookieBanner from './src/components/ui/CookieBanner';
@@ -123,6 +124,7 @@ const AppRoutes: React.FC = () => {
                 <Route path="terms" element={<TermsPage />} />
                 <Route path="chat" element={<ChatPage />} />
                 <Route path="notifications" element={<NotificationsPage />} />
+                <Route path="social" element={<SocialPage />} />
                 <Route index element={<Navigate to="overview" replace />} />
             </Route>
 
