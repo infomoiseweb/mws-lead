@@ -24,7 +24,7 @@ const PrivacyPage: React.FC = () => {
                     <p>Il titolare del trattamento dei dati personali è:</p>
                     <p style={{ marginTop: '0.5rem', padding: '0.75rem 1rem', backgroundColor: '#f1f5f9', borderRadius: '8px' }}>
                         <strong>MWS Lead Manager</strong><br />
-                        Email: <a href="mailto:ai.danielcorso@gmail.com" style={{ color: '#3b82f6' }}>ai.danielcorso@gmail.com</a><br />
+                        Email: <a href="mailto:info.moiseweb@gmail.com" style={{ color: '#3b82f6' }}>info.moiseweb@gmail.com</a><br />
                         Sito web: <a href="https://mws-saas.com" style={{ color: '#3b82f6' }}>https://mws-saas.com</a>
                     </p>
                 </Section>
@@ -101,7 +101,7 @@ const PrivacyPage: React.FC = () => {
                     </ul>
                     <p style={{ marginTop: '0.75rem' }}>
                         Per esercitare questi diritti, invia una richiesta a:{' '}
-                        <a href="mailto:ai.danielcorso@gmail.com" style={{ color: '#3b82f6' }}>ai.danielcorso@gmail.com</a>.
+                        <a href="mailto:info.moiseweb@gmail.com" style={{ color: '#3b82f6' }}>info.moiseweb@gmail.com</a>.
                         Risponderemo entro 30 giorni. Hai inoltre il diritto di presentare reclamo all'
                         <a href="https://www.garanteprivacy.it" target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6' }}>Autorità Garante per la protezione dei dati personali</a>.
                     </p>
@@ -111,7 +111,7 @@ const PrivacyPage: React.FC = () => {
                     <div id="cancellazione-dati" style={{ padding: '1rem', backgroundColor: '#fef3c7', borderRadius: '8px', borderLeft: '4px solid #f59e0b' }}>
                         <p style={{ fontWeight: 600, marginBottom: '0.5rem' }}>Come richiedere la cancellazione dei tuoi dati:</p>
                         <ol style={{ paddingLeft: '1.25rem', marginBottom: '0.75rem' }}>
-                            <li>Invia una email a <a href="mailto:ai.danielcorso@gmail.com" style={{ color: '#3b82f6' }}>ai.danielcorso@gmail.com</a> con oggetto: <strong>"Richiesta cancellazione dati"</strong></li>
+                            <li>Invia una email a <a href="mailto:info.moiseweb@gmail.com" style={{ color: '#3b82f6' }}>info.moiseweb@gmail.com</a> con oggetto: <strong>"Richiesta cancellazione dati"</strong></li>
                             <li>Indica il tuo indirizzo email associato all'account</li>
                             <li>Riceverai conferma entro 72 ore</li>
                             <li>La cancellazione completa avverrà entro 30 giorni dalla richiesta</li>
@@ -159,7 +159,7 @@ const PrivacyPage: React.FC = () => {
                 <div style={{ marginTop: '2.5rem', paddingTop: '1.5rem', borderTop: '1px solid #e2e8f0', textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem' }}>
                     <p>MWS Lead Manager &copy; {new Date().getFullYear()} — Tutti i diritti riservati</p>
                     <p style={{ marginTop: '0.25rem' }}>
-                        <a href="mailto:ai.danielcorso@gmail.com" style={{ color: '#3b82f6', textDecoration: 'none' }}>ai.danielcorso@gmail.com</a>
+                        <a href="mailto:info.moiseweb@gmail.com" style={{ color: '#3b82f6', textDecoration: 'none' }}>info.moiseweb@gmail.com</a>
                         &nbsp;·&nbsp;
                         <a href="https://mws-saas.com" style={{ color: '#3b82f6', textDecoration: 'none' }}>mws-saas.com</a>
                     </p>

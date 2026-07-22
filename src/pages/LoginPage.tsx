@@ -399,6 +399,8 @@ const LoginPage: React.FC = () => {
                     <span>{t('footer_hq') || 'HQ: Oradea, Romania'}</span>
                     <span className="hidden sm:inline">|</span>
                     <span>P.IVA: RO50469659</span>
+                    <span className="hidden sm:inline">|</span>
+                    <a href="#/privacy" className="hover:text-[#9cc9ff] transition-colors">Privacy Policy</a>
                 </div>
             </footer>
         </div>
