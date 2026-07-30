@@ -96,6 +96,12 @@ export async function getClientMetaFlag(userId: string): Promise<boolean> {
     return !!data.meta_enabled;
 }
 
+export async function getClientOperatorsFlag(userId: string): Promise<boolean> {
+    const { data, error } = await supabase.from('clients').select('operators_enabled').eq('user_id', userId).maybeSingle();
+    if (error || !data) return false;
+    return !!data.operators_enabled;
+}
+
 export async function getClientByUserId(userId: string, startDate?: Date | null, endDate?: Date | null): Promise<Client | null> {
     const { data: client, error } = await supabase.from('clients').select('*').eq('user_id', userId).single();
     if (error || !client) return null;
@@ -145,7 +151,7 @@ export async function addClientForExistingUser(
 
 export async function updateClient(
     clientId: string,
-    updates: Partial<Pick<Client, 'name' | 'services' | 'mws_fixed_fee' | 'mws_profit_percentage' | 'quote_webhook_url' | 'message_templates' | 'quote_settings' | 'marketing_settings' | 'mail_marketing_enabled' | 'can_delete_leads' | 'can_edit_leads' | 'google_calendar_enabled' | 'google_calendar_id' | 'distance_settings' | 'installments_enabled' | 'meta_enabled' | 'meta_instagram_active'>>
+    updates: Partial<Pick<Client, 'name' | 'services' | 'mws_fixed_fee' | 'mws_profit_percentage' | 'quote_webhook_url' | 'message_templates' | 'quote_settings' | 'marketing_settings' | 'mail_marketing_enabled' | 'can_delete_leads' | 'can_edit_leads' | 'google_calendar_enabled' | 'google_calendar_id' | 'distance_settings' | 'installments_enabled' | 'meta_enabled' | 'meta_instagram_active' | 'operators_enabled'>>
 ): Promise<Client> {
     const { mws_fixed_fee, mws_profit_percentage, ...otherUpdates } = updates;
     const payload: any = { ...otherUpdates };

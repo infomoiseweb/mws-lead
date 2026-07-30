@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { NavLink, useNavigate, useLocation, useParams } from 'react-router-dom';
 import { useAuth } from '@contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
-import { getClientMailMarketingFlag, getClientInstallmentsFlag, getClientMetaFlag } from '@api/clients';
+import { getClientMailMarketingFlag, getClientInstallmentsFlag, getClientMetaFlag, getClientOperatorsFlag } from '@api/clients';
 import {
     LogOut, User as UserIcon, LayoutGrid, List, Users, BarChart3, DollarSign,
     FileCode, Activity, Calendar, FileText, ChevronsLeft, ChevronsRight, Plug, Send, Layers, Share2
@@ -35,12 +35,14 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle, onNavigate }) =>
     const [mailMarketingEnabled, setMailMarketingEnabled] = useState(false);
     const [installmentsEnabled, setInstallmentsEnabled] = useState(false);
     const [metaEnabled, setMetaEnabled] = useState(false);
+    const [operatorsEnabled, setOperatorsEnabled] = useState(false);
 
     useEffect(() => {
         if (isAdmin || !userId) return;
         getClientMailMarketingFlag(userId).then(setMailMarketingEnabled).catch(() => setMailMarketingEnabled(false));
         getClientInstallmentsFlag(userId).then(setInstallmentsEnabled).catch(() => setInstallmentsEnabled(false));
         getClientMetaFlag(userId).then(setMetaEnabled).catch(() => setMetaEnabled(false));
+        getClientOperatorsFlag(userId).then(setOperatorsEnabled).catch(() => setOperatorsEnabled(false));
     }, [isAdmin, userId]);
 
     const handleLogout = () => {
@@ -177,6 +179,12 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle, onNavigate }) =>
             icon: <Share2 size={20} />,
             label: 'Social',
             isActive: (pathname: string) => pathname === `/client/${userId}/social`,
+        }] : []),
+        ...(operatorsEnabled ? [{
+            to: `/client/${userId}/dashboard?view=operatori`,
+            icon: <Users size={20} />,
+            label: 'Operatori',
+            isActive: (_pathname: string, search: string) => search.includes('view=operatori'),
         }] : []),
         {
             to: `/client/${userId}/analytics`,

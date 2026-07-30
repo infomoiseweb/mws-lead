@@ -28,6 +28,7 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
     const [canDeleteLeads, setCanDeleteLeads] = useState(false);
     const [canEditLeads, setCanEditLeads] = useState(false);
     const [metaEnabled, setMetaEnabled] = useState(false);
+    const [operatorsEnabled, setOperatorsEnabled] = useState(false);
     const [installmentsEnabled, setInstallmentsEnabled] = useState(false);
     const [distanceSettings, setDistanceSettings] = useState<DistanceSettings>({
         enabled: false,
@@ -96,6 +97,7 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
             setQuoteWebhookUrl(client.quote_webhook_url || '');
             setCanDeleteLeads(client.can_delete_leads ?? false);
             setCanEditLeads(client.can_edit_leads ?? false);
+            setOperatorsEnabled(client.operators_enabled ?? false);
             setMetaEnabled(client.meta_enabled ?? false);
             setInstallmentsEnabled(client.installments_enabled ?? false);
             setDistanceSettings(client.distance_settings ?? { enabled: false, company_address: '', location_field: '' });
@@ -171,6 +173,7 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
                     can_edit_leads: canEditLeads,
                     meta_enabled: metaEnabled,
                     installments_enabled: installmentsEnabled,
+                    operators_enabled: operatorsEnabled,
                     distance_settings: distanceSettings,
                 };
                 await ApiService.updateClient(client.id, updates);
@@ -314,6 +317,21 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
                             </a>
                         </div>
                     )}
+
+                    {/* Gestione operatori */}
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50 mb-4">
+                        <div>
+                            <p className="text-sm font-medium text-slate-700 dark:text-gray-200">Gestione operatori</p>
+                            <p className="text-xs text-slate-500 dark:text-gray-400 mt-0.5">Permette di tracciare quale operatore ha cambiato lo stato di ogni lead (per account gestiti da più persone).</p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setOperatorsEnabled(v => !v)}
+                            className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${operatorsEnabled ? 'bg-primary-600' : 'bg-slate-300 dark:bg-slate-600'}`}
+                        >
+                            <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${operatorsEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
+                        </button>
+                    </div>
 
                     {/* Meta Social */}
                     <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50 mb-4">

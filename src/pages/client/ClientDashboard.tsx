@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import * as ApiService from '@api';
+import { getOperators } from '@api/operators';
+import OperatorPickerModal from '@components/ui/OperatorPickerModal';
 import type { Client, Lead, LeadField } from '../types';
 import { isBaseService } from '@/utils/services';
 import {
@@ -15,6 +17,7 @@ import Pagination from '@components/ui/Pagination';
 import LiveOverview from '@components/analytics/LiveOverview';
 import { ClientIntegrations } from '@components/ui/ClientIntegrations';
 import ConfirmModal from '@components/ui/ConfirmModal';
+import OperatorsManager from '@components/ui/OperatorsManager';
 
 const statusColors: Record<Lead['status'], string> = {
     'Nuovo': 'bg-slate-500 dark:bg-slate-600 text-white',
@@ -301,6 +304,9 @@ const ClientDashboard: React.FC = () => {
 
     const [editingLead, setEditingLead] = useState<Lead | null>(null);
     const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; leadId: string | null; loading: boolean }>({ isOpen: false, leadId: null, loading: false });
+    const [operatorPickerOpen, setOperatorPickerOpen] = useState(false);
+    const [pendingStatusChange, setPendingStatusChange] = useState<{ leadId: string; updates: Partial<Lead> } | null>(null);
+    const [operators, setOperators] = useState<import('../../types').Operator[]>([]);
 
     const [revenueDateModalState, setRevenueDateModalState] = useState<{
         isOpen: boolean;
@@ -327,6 +333,12 @@ const ClientDashboard: React.FC = () => {
     useEffect(() => {
         fetchClientData();
     }, [fetchClientData]);
+
+    useEffect(() => {
+        if (client?.operators_enabled && client?.id) {
+            getOperators(client.id).then(setOperators).catch(() => {});
+        }
+    }, [client?.id, client?.operators_enabled]);
 
     // Salva il servizio selezionato nel localStorage
     useEffect(() => {
@@ -663,14 +675,21 @@ const ClientDashboard: React.FC = () => {
         }
     };
 
-    const handleLeadUpdate = async (leadId: string, updates: Partial<Lead>) => {
+    const handleLeadUpdate = async (leadId: string, updates: Partial<Lead>, operatorOverride?: { id: string; name: string } | null) => {
         if (!client) return;
 
         const lead = client.leads.find(l => l.id === leadId);
         if (!lead) return;
-    
+
+        // Se operators_enabled e c'è un cambio di stato, mostra il popup (a meno che l'operatore non sia già stato scelto)
+        if (client.operators_enabled && updates.status && updates.status !== lead.status && operatorOverride === undefined) {
+            setPendingStatusChange({ leadId, updates });
+            setOperatorPickerOpen(true);
+            return;
+        }
+
         const isBecomingVinto = updates.status === 'Vinto' && lead.status !== 'Vinto';
-    
+
         if (isBecomingVinto) {
             if (!lead.value || lead.value <= 0) {
                 alert("Per impostare lo stato su 'Vinto', è necessario prima inserire un valore economico positivo.");
@@ -685,7 +704,7 @@ const ClientDashboard: React.FC = () => {
             });
             return;
         }
-    
+
         try {
             setClient(prevClient => {
                 if (!prevClient) return null;
@@ -695,6 +714,15 @@ const ClientDashboard: React.FC = () => {
                 }
             });
             await ApiService.updateLead(client.id, leadId, updates);
+
+            // Registra log se c'è cambio stato
+            if (updates.status && updates.status !== lead.status) {
+                const { logStatusChange } = await import('@api/operators');
+                await logStatusChange(
+                    leadId, client.id, updates.status, lead.status,
+                    operatorOverride?.id || null, operatorOverride?.name || null
+                ).catch(() => {});
+            }
         } catch (error) {
             console.error("Fallimento nell'aggiornare il lead:", error);
             fetchClientData();
@@ -959,6 +987,13 @@ const ClientDashboard: React.FC = () => {
     const renderContent = () => {
         if (activeView === 'integrazioni') {
             return <ClientIntegrations client={client} onLeadAdded={fetchClientData} />;
+        }
+        if (activeView === 'operatori') {
+            return (
+                <div className="bg-white dark:bg-slate-800 shadow-xl rounded-lg border border-slate-200 dark:border-slate-700 p-6">
+                    <OperatorsManager clientId={client.id} />
+                </div>
+            );
         }
         if (activeView === 'live') {
             return <ClientLiveOverview client={client} />;
@@ -1428,6 +1463,22 @@ const ClientDashboard: React.FC = () => {
                 onConfirm={handleConfirmDelete}
                 onCancel={() => setDeleteConfirm({ isOpen: false, leadId: null, loading: false })}
                 loading={deleteConfirm.loading}
+            />
+            <OperatorPickerModal
+                isOpen={operatorPickerOpen}
+                newStatus={pendingStatusChange?.updates?.status || ''}
+                operators={operators}
+                onConfirm={(operator) => {
+                    setOperatorPickerOpen(false);
+                    if (pendingStatusChange) {
+                        handleLeadUpdate(pendingStatusChange.leadId, pendingStatusChange.updates, operator ? { id: operator.id, name: operator.name } : null);
+                        setPendingStatusChange(null);
+                    }
+                }}
+                onCancel={() => {
+                    setOperatorPickerOpen(false);
+                    setPendingStatusChange(null);
+                }}
             />
 
             <RevenueDateModal

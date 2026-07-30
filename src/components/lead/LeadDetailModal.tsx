@@ -3,7 +3,7 @@ import Modal from '@components/ui/Modal';
 import type { Lead, Client, Quote, QuoteWithDetails, CalendarAppointment } from '../types';
 import * as ApiService from '@api';
 // FIX: Cannot find name 'CheckCircle'. Import it from lucide-react.
-import { Tag, Calendar, Info, DollarSign, Briefcase, MessageCircle, History, Sparkles, Copy, Loader2, Check, Phone, Edit, Trash2, Mail, Save, X, Database, FileText, PlusCircle, Clock, CheckCircle, Eye, Send, ChevronDown, MapPin, RefreshCw, Layers } from 'lucide-react';
+import { Tag, Calendar, Info, DollarSign, Briefcase, MessageCircle, History, Sparkles, Copy, Loader2, Check, Phone, Edit, Trash2, Mail, Save, X, Database, FileText, PlusCircle, Clock, CheckCircle, Eye, Send, ChevronDown, MapPin, RefreshCw, Layers, Users } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import QuoteCreatorModal from '@components/quote/QuoteCreatorModal';
 import { useAuth } from '@contexts/AuthContext';
@@ -12,6 +12,7 @@ import AppointmentsMap from './AppointmentsMap';
 import { geocodeAddress } from '@lib/geocoding';
 import { useLeadDistance } from '@hooks/useLeadDistance';
 import { PaymentPlanModal } from './PaymentPlanModal';
+import LeadStatusHistory from './LeadStatusHistory';
 
 // Funzione di copia robusta con fallback
 const copyTextToClipboard = async (text: string): Promise<boolean> => {
@@ -1073,6 +1074,7 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
             icon: <History size={16} className="mr-2" /> 
         },
         { id: 'note', label: t('component_leadDetailModal.tab_notes'), icon: <MessageCircle size={16} className="mr-2" /> },
+        ...(client?.operators_enabled ? [{ id: 'azioni', label: 'Azioni', icon: <Users size={16} className="mr-2" /> }] : []),
     ];
     
     const RevenueDateModal: React.FC<{
@@ -1963,6 +1965,8 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
                         </div>
                     </div>
                 );
+            case 'azioni':
+                return <LeadStatusHistory leadId={lead.id} />;
             default:
                 return null;
         }

@@ -276,9 +276,34 @@ export interface Client {
     meta_instagram_active?: { id: string; page_id: string; page_name: string } | null;
     distance_settings?: DistanceSettings;
     installments_enabled?: boolean;
+    operators_enabled?: boolean;
     // These are loaded separately
     leads: Lead[];
     adSpends?: AdSpend[];
+}
+
+// ============================================================
+// Operators
+// ============================================================
+
+export interface Operator {
+    id: string;
+    client_id: string;
+    name: string;
+    color: string;
+    created_at: string;
+}
+
+export interface LeadStatusLog {
+    id: string;
+    lead_id: string;
+    client_id: string;
+    operator_id?: string | null;
+    operator_name?: string | null;
+    old_status?: string | null;
+    new_status: string;
+    note?: string | null;
+    created_at: string;
 }
 
 // ============================================================
