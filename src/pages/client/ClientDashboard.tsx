@@ -730,8 +730,14 @@ const ClientDashboard: React.FC = () => {
                     leadId, client.id, updates.status, lead.status,
                     activeOperator?.id || null, activeOperator?.name || null
                 ).catch(() => {});
-                // Aggiorna la mappa in tempo reale senza ricaricare
-                if (activeOperator) {
+                // Aggiorna la mappa in tempo reale — pulisce se si torna a "Nuovo"
+                if (updates.status === 'Nuovo') {
+                    setLeadOperatorMap(prev => {
+                        const next = { ...prev };
+                        delete next[leadId];
+                        return next;
+                    });
+                } else if (activeOperator) {
                     setLeadOperatorMap(prev => ({
                         ...prev,
                         [leadId]: { name: activeOperator.name, color: activeOperator.color },
@@ -1324,7 +1330,7 @@ const ClientDashboard: React.FC = () => {
                                                     status={lead.status}
                                                     onChange={(newStatus) => handleLeadUpdate(lead.id, { status: newStatus })}
                                                 />
-                                                {client.operators_enabled && leadOperatorMap[lead.id] && (
+                                                {client.operators_enabled && lead.status !== 'Nuovo' && leadOperatorMap[lead.id] && (
                                                     <div className="flex items-center gap-1.5 mt-1.5">
                                                         <span
                                                             className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0"
@@ -1401,7 +1407,7 @@ const ClientDashboard: React.FC = () => {
                                             status={lead.status}
                                             onChange={(newStatus) => handleLeadUpdate(lead.id, { status: newStatus })}
                                         />
-                                        {client.operators_enabled && leadOperatorMap[lead.id] && (
+                                        {client.operators_enabled && lead.status !== 'Nuovo' && leadOperatorMap[lead.id] && (
                                             <div className="flex items-center gap-1.5 mt-1.5">
                                                 <span
                                                     className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0"
