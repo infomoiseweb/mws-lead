@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { isBaseService } from '@/utils/services';
 import QuoteSettingsEditor from './QuoteSettingsEditor';
 import ServicesEditor, { type ServiceState } from './ServicesEditor';
+import OperatorsManager from './OperatorsManager';
 
 interface ClientFormProps {
     client?: Client | null;
@@ -240,6 +241,13 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
                     <ToggleRow label="Social Meta (Facebook / Instagram)" description={metaEnabled ? 'Sezione Social attiva — il cliente può collegare il suo account Meta.' : 'Abilita la sezione Social per questo cliente.'} checked={metaEnabled} onChange={() => setMetaEnabled(v => !v)} />
                 </div>
             </div>
+
+            {/* Lista operatori — visibile solo se la funzione è attiva e si sta modificando un cliente esistente */}
+            {operatorsEnabled && isEditing && client && (
+                <div className="mt-5 pt-5 border-t border-slate-200 dark:border-slate-700">
+                    <OperatorsManager clientId={client.id} />
+                </div>
+            )}
         </div>
     );
 

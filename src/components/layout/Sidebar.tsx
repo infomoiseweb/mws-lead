@@ -2,9 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { NavLink, useNavigate, useLocation, useParams } from 'react-router-dom';
 import { useAuth } from '@contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
-import { getClientMailMarketingFlag, getClientInstallmentsFlag, getClientMetaFlag, getClientOperatorsFlag } from '@api/clients';
+import { getClientMailMarketingFlag, getClientInstallmentsFlag, getClientMetaFlag } from '@api/clients';
 import { useOperatorSession } from '@hooks/useOperatorSession';
-import { getOperators } from '@api/operators';
 import {
     LogOut, User as UserIcon, LayoutGrid, List, Users, BarChart3, DollarSign,
     FileCode, Activity, Calendar, FileText, ChevronsLeft, ChevronsRight, Plug, Send, Layers, Share2
@@ -37,7 +36,6 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle, onNavigate }) =>
     const [mailMarketingEnabled, setMailMarketingEnabled] = useState(false);
     const [installmentsEnabled, setInstallmentsEnabled] = useState(false);
     const [metaEnabled, setMetaEnabled] = useState(false);
-    const [operatorsEnabled, setOperatorsEnabled] = useState(false);
     const { activeOperator, setActiveOperator } = useOperatorSession(!isAdmin ? userId : undefined);
 
     useEffect(() => {
@@ -45,7 +43,6 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle, onNavigate }) =>
         getClientMailMarketingFlag(userId).then(setMailMarketingEnabled).catch(() => setMailMarketingEnabled(false));
         getClientInstallmentsFlag(userId).then(setInstallmentsEnabled).catch(() => setInstallmentsEnabled(false));
         getClientMetaFlag(userId).then(setMetaEnabled).catch(() => setMetaEnabled(false));
-        getClientOperatorsFlag(userId).then(setOperatorsEnabled).catch(() => setOperatorsEnabled(false));
     }, [isAdmin, userId]);
 
     const handleLogout = () => {
@@ -183,12 +180,6 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle, onNavigate }) =>
             label: 'Social',
             isActive: (pathname: string) => pathname === `/client/${userId}/social`,
         }] : []),
-        ...(operatorsEnabled ? [{
-            to: `/client/${userId}/dashboard?view=operatori`,
-            icon: <Users size={20} />,
-            label: 'Operatori',
-            isActive: (_pathname: string, search: string) => search.includes('view=operatori'),
-        }] : []),
         {
             to: `/client/${userId}/analytics`,
             icon: <BarChart3 size={20} />,
@@ -254,7 +245,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle, onNavigate }) =>
             </button>
 
             {/* Badge operatore di sessione */}
-            {!isAdmin && operatorsEnabled && activeOperator && (
+            {!isAdmin && activeOperator && (
                 <div className={`mx-2 mb-2 rounded-xl bg-slate-800 border border-slate-700 ${collapsed ? 'p-2 flex flex-col items-center gap-1' : 'px-3 py-2.5'}`}>
                     {collapsed ? (
                         <>

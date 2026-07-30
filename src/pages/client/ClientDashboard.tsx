@@ -18,7 +18,6 @@ import Pagination from '@components/ui/Pagination';
 import LiveOverview from '@components/analytics/LiveOverview';
 import { ClientIntegrations } from '@components/ui/ClientIntegrations';
 import ConfirmModal from '@components/ui/ConfirmModal';
-import OperatorsManager from '@components/ui/OperatorsManager';
 
 const statusColors: Record<Lead['status'], string> = {
     'Nuovo': 'bg-slate-500 dark:bg-slate-600 text-white',
@@ -980,13 +979,6 @@ const ClientDashboard: React.FC = () => {
     const renderContent = () => {
         if (activeView === 'integrazioni') {
             return <ClientIntegrations client={client} onLeadAdded={fetchClientData} />;
-        }
-        if (activeView === 'operatori') {
-            return (
-                <div className="bg-white dark:bg-slate-800 shadow-xl rounded-lg border border-slate-200 dark:border-slate-700 p-6">
-                    <OperatorsManager clientId={client.id} />
-                </div>
-            );
         }
         if (activeView === 'live') {
             return <ClientLiveOverview client={client} />;
