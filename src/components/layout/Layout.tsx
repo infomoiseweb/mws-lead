@@ -28,7 +28,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             <Sidebar collapsed={collapsed} onToggle={toggleCollapsed} />
             <div className="flex-1 flex flex-col min-w-0">
                 <Header />
-                <div className="flex-grow p-2 sm:p-4 md:p-6 lg:p-8">
+                <div className="flex-grow p-2 sm:p-3 md:p-4">
                     <main>
                         {children}
                     </main>
