@@ -3,6 +3,8 @@ import { NavLink, useNavigate, useLocation, useParams } from 'react-router-dom';
 import { useAuth } from '@contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { getClientMailMarketingFlag, getClientInstallmentsFlag, getClientMetaFlag, getClientOperatorsFlag } from '@api/clients';
+import { useOperatorSession } from '@hooks/useOperatorSession';
+import { getOperators } from '@api/operators';
 import {
     LogOut, User as UserIcon, LayoutGrid, List, Users, BarChart3, DollarSign,
     FileCode, Activity, Calendar, FileText, ChevronsLeft, ChevronsRight, Plug, Send, Layers, Share2
@@ -36,6 +38,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle, onNavigate }) =>
     const [installmentsEnabled, setInstallmentsEnabled] = useState(false);
     const [metaEnabled, setMetaEnabled] = useState(false);
     const [operatorsEnabled, setOperatorsEnabled] = useState(false);
+    const { activeOperator, setActiveOperator } = useOperatorSession(!isAdmin ? userId : undefined);
 
     useEffect(() => {
         if (isAdmin || !userId) return;
@@ -249,6 +252,37 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle, onNavigate }) =>
             >
                 {collapsed ? <ChevronsRight size={18} /> : <ChevronsLeft size={18} />}
             </button>
+
+            {/* Badge operatore di sessione */}
+            {!isAdmin && operatorsEnabled && activeOperator && (
+                <div className={`mx-2 mb-2 rounded-xl bg-slate-800 border border-slate-700 ${collapsed ? 'p-2 flex flex-col items-center gap-1' : 'px-3 py-2.5'}`}>
+                    {collapsed ? (
+                        <>
+                            <span className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold" style={{ backgroundColor: activeOperator.color }}>
+                                {activeOperator.name.charAt(0).toUpperCase()}
+                            </span>
+                            <button onClick={() => setActiveOperator(null)} className="text-xs text-slate-500 hover:text-red-400 transition leading-none" title="Cambia operatore">✕</button>
+                        </>
+                    ) : (
+                        <div className="flex items-center gap-2.5">
+                            <span className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0" style={{ backgroundColor: activeOperator.color }}>
+                                {activeOperator.name.charAt(0).toUpperCase()}
+                            </span>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-xs text-slate-400 leading-none mb-0.5">Stai lavorando come</p>
+                                <p className="text-sm font-semibold text-white truncate">{activeOperator.name}</p>
+                            </div>
+                            <button
+                                onClick={() => setActiveOperator(null)}
+                                className="text-xs text-slate-500 hover:text-red-400 transition px-1.5 py-1 rounded hover:bg-slate-700 flex-shrink-0"
+                                title="Cambia operatore"
+                            >
+                                Cambia
+                            </button>
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* User info + logout */}
             <div className={`border-t border-slate-800 p-3 ${collapsed ? 'flex flex-col items-center' : ''}`}>

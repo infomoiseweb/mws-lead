@@ -2,8 +2,9 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom';
 import * as ApiService from '@api';
 import { getOperators } from '@api/operators';
-import OperatorPickerModal from '@components/ui/OperatorPickerModal';
-import type { Client, Lead, LeadField } from '../types';
+import OperatorSessionScreen from '@components/ui/OperatorSessionScreen';
+import { useOperatorSession } from '@hooks/useOperatorSession';
+import type { Client, Lead, LeadField, Operator } from '../types';
 import { isBaseService } from '@/utils/services';
 import {
   Trash2, ChevronDown, RefreshCw, Plus, Search, Settings, Activity,
@@ -304,9 +305,8 @@ const ClientDashboard: React.FC = () => {
 
     const [editingLead, setEditingLead] = useState<Lead | null>(null);
     const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; leadId: string | null; loading: boolean }>({ isOpen: false, leadId: null, loading: false });
-    const [operatorPickerOpen, setOperatorPickerOpen] = useState(false);
-    const [pendingStatusChange, setPendingStatusChange] = useState<{ leadId: string; updates: Partial<Lead> } | null>(null);
-    const [operators, setOperators] = useState<import('../../types').Operator[]>([]);
+    const [operators, setOperators] = useState<Operator[]>([]);
+    const { activeOperator, setActiveOperator } = useOperatorSession(userId);
 
     const [revenueDateModalState, setRevenueDateModalState] = useState<{
         isOpen: boolean;
@@ -675,18 +675,11 @@ const ClientDashboard: React.FC = () => {
         }
     };
 
-    const handleLeadUpdate = async (leadId: string, updates: Partial<Lead>, operatorOverride?: { id: string; name: string } | null) => {
+    const handleLeadUpdate = async (leadId: string, updates: Partial<Lead>) => {
         if (!client) return;
 
         const lead = client.leads.find(l => l.id === leadId);
         if (!lead) return;
-
-        // Se operators_enabled e c'è un cambio di stato, mostra il popup (a meno che l'operatore non sia già stato scelto)
-        if (client.operators_enabled && updates.status && updates.status !== lead.status && operatorOverride === undefined) {
-            setPendingStatusChange({ leadId, updates });
-            setOperatorPickerOpen(true);
-            return;
-        }
 
         const isBecomingVinto = updates.status === 'Vinto' && lead.status !== 'Vinto';
 
@@ -715,12 +708,12 @@ const ClientDashboard: React.FC = () => {
             });
             await ApiService.updateLead(client.id, leadId, updates);
 
-            // Registra log se c'è cambio stato
+            // Registra log se c'è cambio stato — usa l'operatore di sessione se disponibile
             if (updates.status && updates.status !== lead.status) {
                 const { logStatusChange } = await import('@api/operators');
                 await logStatusChange(
                     leadId, client.id, updates.status, lead.status,
-                    operatorOverride?.id || null, operatorOverride?.name || null
+                    activeOperator?.id || null, activeOperator?.name || null
                 ).catch(() => {});
             }
         } catch (error) {
@@ -1464,22 +1457,13 @@ const ClientDashboard: React.FC = () => {
                 onCancel={() => setDeleteConfirm({ isOpen: false, leadId: null, loading: false })}
                 loading={deleteConfirm.loading}
             />
-            <OperatorPickerModal
-                isOpen={operatorPickerOpen}
-                newStatus={pendingStatusChange?.updates?.status || ''}
-                operators={operators}
-                onConfirm={(operator) => {
-                    setOperatorPickerOpen(false);
-                    if (pendingStatusChange) {
-                        handleLeadUpdate(pendingStatusChange.leadId, pendingStatusChange.updates, operator ? { id: operator.id, name: operator.name } : null);
-                        setPendingStatusChange(null);
-                    }
-                }}
-                onCancel={() => {
-                    setOperatorPickerOpen(false);
-                    setPendingStatusChange(null);
-                }}
-            />
+            {client?.operators_enabled && operators.length > 0 && !activeOperator && (
+                <OperatorSessionScreen
+                    operators={operators}
+                    clientName={client.name}
+                    onSelect={setActiveOperator}
+                />
+            )}
 
             <RevenueDateModal
                 state={revenueDateModalState}
