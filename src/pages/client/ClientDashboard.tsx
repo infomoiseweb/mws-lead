@@ -305,6 +305,7 @@ const ClientDashboard: React.FC = () => {
     const [editingLead, setEditingLead] = useState<Lead | null>(null);
     const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; leadId: string | null; loading: boolean }>({ isOpen: false, leadId: null, loading: false });
     const [operators, setOperators] = useState<Operator[]>([]);
+    const [operatorsLoading, setOperatorsLoading] = useState(false);
     const { activeOperator, setActiveOperator } = useOperatorSession(userId);
 
     const [revenueDateModalState, setRevenueDateModalState] = useState<{
@@ -335,7 +336,11 @@ const ClientDashboard: React.FC = () => {
 
     useEffect(() => {
         if (client?.operators_enabled && client?.id) {
-            getOperators(client.id).then(setOperators).catch(() => {});
+            setOperatorsLoading(true);
+            getOperators(client.id)
+                .then(setOperators)
+                .catch(() => {})
+                .finally(() => setOperatorsLoading(false));
         }
     }, [client?.id, client?.operators_enabled]);
 
@@ -915,6 +920,22 @@ const ClientDashboard: React.FC = () => {
     if (!client) {
         return <div className="text-center p-8 text-red-400">Cliente non trovato.</div>;
     }
+
+    // Schermata selezione operatore — blocca tutto finché non viene scelto
+    if (client.operators_enabled && !activeOperator) {
+        if (operatorsLoading) {
+            return <div className="text-center p-8">Caricamento...</div>;
+        }
+        if (operators.length > 0) {
+            return (
+                <OperatorSessionScreen
+                    operators={operators}
+                    clientName={client.name}
+                    onSelect={setActiveOperator}
+                />
+            );
+        }
+    }
     
     const RevenueDateModal: React.FC<{
         state: typeof revenueDateModalState;
@@ -1449,14 +1470,6 @@ const ClientDashboard: React.FC = () => {
                 onCancel={() => setDeleteConfirm({ isOpen: false, leadId: null, loading: false })}
                 loading={deleteConfirm.loading}
             />
-            {client?.operators_enabled && operators.length > 0 && !activeOperator && (
-                <OperatorSessionScreen
-                    operators={operators}
-                    clientName={client.name}
-                    onSelect={setActiveOperator}
-                />
-            )}
-
             <RevenueDateModal
                 state={revenueDateModalState}
                 onClose={() => {

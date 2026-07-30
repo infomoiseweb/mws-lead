@@ -69,6 +69,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
     const logout = async () => {
+        // Pulisce tutte le sessioni operatore salvate nel sessionStorage
+        Object.keys(sessionStorage)
+            .filter(k => k.startsWith('mws_operator_session_'))
+            .forEach(k => sessionStorage.removeItem(k));
         await supabase.auth.signOut();
         setUser(null);
     };
