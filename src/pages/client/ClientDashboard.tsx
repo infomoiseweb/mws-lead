@@ -14,6 +14,7 @@ import LeadDetailModal from '@components/lead/LeadDetailModal';
 import Pagination from '@components/ui/Pagination';
 import LiveOverview from '@components/analytics/LiveOverview';
 import { ClientIntegrations } from '@components/ui/ClientIntegrations';
+import ConfirmModal from '@components/ui/ConfirmModal';
 
 const statusColors: Record<Lead['status'], string> = {
     'Nuovo': 'bg-slate-500 dark:bg-slate-600 text-white',
@@ -299,6 +300,7 @@ const ClientDashboard: React.FC = () => {
     const [isColumnManagerOpen, setIsColumnManagerOpen] = useState(false);
 
     const [editingLead, setEditingLead] = useState<Lead | null>(null);
+    const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; leadId: string | null; loading: boolean }>({ isOpen: false, leadId: null, loading: false });
 
     const [revenueDateModalState, setRevenueDateModalState] = useState<{
         isOpen: boolean;
@@ -699,15 +701,20 @@ const ClientDashboard: React.FC = () => {
         }
     };
     
-    const handleDeleteLead = async (leadId: string) => {
-        if (!client) return;
-        if (window.confirm("Sei sicuro di voler eliminare questo lead?")) {
-            try {
-                await ApiService.deleteLead(client.id, leadId);
-                fetchClientData();
-            } catch (err: any) {
-                alert('Errore durante l\'eliminazione: ' + err.message);
-            }
+    const handleDeleteLead = (leadId: string) => {
+        setDeleteConfirm({ isOpen: true, leadId, loading: false });
+    };
+
+    const handleConfirmDelete = async () => {
+        if (!client || !deleteConfirm.leadId) return;
+        setDeleteConfirm(v => ({ ...v, loading: true }));
+        try {
+            await ApiService.deleteLead(client.id, deleteConfirm.leadId);
+            setDeleteConfirm({ isOpen: false, leadId: null, loading: false });
+            fetchClientData();
+        } catch (err: any) {
+            setDeleteConfirm(v => ({ ...v, loading: false }));
+            alert('Errore durante l\'eliminazione: ' + err.message);
         }
     };
     
@@ -1412,6 +1419,15 @@ const ClientDashboard: React.FC = () => {
                 onHistoricalLeadUpdated={handleHistoricalLeadUpdated}
                 onHistoricalLeadDeleted={handleHistoricalLeadDeleted}
                 onLeadUpdate={handleLeadDataUpdate}
+            />
+            <ConfirmModal
+                isOpen={deleteConfirm.isOpen}
+                title="Elimina lead"
+                message="Sei sicuro di voler eliminare questa lead? L'operazione è irreversibile e rimuoverà anche note e appuntamenti collegati."
+                confirmLabel="Elimina"
+                onConfirm={handleConfirmDelete}
+                onCancel={() => setDeleteConfirm({ isOpen: false, leadId: null, loading: false })}
+                loading={deleteConfirm.loading}
             />
 
             <RevenueDateModal

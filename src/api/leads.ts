@@ -136,8 +136,14 @@ export async function getLeadById(leadId: string): Promise<Lead | null> {
 }
 
 export async function deleteLead(_clientId: string, leadId: string): Promise<void> {
-    const { error } = await supabase.from('leads').delete().eq('id', leadId);
-    if (error) throw new Error(error.message);
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    const res = await fetch(`/api/leads?lead_id=${leadId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Errore eliminazione lead');
 }
 
 export async function deleteMultipleLeads(leadsToDelete: { clientId: string; leadId: string }[]): Promise<void> {

@@ -51,10 +51,45 @@ async function parseBody(req: VercelRequest): Promise<Record<string, string>> {
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, DELETE, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
     if (req.method === 'OPTIONS') return res.status(204).end();
+
+    // DELETE → elimina una lead (verifica can_delete_leads)
+    if (req.method === 'DELETE') {
+        const authHeader = req.headers.authorization;
+        const token = authHeader?.replace('Bearer ', '').trim();
+        if (!token) return res.status(401).json({ error: 'Token mancante' });
+
+        const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+        if (authError || !user) return res.status(401).json({ error: 'Non autorizzato' });
+
+        const leadId = req.query.lead_id as string;
+        if (!leadId) return res.status(400).json({ error: 'lead_id mancante' });
+
+        // Verifica che la lead esista e recupera il client
+        const { data: lead } = await supabaseAdmin.from('leads').select('id, client_id').eq('id', leadId).single();
+        if (!lead) return res.status(404).json({ error: 'Lead non trovata' });
+
+        // Verifica che il cliente abbia can_delete_leads oppure sia admin
+        const { data: clientRow } = await supabaseAdmin.from('clients').select('can_delete_leads, user_id').eq('id', lead.client_id).single();
+        const isOwner = clientRow?.user_id === user.id;
+        const isAdmin = (user.user_metadata?.role === 'admin') || (user.app_metadata?.role === 'admin');
+
+        if (!isAdmin && (!isOwner || !clientRow?.can_delete_leads)) {
+            return res.status(403).json({ error: 'Non hai il permesso di eliminare questa lead' });
+        }
+
+        // Elimina record correlati prima (notes, appointments)
+        await supabaseAdmin.from('notes').delete().eq('lead_id', leadId);
+        await supabaseAdmin.from('appointments').delete().eq('lead_id', leadId);
+        const { error: delError } = await supabaseAdmin.from('leads').delete().eq('id', leadId);
+        if (delError) return res.status(500).json({ error: delError.message });
+
+        return res.status(200).json({ success: true });
+    }
+
     if (req.method !== 'POST') return res.status(405).json({ error: 'Usa POST.' });
 
     let body: Record<string, string>;
