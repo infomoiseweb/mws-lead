@@ -1817,7 +1817,7 @@ const AdminDashboard: React.FC = () => {
                     ❌ Errore collegamento Google Calendar: {gcalError}
                 </div>
             )}
-            <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingClient ? 'Modifica Dettagli Cliente' : 'Nuovo Cliente'}>
+            <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingClient ? 'Modifica Dettagli Cliente' : 'Nuovo Cliente'} size={editingClient ? 'extra-large' : 'default'}>
                 <ClientForm client={editingClient} onSuccess={() => {
                     setIsModalOpen(false);
                     fetchData();
