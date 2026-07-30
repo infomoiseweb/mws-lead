@@ -702,8 +702,12 @@ const ClientDashboard: React.FC = () => {
     const handleDeleteLead = async (leadId: string) => {
         if (!client) return;
         if (window.confirm("Sei sicuro di voler eliminare questo lead?")) {
-            await ApiService.deleteLead(client.id, leadId);
-            fetchClientData();
+            try {
+                await ApiService.deleteLead(client.id, leadId);
+                fetchClientData();
+            } catch (err: any) {
+                alert('Errore durante l\'eliminazione: ' + err.message);
+            }
         }
     };
     
