@@ -52,6 +52,27 @@ export async function logStatusChange(
     if (error) throw new Error(error.message);
 }
 
+// Ritorna l'ultimo operatore per ogni lead del cliente — una sola query
+export async function getLastOperatorPerLead(clientId: string): Promise<Record<string, { name: string; color: string | null }>> {
+    const { data, error } = await supabase
+        .from('lead_status_logs')
+        .select('lead_id, operator_name, operator_id')
+        .eq('client_id', clientId)
+        .not('operator_name', 'is', null)
+        .order('created_at', { ascending: false });
+
+    if (error || !data) return {};
+
+    // Prende solo il primo record per lead_id (il più recente grazie all'order)
+    const map: Record<string, { name: string; color: string | null }> = {};
+    for (const row of data) {
+        if (!map[row.lead_id]) {
+            map[row.lead_id] = { name: row.operator_name, color: null };
+        }
+    }
+    return map;
+}
+
 export async function getLeadStatusLogs(leadId: string): Promise<LeadStatusLog[]> {
     const { data, error } = await supabase
         .from('lead_status_logs')

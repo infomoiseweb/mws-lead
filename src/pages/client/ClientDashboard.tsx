@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import * as ApiService from '@api';
-import { getOperators } from '@api/operators';
+import { getOperators, getLastOperatorPerLead } from '@api/operators';
 import OperatorSessionScreen from '@components/ui/OperatorSessionScreen';
 import { useOperatorSession } from '@hooks/useOperatorSession';
 import type { Client, Lead, LeadField, Operator } from '../types';
@@ -306,6 +306,7 @@ const ClientDashboard: React.FC = () => {
     const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; leadId: string | null; loading: boolean }>({ isOpen: false, leadId: null, loading: false });
     const [operators, setOperators] = useState<Operator[]>([]);
     const [operatorsLoading, setOperatorsLoading] = useState(false);
+    const [leadOperatorMap, setLeadOperatorMap] = useState<Record<string, { name: string; color: string }>>({});
     const { activeOperator, setActiveOperator } = useOperatorSession(userId);
 
     const [revenueDateModalState, setRevenueDateModalState] = useState<{
@@ -337,10 +338,20 @@ const ClientDashboard: React.FC = () => {
     useEffect(() => {
         if (client?.operators_enabled && client?.id) {
             setOperatorsLoading(true);
-            getOperators(client.id)
-                .then(setOperators)
-                .catch(() => {})
-                .finally(() => setOperatorsLoading(false));
+            Promise.all([
+                getOperators(client.id),
+                getLastOperatorPerLead(client.id),
+            ]).then(([ops, lastMap]) => {
+                setOperators(ops);
+                // Arricchisce la mappa con i colori degli operatori
+                const colorMap: Record<string, string> = {};
+                ops.forEach(op => { colorMap[op.name] = op.color; });
+                const enriched: Record<string, { name: string; color: string }> = {};
+                Object.entries(lastMap).forEach(([leadId, { name }]) => {
+                    enriched[leadId] = { name, color: colorMap[name] || '#6366f1' };
+                });
+                setLeadOperatorMap(enriched);
+            }).catch(() => {}).finally(() => setOperatorsLoading(false));
         }
     }, [client?.id, client?.operators_enabled]);
 
@@ -719,6 +730,13 @@ const ClientDashboard: React.FC = () => {
                     leadId, client.id, updates.status, lead.status,
                     activeOperator?.id || null, activeOperator?.name || null
                 ).catch(() => {});
+                // Aggiorna la mappa in tempo reale senza ricaricare
+                if (activeOperator) {
+                    setLeadOperatorMap(prev => ({
+                        ...prev,
+                        [leadId]: { name: activeOperator.name, color: activeOperator.color },
+                    }));
+                }
             }
         } catch (error) {
             console.error("Fallimento nell'aggiornare il lead:", error);
@@ -1302,10 +1320,24 @@ const ClientDashboard: React.FC = () => {
                                     <td className={`sticky z-10 px-0 py-0 border-b border-slate-200 dark:border-slate-700 ${stickyBg}`} style={{ right: '0px' }}>
                                         <div className="flex items-center">
                                             <div className="px-6 py-4" style={{width: '160px'}}>
-                                                <StatusSelect 
-                                                    status={lead.status} 
+                                                <StatusSelect
+                                                    status={lead.status}
                                                     onChange={(newStatus) => handleLeadUpdate(lead.id, { status: newStatus })}
                                                 />
+                                                {client.operators_enabled && leadOperatorMap[lead.id] && (
+                                                    <div className="flex items-center gap-1.5 mt-1.5">
+                                                        <span
+                                                            className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0"
+                                                            style={{ backgroundColor: leadOperatorMap[lead.id].color }}
+                                                            title={leadOperatorMap[lead.id].name}
+                                                        >
+                                                            {leadOperatorMap[lead.id].name.charAt(0).toUpperCase()}
+                                                        </span>
+                                                        <span className="text-xs text-slate-500 dark:text-gray-400 truncate max-w-[100px]">
+                                                            {leadOperatorMap[lead.id].name}
+                                                        </span>
+                                                    </div>
+                                                )}
                                             </div>
                                             <div className="px-6 py-4" style={{width: '128px'}}>
                                                 <div className="relative">
@@ -1364,10 +1396,25 @@ const ClientDashboard: React.FC = () => {
                                     Data: {new Date(lead.created_at).toLocaleDateString('it-IT')}
                                 </div>
                                 <div className="grid grid-cols-2 gap-4 pt-2">
-                                     <StatusSelect 
-                                        status={lead.status} 
-                                        onChange={(newStatus) => handleLeadUpdate(lead.id, { status: newStatus })}
-                                    />
+                                    <div>
+                                        <StatusSelect
+                                            status={lead.status}
+                                            onChange={(newStatus) => handleLeadUpdate(lead.id, { status: newStatus })}
+                                        />
+                                        {client.operators_enabled && leadOperatorMap[lead.id] && (
+                                            <div className="flex items-center gap-1.5 mt-1.5">
+                                                <span
+                                                    className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0"
+                                                    style={{ backgroundColor: leadOperatorMap[lead.id].color }}
+                                                >
+                                                    {leadOperatorMap[lead.id].name.charAt(0).toUpperCase()}
+                                                </span>
+                                                <span className="text-xs text-slate-500 dark:text-gray-400 truncate">
+                                                    {leadOperatorMap[lead.id].name}
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
                                     <div className="relative">
                                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">€</span>
                                         <input 
