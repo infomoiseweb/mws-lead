@@ -60,7 +60,7 @@ const MailMarketingPage: React.FC = () => {
     // Campagne
     const [templates, setTemplates] = useState<MailTemplate[]>([]);
     const [campaigns, setCampaigns] = useState<MailCampaign[]>([]);
-    const [recipientCounts, setRecipientCounts] = useState<Record<string, { sent: number; failed: number; pending: number }>>({});
+    const [recipientCounts, setRecipientCounts] = useState<Record<string, { sent: number; failed: number; pending: number; opened: number; clicked: number }>>({});
     const [isCampaignsLoading, setIsCampaignsLoading] = useState(true);
     const [campaignsError, setCampaignsError] = useState('');
     const [templateModalState, setTemplateModalState] = useState<{ open: boolean; template: MailTemplate | null }>({ open: false, template: null });
@@ -109,13 +109,15 @@ const MailMarketingPage: React.FC = () => {
             setCampaigns(camps);
 
             const sentCampaigns = camps.filter(c => c.status === 'sent' || c.status === 'failed');
-            const counts: Record<string, { sent: number; failed: number; pending: number }> = {};
+            const counts: Record<string, { sent: number; failed: number; pending: number; opened: number; clicked: number }> = {};
             await Promise.all(sentCampaigns.map(async c => {
                 const recipients = await ApiService.getMailCampaignRecipients(c.id);
                 counts[c.id] = {
-                    sent: recipients.filter((r: MailCampaignRecipient) => r.status === 'sent').length,
-                    failed: recipients.filter((r: MailCampaignRecipient) => r.status === 'failed' || r.status === 'bounced').length,
+                    sent: recipients.filter((r: MailCampaignRecipient) => r.status === 'sent' || r.status === 'bounced').length,
+                    failed: recipients.filter((r: MailCampaignRecipient) => r.status === 'failed').length,
                     pending: recipients.filter((r: MailCampaignRecipient) => r.status === 'pending').length,
+                    opened: recipients.filter((r: MailCampaignRecipient) => r.opened_at).length,
+                    clicked: recipients.filter((r: MailCampaignRecipient) => r.clicked_at).length,
                 };
             }));
             setRecipientCounts(counts);
@@ -249,9 +251,11 @@ const MailMarketingPage: React.FC = () => {
                 setRecipientCounts(prev => ({
                     ...prev,
                     [saved.id]: {
-                        sent: recipients.filter((r: MailCampaignRecipient) => r.status === 'sent').length,
-                        failed: recipients.filter((r: MailCampaignRecipient) => r.status === 'failed' || r.status === 'bounced').length,
+                        sent: recipients.filter((r: MailCampaignRecipient) => r.status === 'sent' || r.status === 'bounced').length,
+                        failed: recipients.filter((r: MailCampaignRecipient) => r.status === 'failed').length,
                         pending: recipients.filter((r: MailCampaignRecipient) => r.status === 'pending').length,
+                        opened: recipients.filter((r: MailCampaignRecipient) => r.opened_at).length,
+                        clicked: recipients.filter((r: MailCampaignRecipient) => r.clicked_at).length,
                     },
                 }));
             }).catch(() => {});
@@ -695,7 +699,9 @@ const MailMarketingPage: React.FC = () => {
                                                 <tr className="text-left text-xs text-slate-400 dark:text-gray-500">
                                                     <th className="px-2 py-2 font-medium">Nome</th>
                                                     <th className="px-2 py-2 font-medium">Stato</th>
-                                                    <th className="px-2 py-2 font-medium">Destinatari</th>
+                                                    <th className="px-2 py-2 font-medium">Inviate</th>
+                                                    <th className="px-2 py-2 font-medium">Aperture</th>
+                                                    <th className="px-2 py-2 font-medium">Click</th>
                                                     <th className="px-2 py-2 font-medium">Inviata il</th>
                                                     <th className="px-2 py-2 font-medium"></th>
                                                 </tr>
@@ -718,9 +724,24 @@ const MailMarketingPage: React.FC = () => {
                                                             </td>
                                                             <td className="px-2 py-2 text-xs">
                                                                 {counts ? (
-                                                                    <span>
-                                                                        {counts.sent} inviate
-                                                                        {counts.failed > 0 && <span className="text-red-500"> · {counts.failed} non riuscite</span>}
+                                                                    <span className="font-medium">{counts.sent}
+                                                                        {counts.failed > 0 && <span className="text-red-500 ml-1">({counts.failed} err)</span>}
+                                                                    </span>
+                                                                ) : '—'}
+                                                            </td>
+                                                            <td className="px-2 py-2 text-xs">
+                                                                {counts && counts.sent > 0 ? (
+                                                                    <span className="flex items-center gap-1">
+                                                                        <span className="font-semibold text-blue-600 dark:text-blue-400">{counts.opened}</span>
+                                                                        <span className="text-slate-400">({Math.round(counts.opened / counts.sent * 100)}%)</span>
+                                                                    </span>
+                                                                ) : '—'}
+                                                            </td>
+                                                            <td className="px-2 py-2 text-xs">
+                                                                {counts && counts.sent > 0 ? (
+                                                                    <span className="flex items-center gap-1">
+                                                                        <span className="font-semibold text-emerald-600 dark:text-emerald-400">{counts.clicked}</span>
+                                                                        <span className="text-slate-400">({Math.round(counts.clicked / counts.sent * 100)}%)</span>
                                                                     </span>
                                                                 ) : '—'}
                                                             </td>

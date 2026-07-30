@@ -382,9 +382,12 @@ export interface MailCampaignRecipient {
     campaign_id: string;
     lead_id: string | null;
     email: string;
+    lead_name?: string | null;
     status: 'pending' | 'sent' | 'failed' | 'bounced';
     sent_at?: string | null;
     error?: string | null;
+    opened_at?: string | null;
+    clicked_at?: string | null;
     created_at: string;
 }
 

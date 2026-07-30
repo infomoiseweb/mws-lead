@@ -151,11 +151,53 @@ async function handleAutomations(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({ processed: results.length, results });
 }
 
+// 1x1 pixel GIF trasparente
+const TRACKING_PIXEL = Buffer.from(
+    'R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7',
+    'base64'
+);
+
+async function handleTrackOpen(req: VercelRequest, res: VercelResponse) {
+    const { rid } = req.query;
+    // Rispondi subito con il pixel — non bloccare il client
+    res.setHeader('Content-Type', 'image/gif');
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.status(200).end(TRACKING_PIXEL);
+
+    if (typeof rid === 'string') {
+        await supabaseAdmin
+            .from('mail_campaign_recipients')
+            .update({ opened_at: new Date().toISOString() })
+            .eq('id', rid)
+            .is('opened_at', null); // solo la prima apertura
+    }
+}
+
+async function handleTrackClick(req: VercelRequest, res: VercelResponse) {
+    const { rid, url } = req.query;
+    const target = typeof url === 'string' ? decodeURIComponent(url) : null;
+
+    if (typeof rid === 'string') {
+        await supabaseAdmin
+            .from('mail_campaign_recipients')
+            .update({ clicked_at: new Date().toISOString() })
+            .eq('id', rid)
+            .is('clicked_at', null); // solo il primo click
+    }
+
+    if (target) {
+        return res.redirect(302, target);
+    }
+    return res.status(400).send('URL mancante');
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     const action = req.query.action as string;
 
     if (action === 'unsubscribe') return handleUnsubscribe(req, res);
     if (action === 'automations') return handleAutomations(req, res);
+    if (action === 'track_open') return handleTrackOpen(req, res);
+    if (action === 'track_click') return handleTrackClick(req, res);
 
-    return res.status(400).json({ error: 'action non valida. Usa ?action=unsubscribe o ?action=automations' });
+    return res.status(400).json({ error: 'action non valida' });
 }

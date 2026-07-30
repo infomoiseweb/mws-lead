@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { Resend } from 'resend';
 import { createClient } from '@supabase/supabase-js';
-import { renderMailTemplate, buildUnsubscribeUrl, findLeadEmail, findLeadName } from './_lib/mailRender.js';
+import { renderMailTemplate, buildUnsubscribeUrl, findLeadEmail, findLeadName, injectTracking } from './_lib/mailRender.js';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -111,50 +111,60 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const fromAddress = `${senderName} <noreply@${mailDomain.domain}>`;
     const baseUrl = `https://${req.headers.host}`;
 
-    type Recipient = { lead_id: string | null; email: string; html: string; subject: string };
-    const recipients: Recipient[] = [];
-
+    // Pre-inserisce i recipient per ottenere gli ID necessari al tracking
+    const pendingRows: any[] = [];
     for (const lead of leads || []) {
         const email = findLeadEmail(lead.data || {});
         if (!email || unsubscribedEmails.has(email.toLowerCase())) continue;
-
-        const vars: Record<string, string> = {
-            nome: findLeadName(lead.data || {}),
-            logo_url: branding.logo_url || '',
-            brand_name: branding.brand_name || client.name,
-            primary_color: branding.primary_color || '#2563eb',
-            secondary_color: branding.secondary_color || '#1e293b',
-            footer_text: branding.footer_text || client.name,
-            unsubscribe_link: buildUnsubscribeUrl(baseUrl, email, client.id),
-        };
-
-        recipients.push({
+        pendingRows.push({
+            campaign_id: campaignId,
             lead_id: lead.id,
             email,
-            html: renderMailTemplate(template.body_html, vars),
-            subject: renderMailTemplate(campaign.subject || template.subject_template, vars),
+            lead_name: findLeadName(lead.data || {}),
+            status: 'pending',
         });
     }
 
-    if (recipients.length === 0) {
+    if (pendingRows.length === 0) {
         await supabaseAdmin.from('mail_campaigns').update({ status: 'failed' }).eq('id', campaignId);
         return res.status(400).json({ error: 'Nessuna lead con email valida corrisponde ai filtri selezionati.' });
     }
 
+    const { data: insertedRecipients, error: insertError } = await supabaseAdmin
+        .from('mail_campaign_recipients')
+        .insert(pendingRows)
+        .select('id, email, lead_id, lead_name');
+
+    if (insertError || !insertedRecipients) {
+        return res.status(500).json({ error: insertError?.message || 'Errore inserimento destinatari' });
+    }
+
     const recipientRows: any[] = [];
 
-    for (let i = 0; i < recipients.length; i += BATCH_SIZE) {
-        const chunk = recipients.slice(i, i + BATCH_SIZE);
+    for (let i = 0; i < insertedRecipients.length; i += BATCH_SIZE) {
+        const chunk = insertedRecipients.slice(i, i + BATCH_SIZE);
         const { data: batchResult, error: batchError } = await resend.batch.send(
-            chunk.map(r => ({ from: fromAddress, to: [r.email], subject: r.subject, html: r.html }))
+            chunk.map(r => {
+                const vars: Record<string, string> = {
+                    nome: r.lead_name || '',
+                    logo_url: branding.logo_url || '',
+                    brand_name: branding.brand_name || client.name,
+                    primary_color: branding.primary_color || '#2563eb',
+                    secondary_color: branding.secondary_color || '#1e293b',
+                    footer_text: branding.footer_text || client.name,
+                    unsubscribe_link: buildUnsubscribeUrl(baseUrl, r.email, client.id),
+                };
+                const rawHtml = renderMailTemplate(template.body_html, vars);
+                const trackedHtml = injectTracking(rawHtml, baseUrl, r.id);
+                const subject = renderMailTemplate(campaign.subject || template.subject_template, vars);
+                return { from: fromAddress, to: [r.email], subject, html: trackedHtml };
+            })
         );
 
         chunk.forEach((r, idx) => {
             const sendError = batchError || !batchResult?.data?.[idx];
             recipientRows.push({
-                campaign_id: campaignId,
-                lead_id: r.lead_id,
-                email: r.email,
+                id: r.id,
                 status: sendError ? 'failed' : 'sent',
                 sent_at: sendError ? null : new Date().toISOString(),
                 error: sendError ? (batchError?.message || 'Invio non riuscito') : null,
@@ -162,7 +172,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
     }
 
-    await supabaseAdmin.from('mail_campaign_recipients').insert(recipientRows);
+    // Aggiorna lo status dei recipient (erano pending)
+    for (const row of recipientRows) {
+        await supabaseAdmin.from('mail_campaign_recipients')
+            .update({ status: row.status, sent_at: row.sent_at, error: row.error })
+            .eq('id', row.id);
+    }
 
     const allFailed = recipientRows.every(r => r.status === 'failed');
     const finalStatus = allFailed ? 'failed' : 'sent';
