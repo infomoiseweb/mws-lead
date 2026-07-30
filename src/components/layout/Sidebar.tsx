@@ -252,7 +252,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle, onNavigate }) =>
                             <span className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold" style={{ backgroundColor: activeOperator.color }}>
                                 {activeOperator.name.charAt(0).toUpperCase()}
                             </span>
-                            <button onClick={() => setActiveOperator(null)} className="text-xs text-slate-500 hover:text-red-400 transition leading-none" title="Cambia operatore">✕</button>
+                            <button onClick={() => { setActiveOperator(null); window.location.reload(); }} className="text-xs text-slate-500 hover:text-red-400 transition leading-none" title="Cambia operatore">✕</button>
                         </>
                     ) : (
                         <div className="flex items-center gap-2.5">
@@ -264,7 +264,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle, onNavigate }) =>
                                 <p className="text-sm font-semibold text-white truncate">{activeOperator.name}</p>
                             </div>
                             <button
-                                onClick={() => setActiveOperator(null)}
+                                onClick={() => { setActiveOperator(null); window.location.reload(); }}
                                 className="text-xs text-slate-500 hover:text-red-400 transition px-1.5 py-1 rounded hover:bg-slate-700 flex-shrink-0"
                                 title="Cambia operatore"
                             >
