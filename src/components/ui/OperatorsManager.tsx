@@ -72,6 +72,7 @@ const OperatorsManager: React.FC<OperatorsManagerProps> = ({ clientId }) => {
                     <h3 className="text-base font-bold text-slate-800 dark:text-white">Gestione Operatori</h3>
                 </div>
                 <button
+                    type="button"
                     onClick={() => setAddingOpen(true)}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-semibold transition"
                 >
@@ -99,6 +100,7 @@ const OperatorsManager: React.FC<OperatorsManagerProps> = ({ clientId }) => {
                     <div className="flex gap-2 mb-3">
                         {COLORS.map(c => (
                             <button
+                                type="button"
                                 key={c}
                                 onClick={() => setAddingColor(c)}
                                 className={`w-7 h-7 rounded-full border-2 transition ${addingColor === c ? 'border-slate-800 dark:border-white scale-110' : 'border-transparent'}`}
@@ -107,10 +109,10 @@ const OperatorsManager: React.FC<OperatorsManagerProps> = ({ clientId }) => {
                         ))}
                     </div>
                     <div className="flex gap-2">
-                        <button onClick={handleAdd} disabled={saving || !addingName.trim()} className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-semibold disabled:opacity-50 transition">
+                        <button type="button" onClick={handleAdd} disabled={saving || !addingName.trim()} className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-semibold disabled:opacity-50 transition">
                             <Check size={14} /> Salva
                         </button>
-                        <button onClick={() => { setAddingOpen(false); setAddingName(''); }} className="px-3 py-1.5 rounded-lg text-sm text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 transition">
+                        <button type="button" onClick={() => { setAddingOpen(false); setAddingName(''); }} className="px-3 py-1.5 rounded-lg text-sm text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 transition">
                             Annulla
                         </button>
                     </div>
@@ -141,16 +143,16 @@ const OperatorsManager: React.FC<OperatorsManagerProps> = ({ clientId }) => {
                                     />
                                     <div className="flex gap-1">
                                         {COLORS.map(c => (
-                                            <button key={c} onClick={() => setEditColor(c)}
+                                            <button type="button" key={c} onClick={() => setEditColor(c)}
                                                 className={`w-5 h-5 rounded-full border-2 transition ${editColor === c ? 'border-slate-800 dark:border-white scale-110' : 'border-transparent'}`}
                                                 style={{ backgroundColor: c }}
                                             />
                                         ))}
                                     </div>
-                                    <button onClick={() => handleSaveEdit(op.id)} disabled={saving} className="p-1.5 rounded-lg text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition">
+                                    <button type="button" onClick={() => handleSaveEdit(op.id)} disabled={saving} className="p-1.5 rounded-lg text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition">
                                         <Check size={15} />
                                     </button>
-                                    <button onClick={() => setEditingId(null)} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition">
+                                    <button type="button" onClick={() => setEditingId(null)} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition">
                                         <X size={15} />
                                     </button>
                                 </>
@@ -163,11 +165,11 @@ const OperatorsManager: React.FC<OperatorsManagerProps> = ({ clientId }) => {
                                         {op.name.charAt(0).toUpperCase()}
                                     </span>
                                     <span className="flex-1 text-sm font-medium text-slate-700 dark:text-gray-200">{op.name}</span>
-                                    <button onClick={() => { setEditingId(op.id); setEditName(op.name); setEditColor(op.color); }}
+                                    <button type="button" onClick={() => { setEditingId(op.id); setEditName(op.name); setEditColor(op.color); }}
                                         className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition">
                                         <Edit size={15} />
                                     </button>
-                                    <button onClick={() => handleDelete(op.id)}
+                                    <button type="button" onClick={() => handleDelete(op.id)}
                                         className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition">
                                         <Trash2 size={15} />
                                     </button>
