@@ -3,7 +3,9 @@ import Modal from '../ui/Modal';
 import DateRangeFilter from '../ui/DateRangeFilter';
 import * as ApiService from '@api';
 import type { Client, MailCampaign, MailTemplate, Lead } from '../../types';
-import { Loader2, Send } from 'lucide-react';
+import { Loader2, Send, Clock, Calendar, Zap } from 'lucide-react';
+
+type ScheduleMode = 'now' | 'scheduled';
 
 const inputCls = "w-full px-3 py-2 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500";
 
@@ -26,6 +28,8 @@ const MailCampaignModal: React.FC<MailCampaignModalProps> = ({ isOpen, onClose, 
     const [statuses, setStatuses] = useState<string[]>([]);
     const [services, setServices] = useState<string[]>([]);
     const [dateRange, setDateRange] = useState<{ start: Date | null; end: Date | null }>({ start: null, end: null });
+    const [scheduleMode, setScheduleMode] = useState<ScheduleMode>('now');
+    const [scheduledAt, setScheduledAt] = useState('');
     const [isSaving, setIsSaving] = useState(false);
     const [isSending, setIsSending] = useState(false);
     const [error, setError] = useState('');
@@ -55,6 +59,8 @@ const MailCampaignModal: React.FC<MailCampaignModalProps> = ({ isOpen, onClose, 
             setStatuses([]);
             setServices([]);
             setDateRange({ start: null, end: null });
+            setScheduleMode('now');
+            setScheduledAt('');
         }
     }, [isOpen, campaign, templates]);
 
@@ -200,6 +206,40 @@ const MailCampaignModal: React.FC<MailCampaignModalProps> = ({ isOpen, onClose, 
                 <div>
                     <label className="text-xs font-medium text-slate-500 dark:text-gray-400">Oggetto email</label>
                     <input type="text" value={subject} onChange={e => setSubject(e.target.value)} placeholder="Es. {{brand_name}}: una novità per te" className={inputCls} />
+                </div>
+
+                {/* ── Pianificazione ── */}
+                <div className="border-t border-slate-200 dark:border-slate-700 pt-3">
+                    <h4 className="text-sm font-semibold text-slate-700 dark:text-gray-200 mb-2">Quando inviare</h4>
+                    <div className="grid grid-cols-2 gap-2 mb-3">
+                        {([
+                            { id: 'now', label: 'Invia subito', icon: <Zap size={14} />, desc: 'Inviata immediatamente' },
+                            { id: 'scheduled', label: 'Pianifica', icon: <Calendar size={14} />, desc: 'Scegli data e ora' },
+                        ] as { id: ScheduleMode; label: string; icon: React.ReactNode; desc: string }[]).map(opt => (
+                            <button key={opt.id} type="button" onClick={() => setScheduleMode(opt.id)}
+                                className={`flex items-start gap-2.5 p-3 rounded-xl border text-left transition-all ${scheduleMode === opt.id
+                                    ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
+                                    : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                                }`}>
+                                <span className={scheduleMode === opt.id ? 'text-primary-600 dark:text-primary-400 mt-0.5' : 'text-slate-400 mt-0.5'}>{opt.icon}</span>
+                                <div>
+                                    <p className={`text-xs font-semibold ${scheduleMode === opt.id ? 'text-primary-700 dark:text-primary-300' : 'text-slate-700 dark:text-slate-200'}`}>{opt.label}</p>
+                                    <p className="text-xs text-slate-400 dark:text-slate-500">{opt.desc}</p>
+                                </div>
+                            </button>
+                        ))}
+                    </div>
+                    {scheduleMode === 'scheduled' && (
+                        <div>
+                            <label className="text-xs font-medium text-slate-500 dark:text-gray-400 block mb-1">Data e ora di invio</label>
+                            <input type="datetime-local" value={scheduledAt} onChange={e => setScheduledAt(e.target.value)}
+                                className={inputCls} />
+                            <p className="text-xs text-slate-400 mt-1">
+                                <Clock size={10} className="inline mr-1" />
+                                Nota: l'invio pianificato richiede che il cron job sia configurato su Vercel.
+                            </p>
+                        </div>
+                    )}
                 </div>
 
                 <div className="border-t border-slate-200 dark:border-slate-700 pt-3">
