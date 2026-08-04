@@ -60,13 +60,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (fetchError || !existing) return res.status(404).json({ error: 'Dominio non trovato' });
             if (!existing.resend_domain_id) return res.status(400).json({ error: 'Dominio non collegato a Resend' });
 
-            await resend.domains.verify(existing.resend_domain_id);
-            // Attesa necessaria: Resend non aggiorna lo stato istantaneamente dopo verify()
-            await new Promise(r => setTimeout(r, 1000));
+            // Leggiamo lo stato attuale da Resend (senza chiamare verify() che può resettare lo stato)
             const { data: refreshed, error: getError } = await resend.domains.get(existing.resend_domain_id);
             if (getError || !refreshed) return res.status(500).json({ error: getError?.message || 'Errore durante la verifica del dominio' });
 
-            const status = refreshed.status === 'verified' ? 'verified' : (refreshed.status === 'failed' ? 'failed' : 'pending');
+            // Se non ancora verificato, proviamo a triggerare il controllo DNS e rileggiamo
+            let finalStatus = refreshed.status;
+            if (finalStatus !== 'verified') {
+                await resend.domains.verify(existing.resend_domain_id);
+                await new Promise(r => setTimeout(r, 1500));
+                const { data: recheckData } = await resend.domains.get(existing.resend_domain_id);
+                if (recheckData) finalStatus = recheckData.status;
+            }
+
+            const status = finalStatus === 'verified' ? 'verified' : (finalStatus === 'failed' ? 'failed' : 'pending');
 
             const { data: updated, error: updateError } = await supabaseAdmin
                 .from('mail_domains')
