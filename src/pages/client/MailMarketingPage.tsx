@@ -418,6 +418,7 @@ const MailMarketingPage: React.FC = () => {
                     clientId={client.id}
                     branding={branding}
                     onSaved={handleTemplateSaved}
+                    onDeleted={handleTemplateDeleted}
                     onClose={() => setTemplateEditorState({ open: false, template: null })}
                 />
             )}

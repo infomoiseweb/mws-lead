@@ -112,6 +112,7 @@ interface Props {
     clientId: string;
     branding: MailBranding;
     onSaved: (t: MailTemplate) => void;
+    onDeleted: (templateId: string) => void;
     onClose: () => void;
 }
 
@@ -221,7 +222,7 @@ const BlockRow: React.FC<BlockRowProps> = ({ block, index, total, selected, onSe
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-const MailTemplateEditor: React.FC<Props> = ({ template, clientId, branding, onSaved, onClose }) => {
+const MailTemplateEditor: React.FC<Props> = ({ template, clientId, branding, onSaved, onDeleted, onClose }) => {
     const [name, setName] = useState('');
     const [subject, setSubject] = useState('');
     const [mode, setMode] = useState<'visual' | 'html'>('visual');
@@ -229,6 +230,8 @@ const MailTemplateEditor: React.FC<Props> = ({ template, clientId, branding, onS
     const [htmlBody, setHtmlBody] = useState('');
     const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
     const [isSaving, setIsSaving] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [deleteConfirm, setDeleteConfirm] = useState(false);
     const [error, setError] = useState('');
     const [saved, setSaved] = useState(false);
     const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -312,6 +315,22 @@ const MailTemplateEditor: React.FC<Props> = ({ template, clientId, branding, onS
         });
     }, []);
 
+    const handleDelete = async () => {
+        if (!template) return;
+        setIsDeleting(true);
+        setError('');
+        try {
+            await ApiService.deleteMailTemplate(template.id);
+            onDeleted(template.id);
+            onClose();
+        } catch (err: any) {
+            setError(err.message || 'Errore durante l\'eliminazione.');
+            setDeleteConfirm(false);
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
     const handleSave = async () => {
         if (!name.trim()) { setError('Inserisci un nome per il template.'); return; }
         if (!subject.trim()) { setError('Inserisci l\'oggetto del template.'); return; }
@@ -374,6 +393,32 @@ const MailTemplateEditor: React.FC<Props> = ({ template, clientId, branding, onS
 
                 <div className="ml-auto flex items-center gap-2">
                     {error && <span className="text-xs text-red-500 hidden sm:block">{error}</span>}
+
+                    {/* Delete — solo su template esistente */}
+                    {template && (
+                        deleteConfirm ? (
+                            <div className="flex items-center gap-1.5">
+                                <span className="text-xs text-slate-500 hidden sm:block">Eliminare?</span>
+                                <button type="button" onClick={handleDelete} disabled={isDeleting}
+                                    className="flex items-center gap-1 px-3 py-1.5 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-colors">
+                                    {isDeleting ? <Loader2 size={12} className="animate-spin" /> : null}
+                                    Sì, elimina
+                                </button>
+                                <button type="button" onClick={() => setDeleteConfirm(false)}
+                                    className="px-3 py-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors">
+                                    No
+                                </button>
+                            </div>
+                        ) : (
+                            <button type="button" onClick={() => setDeleteConfirm(true)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 text-xs font-semibold rounded-lg transition-colors">
+                                <Trash2 size={13} /> Elimina
+                            </button>
+                        )
+                    )}
+
+                    <div className="h-4 w-px bg-slate-200 dark:bg-slate-700" />
+
                     <button type="button" onClick={onClose}
                         className="px-3 py-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors">
                         Annulla
