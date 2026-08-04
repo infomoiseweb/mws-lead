@@ -61,6 +61,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!existing.resend_domain_id) return res.status(400).json({ error: 'Dominio non collegato a Resend' });
 
             await resend.domains.verify(existing.resend_domain_id);
+            // Attesa necessaria: Resend non aggiorna lo stato istantaneamente dopo verify()
+            await new Promise(r => setTimeout(r, 1000));
             const { data: refreshed, error: getError } = await resend.domains.get(existing.resend_domain_id);
             if (getError || !refreshed) return res.status(500).json({ error: getError?.message || 'Errore durante la verifica del dominio' });
 
