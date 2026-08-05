@@ -64,6 +64,7 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
     const [metaEnabled, setMetaEnabled] = useState(false);
     const [operatorsEnabled, setOperatorsEnabled] = useState(false);
     const [installmentsEnabled, setInstallmentsEnabled] = useState(false);
+    const [mailMarketingEnabled, setMailMarketingEnabled] = useState(false);
     const [distanceSettings, setDistanceSettings] = useState<DistanceSettings>({ enabled: false, company_address: '', location_field: '' });
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -121,6 +122,7 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
             setOperatorsEnabled(client.operators_enabled ?? false);
             setMetaEnabled(client.meta_enabled ?? false);
             setInstallmentsEnabled(client.installments_enabled ?? false);
+            setMailMarketingEnabled(client.mail_marketing_enabled ?? false);
             setDistanceSettings(client.distance_settings ?? { enabled: false, company_address: '', location_field: '' });
         } else {
             setName(''); setUsername(''); setEmail(''); setPassword('');
@@ -157,6 +159,7 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
                     meta_enabled: metaEnabled,
                     installments_enabled: installmentsEnabled,
                     operators_enabled: operatorsEnabled,
+                    mail_marketing_enabled: mailMarketingEnabled,
                     distance_settings: distanceSettings,
                 });
             } else {
@@ -239,6 +242,7 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSuccess }) => {
                     <ToggleRow label="Operatori" description="Traccia quale operatore ha cambiato lo stato di ogni lead (per account con più persone)." checked={operatorsEnabled} onChange={() => setOperatorsEnabled(v => !v)} />
                     <ToggleRow label="Pagamento a rate" description="Il cliente può gestire piani di pagamento a rate sulle lead vinte." checked={installmentsEnabled} onChange={() => setInstallmentsEnabled(v => !v)} />
                     <ToggleRow label="Social Meta (Facebook / Instagram)" description={metaEnabled ? 'Sezione Social attiva — il cliente può collegare il suo account Meta.' : 'Abilita la sezione Social per questo cliente.'} checked={metaEnabled} onChange={() => setMetaEnabled(v => !v)} />
+                    <ToggleRow label="Mail Marketing" description={mailMarketingEnabled ? 'Sezione Mail Marketing attiva — il cliente può creare campagne e template email.' : 'Abilita la sezione Mail Marketing per questo cliente.'} checked={mailMarketingEnabled} onChange={() => setMailMarketingEnabled(v => !v)} />
                 </div>
             </div>
 
