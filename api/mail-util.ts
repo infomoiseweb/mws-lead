@@ -83,7 +83,6 @@ async function handleAutomations(req: VercelRequest, res: VercelResponse) {
 
     if (automationsError) return res.status(500).json({ error: automationsError.message });
 
-    const baseUrl = `https://${req.headers.host}`;
     const results: any[] = [];
 
     for (const automation of automations || []) {
