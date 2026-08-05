@@ -184,7 +184,7 @@ const MailMarketingPage: React.FC = () => {
     const [flows, setFlows] = useState<MailFlow[]>([]);
     const [isFlowsLoading, setIsFlowsLoading] = useState(true);
     const [flowsError, setFlowsError] = useState('');
-    const [editingFlow, setEditingFlow] = useState<MailFlow | null | 'new'>('new');
+    const [editingFlow, setEditingFlow] = useState<MailFlow | null | 'new'>(null);
     const [isSavingFlow, setIsSavingFlow] = useState(false);
 
     // ── Data fetching ──────────────────────────────────────────────────────────
@@ -249,9 +249,6 @@ const MailMarketingPage: React.FC = () => {
         try {
             const data = await ApiService.getMailFlows(clientId);
             setFlows(data);
-            // Se non c'è nessun flusso apri la canvas vuota per iniziare
-            if (data.length === 0) setEditingFlow('new');
-            else setEditingFlow(data[0]);
         } catch (err: any) {
             setFlowsError(err.message || 'Errore flussi.');
         } finally {
@@ -391,7 +388,7 @@ const MailMarketingPage: React.FC = () => {
                 const exists = prev.some(f => f.id === saved.id);
                 return exists ? prev.map(f => f.id === saved.id ? saved : f) : [saved, ...prev];
             });
-            setEditingFlow(saved);
+            setEditingFlow(null);
         } catch (err: any) {
             setFlowsError(err.message || 'Errore salvataggio flusso.');
         } finally {
@@ -404,7 +401,7 @@ const MailMarketingPage: React.FC = () => {
         try {
             await ApiService.deleteMailFlow(editingFlow.id);
             setFlows(prev => prev.filter(f => f.id !== (editingFlow as MailFlow).id));
-            setEditingFlow('new');
+            setEditingFlow(null);
         } catch (err: any) {
             setFlowsError(err.message || 'Errore eliminazione flusso.');
         }
@@ -455,6 +452,20 @@ const MailMarketingPage: React.FC = () => {
                     onSaved={handleTemplateSaved}
                     onDeleted={handleTemplateDeleted}
                     onClose={() => setTemplateEditorState({ open: false, template: null })}
+                />
+            )}
+
+            {/* Flow builder overlay */}
+            {editingFlow !== null && client && (
+                <MailFlowBuilder
+                    key={editingFlow === 'new' ? 'new' : (editingFlow as MailFlow).id}
+                    flow={editingFlow === 'new' ? null : editingFlow as MailFlow}
+                    templates={templates}
+                    client={client}
+                    isSaving={isSavingFlow}
+                    onSave={handleSaveFlow}
+                    onDelete={editingFlow !== 'new' ? handleDeleteFlow : undefined}
+                    onClose={() => setEditingFlow(null)}
                 />
             )}
 
@@ -609,7 +620,7 @@ const MailMarketingPage: React.FC = () => {
                         </div>
                     )}
 
-                    {/* ═══════════════ AUTOMAZIONI (Flow Builder) ═══════════════ */}
+                    {/* ═══════════════ AUTOMAZIONI ═══════════════ */}
                     {activeView === 'automazioni' && (
                         <div className="space-y-4">
                             <div className="flex items-center justify-between">
@@ -636,41 +647,46 @@ const MailMarketingPage: React.FC = () => {
                                 <div className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-xl p-3">{flowsError}</div>
                             )}
 
-                            {/* Flow list tabs */}
-                            {flows.length > 0 && (
-                                <div className="flex gap-2 flex-wrap">
-                                    <button
-                                        onClick={() => setEditingFlow('new')}
-                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border ${editingFlow === 'new' ? 'bg-primary-50 dark:bg-primary-900/30 border-primary-300 dark:border-primary-700 text-primary-700 dark:text-primary-300' : 'bg-white/80 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-500 hover:text-slate-700'}`}>
-                                        <Plus size={12} /> Nuovo
-                                    </button>
-                                    {flows.map(f => (
-                                        <button key={f.id}
-                                            onClick={() => setEditingFlow(f)}
-                                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border ${editingFlow !== 'new' && (editingFlow as MailFlow)?.id === f.id ? 'bg-primary-50 dark:bg-primary-900/30 border-primary-300 dark:border-primary-700 text-primary-700 dark:text-primary-300' : 'bg-white/80 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-500 hover:text-slate-700'}`}>
-                                            <span className={`w-1.5 h-1.5 rounded-full ${f.active ? 'bg-emerald-500' : 'bg-slate-400'}`} />
-                                            {f.name}
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-
-                            {/* Flow builder canvas */}
                             {isFlowsLoading ? (
                                 <div className="flex items-center justify-center py-16">
                                     <Loader2 className="w-6 h-6 animate-spin text-primary-500" />
                                 </div>
-                            ) : client && (
-                                <div className="bg-white/85 dark:bg-slate-800/85 backdrop-blur-sm rounded-2xl border border-slate-200/60 dark:border-slate-700/60 overflow-hidden" style={{ height: 640 }}>
-                                    <MailFlowBuilder
-                                        key={editingFlow === 'new' ? 'new' : (editingFlow as MailFlow)?.id}
-                                        flow={editingFlow === 'new' ? null : editingFlow as MailFlow}
-                                        templates={templates}
-                                        client={client}
-                                        isSaving={isSavingFlow}
-                                        onSave={handleSaveFlow}
-                                        onDelete={editingFlow !== 'new' ? handleDeleteFlow : undefined}
-                                    />
+                            ) : flows.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
+                                    <div className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                                        <Zap size={24} className="text-slate-400" />
+                                    </div>
+                                    <div>
+                                        <p className="font-semibold text-slate-700 dark:text-slate-200">Nessun flusso creato</p>
+                                        <p className="text-sm text-slate-400 mt-1">Crea il primo flusso automatico per inviare email alle tue lead.</p>
+                                    </div>
+                                    <button onClick={() => setEditingFlow('new')}
+                                        className="flex items-center gap-2 px-5 py-2.5 bg-primary-600 hover:bg-primary-700 text-white text-sm font-semibold rounded-xl transition-colors shadow-sm">
+                                        <Plus size={15} /> Crea flusso
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {flows.map(f => (
+                                        <button key={f.id} onClick={() => setEditingFlow(f)}
+                                            className="group text-left bg-white/85 dark:bg-slate-800/85 backdrop-blur-sm rounded-2xl border border-slate-200/60 dark:border-slate-700/60 p-5 hover:border-primary-300 dark:hover:border-primary-700 hover:shadow-md transition-all">
+                                            <div className="flex items-start justify-between gap-3 mb-3">
+                                                <div className="w-10 h-10 rounded-xl bg-primary-50 dark:bg-primary-900/30 flex items-center justify-center shrink-0">
+                                                    <Zap size={18} className="text-primary-600 dark:text-primary-400" />
+                                                </div>
+                                                <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${f.active ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400' : 'bg-slate-100 text-slate-500 dark:bg-slate-700/60 dark:text-slate-400'}`}>
+                                                    {f.active ? 'Attivo' : 'Inattivo'}
+                                                </span>
+                                            </div>
+                                            <p className="font-semibold text-slate-800 dark:text-white text-sm mb-1 truncate">{f.name}</p>
+                                            <p className="text-xs text-slate-400 dark:text-slate-500">
+                                                {f.flow_data?.nodes?.length ?? 0} nodi
+                                            </p>
+                                            <div className="mt-4 flex items-center gap-1 text-xs text-primary-600 dark:text-primary-400 font-semibold opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <Pencil size={12} /> Modifica
+                                            </div>
+                                        </button>
+                                    ))}
                                 </div>
                             )}
                         </div>

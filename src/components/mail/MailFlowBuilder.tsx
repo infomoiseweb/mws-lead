@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
-    Zap, Filter, Clock, Mail, Plus, Trash2, Save, Loader2, Play,
-    ChevronDown, Check, X, Settings, ToggleLeft, ToggleRight
+    Zap, Filter, Clock, Mail, Plus, Trash2, Save, Loader2,
+    Check, X, ToggleLeft, ToggleRight, ArrowLeft
 } from 'lucide-react';
 import type { MailTemplate, Client } from '../../types';
 
@@ -380,9 +380,10 @@ export interface MailFlowBuilderProps {
     isSaving: boolean;
     onSave: (name: string, active: boolean, flowData: FlowData) => Promise<void>;
     onDelete?: () => Promise<void>;
+    onClose: () => void;
 }
 
-const MailFlowBuilder: React.FC<MailFlowBuilderProps> = ({ flow, templates, client, isSaving, onSave, onDelete }) => {
+const MailFlowBuilder: React.FC<MailFlowBuilderProps> = ({ flow, templates, client, isSaving, onSave, onDelete, onClose }) => {
     const [name, setName] = useState(flow?.name || 'Nuovo flusso');
     const [active, setActive] = useState(flow?.active || false);
     const [nodes, setNodes] = useState<FlowNode[]>(flow?.flow_data?.nodes || []);
@@ -492,18 +493,24 @@ const MailFlowBuilder: React.FC<MailFlowBuilderProps> = ({ flow, templates, clie
         : 800;
 
     return (
-        <div className="flex flex-col h-full">
+        <div className="fixed inset-0 z-50 flex flex-col bg-slate-50 dark:bg-slate-900">
             {/* ── Top bar ── */}
-            <div className="flex items-center gap-3 px-4 py-3 bg-white/90 dark:bg-slate-800/90 backdrop-blur-md border-b border-slate-200/60 dark:border-slate-700/60 shrink-0">
-                <div className="flex flex-col min-w-0">
-                    <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-0.5">Nome flusso</span>
-                    <input
-                        value={name}
-                        onChange={e => setName(e.target.value)}
-                        placeholder="Es. Benvenuto nuove lead…"
-                        className="w-56 px-2.5 py-1 bg-slate-100 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 rounded-lg text-sm font-semibold text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-400/40 focus:border-primary-400 transition-all"
-                    />
-                </div>
+            <div className="h-14 shrink-0 flex items-center gap-3 px-4 bg-white/90 dark:bg-slate-800/90 backdrop-blur-md border-b border-slate-200/70 dark:border-slate-700/60">
+                <button type="button" onClick={onClose}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                    <ArrowLeft size={18} />
+                </button>
+
+                <div className="h-5 w-px bg-slate-200 dark:bg-slate-700" />
+
+                <input
+                    value={name}
+                    onChange={e => setName(e.target.value)}
+                    placeholder="Nome flusso…"
+                    className="flex-1 max-w-xs bg-transparent text-sm font-semibold text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none"
+                />
+
+                <div className="h-5 w-px bg-slate-200 dark:bg-slate-700" />
 
                 {/* Active toggle */}
                 <button type="button" onClick={() => setActive(v => !v)}
@@ -516,34 +523,34 @@ const MailFlowBuilder: React.FC<MailFlowBuilderProps> = ({ flow, templates, clie
                     {active ? 'Attivo' : 'Inattivo'}
                 </button>
 
-                <div className="h-4 w-px bg-slate-200 dark:bg-slate-700" />
-
-                {onDelete && (
-                    deleteConfirm ? (
-                        <div className="flex items-center gap-1.5">
-                            <span className="text-xs text-slate-500">Eliminare?</span>
-                            <button type="button" onClick={async () => { await onDelete(); }}
-                                className="px-2.5 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-lg transition-colors">
-                                Sì
+                <div className="ml-auto flex items-center gap-2">
+                    {onDelete && (
+                        deleteConfirm ? (
+                            <div className="flex items-center gap-1.5">
+                                <span className="text-xs text-slate-500">Eliminare?</span>
+                                <button type="button" onClick={async () => { await onDelete(); }}
+                                    className="px-2.5 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-lg transition-colors">
+                                    Sì
+                                </button>
+                                <button type="button" onClick={() => setDeleteConfirm(false)}
+                                    className="px-2.5 py-1.5 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-semibold rounded-lg transition-colors">
+                                    No
+                                </button>
+                            </div>
+                        ) : (
+                            <button type="button" onClick={() => setDeleteConfirm(true)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 text-xs font-semibold rounded-xl transition-colors">
+                                <Trash2 size={13} /> Elimina
                             </button>
-                            <button type="button" onClick={() => setDeleteConfirm(false)}
-                                className="px-2.5 py-1.5 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-semibold rounded-lg transition-colors">
-                                No
-                            </button>
-                        </div>
-                    ) : (
-                        <button type="button" onClick={() => setDeleteConfirm(true)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 text-xs font-semibold rounded-xl transition-colors">
-                            <Trash2 size={13} /> Elimina
-                        </button>
-                    )
-                )}
+                        )
+                    )}
 
-                <button type="button" onClick={handleSave} disabled={isSaving}
-                    className="flex items-center gap-2 px-4 py-1.5 bg-primary-600 hover:bg-primary-700 disabled:opacity-50 text-white text-xs font-semibold rounded-xl transition-colors">
-                    {isSaving ? <Loader2 size={13} className="animate-spin" /> : saved ? <Check size={13} /> : <Save size={13} />}
-                    {saved ? 'Salvato!' : 'Salva flusso'}
-                </button>
+                    <button type="button" onClick={handleSave} disabled={isSaving}
+                        className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition-colors shadow-sm">
+                        {isSaving ? <Loader2 size={14} className="animate-spin" /> : saved ? <Check size={14} /> : <Save size={14} />}
+                        {saved ? 'Salvato!' : 'Salva flusso'}
+                    </button>
+                </div>
             </div>
 
             {/* ── Body ── */}
