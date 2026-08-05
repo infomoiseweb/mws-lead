@@ -661,7 +661,7 @@ const MailMarketingPage: React.FC = () => {
                                     <Loader2 className="w-6 h-6 animate-spin text-primary-500" />
                                 </div>
                             ) : client && (
-                                <div className="bg-white/85 dark:bg-slate-800/85 backdrop-blur-sm rounded-2xl border border-slate-200/60 dark:border-slate-700/60 overflow-hidden" style={{ height: 580 }}>
+                                <div className="bg-white/85 dark:bg-slate-800/85 backdrop-blur-sm rounded-2xl border border-slate-200/60 dark:border-slate-700/60 overflow-hidden" style={{ height: 640 }}>
                                     <MailFlowBuilder
                                         key={editingFlow === 'new' ? 'new' : (editingFlow as MailFlow)?.id}
                                         flow={editingFlow === 'new' ? null : editingFlow as MailFlow}

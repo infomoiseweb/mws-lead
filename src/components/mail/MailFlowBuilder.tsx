@@ -492,14 +492,18 @@ const MailFlowBuilder: React.FC<MailFlowBuilderProps> = ({ flow, templates, clie
         : 800;
 
     return (
-        <div className="flex flex-col h-full" style={{ minHeight: 600 }}>
+        <div className="flex flex-col h-full">
             {/* ── Top bar ── */}
             <div className="flex items-center gap-3 px-4 py-3 bg-white/90 dark:bg-slate-800/90 backdrop-blur-md border-b border-slate-200/60 dark:border-slate-700/60 shrink-0">
-                <input
-                    value={name}
-                    onChange={e => setName(e.target.value)}
-                    className="flex-1 max-w-xs bg-transparent text-sm font-bold text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none border-b border-transparent focus:border-primary-400 transition-colors pb-0.5"
-                />
+                <div className="flex flex-col min-w-0">
+                    <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-0.5">Nome flusso</span>
+                    <input
+                        value={name}
+                        onChange={e => setName(e.target.value)}
+                        placeholder="Es. Benvenuto nuove lead…"
+                        className="w-56 px-2.5 py-1 bg-slate-100 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 rounded-lg text-sm font-semibold text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-400/40 focus:border-primary-400 transition-all"
+                    />
+                </div>
 
                 {/* Active toggle */}
                 <button type="button" onClick={() => setActive(v => !v)}

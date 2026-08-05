@@ -5,7 +5,7 @@ const APP_ID = process.env.META_APP_ID!;
 const APP_SECRET = process.env.META_APP_SECRET!;
 const REDIRECT_URI = process.env.META_REDIRECT_URI!; // https://mws-saas.com/api/meta
 const BASE_URL = 'https://www.mws-saas.com';
-const SCOPES = 'pages_show_list,pages_read_engagement,pages_manage_posts,instagram_basic,instagram_content_publish';
+const SCOPES = 'public_profile,email,pages_show_list,pages_manage_posts,instagram_basic,instagram_content_publish';
 
 const supabaseAdmin = createClient(
     process.env.VITE_SUPABASE_URL!,
