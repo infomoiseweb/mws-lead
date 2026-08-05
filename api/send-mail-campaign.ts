@@ -17,15 +17,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    const authHeader = req.headers.authorization;
-    if (!authHeader?.startsWith('Bearer ')) {
-        return res.status(401).json({ error: 'Unauthorized' });
-    }
+    // Accetta chiamate dal cron interno tramite x-cron-secret
+    const cronSecret = process.env.AUTOMATION_CRON_SECRET;
+    const fromCron = cronSecret && req.headers['x-cron-secret'] === cronSecret && req.body?.fromCron;
 
-    const jwt = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(jwt);
-    if (authError || !user) {
-        return res.status(401).json({ error: 'Token non valido o scaduto' });
+    let user: { id: string } | null = null;
+    if (!fromCron) {
+        const authHeader = req.headers.authorization;
+        if (!authHeader?.startsWith('Bearer ')) {
+            return res.status(401).json({ error: 'Unauthorized' });
+        }
+        const jwt = authHeader.replace('Bearer ', '');
+        const { data: { user: u }, error: authError } = await supabaseAdmin.auth.getUser(jwt);
+        if (authError || !u) return res.status(401).json({ error: 'Token non valido o scaduto' });
+        user = u;
     }
 
     const { campaignId } = req.body || {};
@@ -47,15 +52,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (clientError || !client) return res.status(404).json({ error: 'Cliente non trovato' });
 
-    const { data: requester } = await supabaseAdmin
-        .from('users')
-        .select('role')
-        .eq('id', user.id)
-        .single();
-
-    const isOwner = client.user_id === user.id;
-    const isAdmin = requester?.role === 'admin';
-    if (!isOwner && !isAdmin) return res.status(403).json({ error: 'Non autorizzato' });
+    if (!fromCron) {
+        const { data: requester } = await supabaseAdmin
+            .from('users')
+            .select('role')
+            .eq('id', user!.id)
+            .single();
+        const isOwner = client.user_id === user!.id;
+        const isAdmin = requester?.role === 'admin';
+        if (!isOwner && !isAdmin) return res.status(403).json({ error: 'Non autorizzato' });
+    }
 
     if (!campaign.template_id) return res.status(400).json({ error: 'La campagna non ha un template associato' });
 
@@ -81,17 +87,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const filters = campaign.filters || {};
     let leadsQuery = supabaseAdmin.from('leads').select('id, data, status, service, created_at').eq('client_id', client.id);
 
-    if (Array.isArray(filters.statuses) && filters.statuses.length > 0) {
-        leadsQuery = leadsQuery.in('status', filters.statuses);
-    }
-    if (Array.isArray(filters.services) && filters.services.length > 0) {
-        leadsQuery = leadsQuery.in('service', filters.services);
-    }
-    if (filters.created_after) {
-        leadsQuery = leadsQuery.gte('created_at', filters.created_after);
-    }
-    if (filters.created_before) {
-        leadsQuery = leadsQuery.lte('created_at', filters.created_before);
+    // Se l'utente ha selezionato lead specifiche, usa solo quelle
+    if (Array.isArray(filters.lead_ids) && filters.lead_ids.length > 0) {
+        leadsQuery = leadsQuery.in('id', filters.lead_ids);
+    } else {
+        if (Array.isArray(filters.statuses) && filters.statuses.length > 0) {
+            leadsQuery = leadsQuery.in('status', filters.statuses);
+        }
+        if (Array.isArray(filters.services) && filters.services.length > 0) {
+            leadsQuery = leadsQuery.in('service', filters.services);
+        }
+        if (filters.created_after) {
+            leadsQuery = leadsQuery.gte('created_at', filters.created_after);
+        }
+        if (filters.created_before) {
+            leadsQuery = leadsQuery.lte('created_at', filters.created_before);
+        }
     }
 
     const { data: leads, error: leadsError } = await leadsQuery;

@@ -56,9 +56,12 @@ export function injectTracking(html: string, baseUrl: string, recipientId: strin
             return `href="${buildTrackClickUrl(baseUrl, recipientId, url)}"`;
         }
     );
-    // Pixel apertura
+    // Pixel apertura — funziona sia su HTML completo (con </body>) che su frammenti
     const pixel = `<img src="${buildTrackOpenUrl(baseUrl, recipientId)}" width="1" height="1" style="display:none" alt="" />`;
-    return tracked.replace(/<\/body>/i, `${pixel}</body>`);
+    if (/<\/body>/i.test(tracked)) {
+        return tracked.replace(/<\/body>/i, `${pixel}</body>`);
+    }
+    return tracked + pixel;
 }
 
 const EMAIL_KEY_REGEX = /e[-_ ]?mail/i;

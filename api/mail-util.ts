@@ -53,6 +53,24 @@ async function handleAutomations(req: VercelRequest, res: VercelResponse) {
     if (!secret) return res.status(500).json({ error: 'Server misconfigured' });
     if (req.headers['x-cron-secret'] !== secret) return res.status(401).json({ error: 'Unauthorized' });
 
+    // Invia le campagne pianificate il cui scheduled_at è già passato
+    const now = new Date().toISOString();
+    const { data: scheduled } = await supabaseAdmin
+        .from('mail_campaigns')
+        .select('id')
+        .eq('status', 'scheduled')
+        .lte('scheduled_at', now);
+
+    for (const camp of scheduled || []) {
+        try {
+            await fetch(`https://${req.headers.host}/api/send-mail-campaign`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-cron-secret': secret },
+                body: JSON.stringify({ campaignId: camp.id, fromCron: true }),
+            });
+        } catch { /* non bloccante */ }
+    }
+
     const { data: automations, error: automationsError } = await supabaseAdmin
         .from('mail_automations')
         .select('*')

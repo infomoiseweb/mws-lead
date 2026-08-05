@@ -152,7 +152,7 @@ const MailCampaignModal: React.FC<Props> = ({ isOpen, onClose, campaign, client,
         ...(selectedIds.size > 0 ? { lead_ids: [...selectedIds] } : {}),
     });
 
-    const persist = async (): Promise<MailCampaign> =>
+    const persist = async (overrides?: Record<string, any>): Promise<MailCampaign> =>
         ApiService.saveMailCampaign({
             ...(campaign ? { id: campaign.id } : {}),
             client_id: client.id,
@@ -160,6 +160,7 @@ const MailCampaignModal: React.FC<Props> = ({ isOpen, onClose, campaign, client,
             template_id: templateId || null,
             subject,
             filters: buildFilters(),
+            ...overrides,
         });
 
     const handleSaveDraft = async () => {
@@ -167,6 +168,20 @@ const MailCampaignModal: React.FC<Props> = ({ isOpen, onClose, campaign, client,
         setIsSaving(true); setError('');
         try { onSaved(await persist()); onClose(); }
         catch (e: any) { setError(e.message || 'Errore salvataggio.'); }
+        finally { setIsSaving(false); }
+    };
+
+    const handleSchedule = async () => {
+        if (!name.trim()) { setError('Inserisci un nome per la campagna.'); return; }
+        if (!templateId) { setError('Seleziona un template.'); return; }
+        if (!scheduledAt) { setError('Seleziona una data e ora di invio.'); return; }
+        setIsSaving(true); setError('');
+        try {
+            const saved = await persist({ status: 'scheduled', scheduled_at: new Date(scheduledAt).toISOString() });
+            onSaved(saved);
+            setSuccessMsg('Campagna pianificata!');
+            setTimeout(() => onClose(), 1200);
+        } catch (e: any) { setError(e.message || 'Errore pianificazione.'); }
         finally { setIsSaving(false); }
     };
 
@@ -215,11 +230,18 @@ const MailCampaignModal: React.FC<Props> = ({ isOpen, onClose, campaign, client,
                         {isSaving ? <Loader2 size={13} className="animate-spin inline mr-1" /> : null}
                         Salva bozza
                     </button>
-                    {canSend && (
+                    {canSend && scheduleMode === 'now' && (
                         <button onClick={handleSendNow} disabled={isSaving || isSending}
                             className="flex items-center gap-1.5 px-4 py-1.5 bg-primary-600 hover:bg-primary-700 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-colors">
                             {isSending ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
                             Invia ora
+                        </button>
+                    )}
+                    {canSend && scheduleMode === 'scheduled' && (
+                        <button onClick={handleSchedule} disabled={isSaving || isSending || !scheduledAt}
+                            className="flex items-center gap-1.5 px-4 py-1.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-colors">
+                            {isSaving ? <Loader2 size={13} className="animate-spin" /> : <Calendar size={13} />}
+                            Pianifica invio
                         </button>
                     )}
                 </div>
