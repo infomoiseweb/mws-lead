@@ -66,18 +66,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             // Se non ancora verificato, proviamo a triggerare il controllo DNS e rileggiamo
             let finalStatus = refreshed.status;
+            let finalRecords = refreshed.records;
             if (finalStatus !== 'verified') {
                 await resend.domains.verify(existing.resend_domain_id);
                 await new Promise(r => setTimeout(r, 1500));
                 const { data: recheckData } = await resend.domains.get(existing.resend_domain_id);
-                if (recheckData) finalStatus = recheckData.status;
+                if (recheckData) {
+                    finalStatus = recheckData.status;
+                    finalRecords = recheckData.records;
+                }
             }
 
             const status = finalStatus === 'verified' ? 'verified' : (finalStatus === 'failed' ? 'failed' : 'pending');
 
             const { data: updated, error: updateError } = await supabaseAdmin
                 .from('mail_domains')
-                .update({ status, dns_records: refreshed.records })
+                .update({ status, dns_records: finalRecords })
                 .eq('id', domainId)
                 .select()
                 .single();

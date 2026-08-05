@@ -155,6 +155,9 @@ const MailMarketingPage: React.FC = () => {
     const [isSubmittingDomain, setIsSubmittingDomain] = useState(false);
     const [isVerifying, setIsVerifying] = useState(false);
     const [copiedField, setCopiedField] = useState<string | null>(null);
+    const [copiedFields, setCopiedFields] = useState<Set<string>>(() => {
+        try { return new Set(JSON.parse(localStorage.getItem('dns_copied_fields') || '[]')); } catch { return new Set(); }
+    });
     const [deleteDomainConfirm, setDeleteDomainConfirm] = useState(false);
 
     // Branding
@@ -291,10 +294,24 @@ const MailMarketingPage: React.FC = () => {
         } catch (err: any) { setDomainError(err.message || 'Errore rimozione.'); }
     };
 
-    const handleCopy = (field: string, value: string) => {
+    const handleCopy = (field: string, value: string, persist = false) => {
         navigator.clipboard.writeText(value).then(() => {
-            setCopiedField(field); setTimeout(() => setCopiedField(null), 1500);
+            setCopiedField(field);
+            setTimeout(() => setCopiedField(null), 1500);
+            if (persist) {
+                setCopiedFields(prev => {
+                    const next = new Set(prev);
+                    next.add(field);
+                    localStorage.setItem('dns_copied_fields', JSON.stringify([...next]));
+                    return next;
+                });
+            }
         });
+    };
+
+    const clearDnsCopied = () => {
+        setCopiedFields(new Set());
+        localStorage.removeItem('dns_copied_fields');
     };
 
     const handleLogoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -707,42 +724,74 @@ const MailMarketingPage: React.FC = () => {
                                             </span>
                                         </div>
 
-                                        {mailDomain.status !== 'verified' && mailDomain.dns_records && mailDomain.dns_records.length > 0 && (
+                                        {mailDomain.dns_records && mailDomain.dns_records.length > 0 && (
                                             <>
-                                                <p className="text-xs text-slate-500 dark:text-slate-400">
-                                                    Aggiungi questi record DNS nel tuo provider (es. GoDaddy, Cloudflare, Aruba), poi premi "Verifica ora". La propagazione può richiedere fino a qualche ora.
-                                                </p>
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                                                        {mailDomain.status !== 'verified'
+                                                            ? 'Aggiungi questi record DNS nel tuo provider (es. GoDaddy, Cloudflare, Aruba), poi premi "Verifica ora". La propagazione può richiedere qualche ora.'
+                                                            : 'Record DNS configurati per questo dominio.'}
+                                                    </p>
+                                                    {copiedFields.size > 0 && (
+                                                        <button onClick={clearDnsCopied} className="shrink-0 text-[10px] text-slate-400 hover:text-red-500 underline transition-colors">
+                                                            Resetta copiati
+                                                        </button>
+                                                    )}
+                                                </div>
                                                 <div className="space-y-3">
-                                                    {mailDomain.dns_records.map((rec, idx) => (
-                                                        <div key={idx} className="rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
-                                                            <div className="px-3 py-1.5 bg-slate-50 dark:bg-slate-900/50 flex items-center gap-2">
-                                                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Record {idx + 1}</span>
-                                                                <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400">{rec.type}</span>
-                                                            </div>
-                                                            <div className="divide-y divide-slate-100 dark:divide-slate-700/60">
-                                                                {[
-                                                                    { label: 'Tipo', value: rec.type },
-                                                                    { label: 'Nome / Host', value: rec.name },
-                                                                    { label: 'Valore', value: rec.value },
-                                                                    ...(rec.ttl ? [{ label: 'TTL', value: String(rec.ttl) }] : []),
-                                                                ].map(field => (
-                                                                    <div key={field.label} className="flex items-center gap-3 px-3 py-2 bg-white dark:bg-slate-800">
-                                                                        <span className="text-xs font-semibold text-slate-400 dark:text-slate-500 w-24 shrink-0">{field.label}</span>
-                                                                        <span className="flex-1 text-xs font-mono text-slate-700 dark:text-slate-200 break-all">{field.value}</span>
-                                                                        <button
-                                                                            onClick={() => handleCopy(`${idx}-${field.label}`, field.value)}
-                                                                            className="shrink-0 flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors border border-slate-200 dark:border-slate-700 hover:border-primary-400 hover:text-primary-600 dark:hover:text-primary-400 text-slate-500 dark:text-slate-400"
-                                                                        >
-                                                                            {copiedField === `${idx}-${field.label}`
-                                                                                ? <><Check size={11} className="text-emerald-500" /> Copiato</>
-                                                                                : <><Copy size={11} /> Copia</>
-                                                                            }
-                                                                        </button>
+                                                    {mailDomain.dns_records.map((rec, idx) => {
+                                                        const isRecordVerified = rec.status === 'verified';
+                                                        return (
+                                                            <div key={idx} className={`rounded-xl border overflow-hidden ${isRecordVerified ? 'border-emerald-200 dark:border-emerald-800/60' : 'border-slate-200 dark:border-slate-700'}`}>
+                                                                <div className={`px-3 py-1.5 flex items-center gap-2 ${isRecordVerified ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'bg-slate-50 dark:bg-slate-900/50'}`}>
+                                                                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Record {idx + 1}</span>
+                                                                    <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400">{rec.type}</span>
+                                                                    <div className="ml-auto flex items-center gap-1">
+                                                                        {isRecordVerified
+                                                                            ? <span className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400"><CheckCircle2 size={11} /> Verificato</span>
+                                                                            : <span className="flex items-center gap-1 text-[10px] font-semibold text-amber-500 dark:text-amber-400"><Clock size={11} /> In attesa</span>
+                                                                        }
                                                                     </div>
-                                                                ))}
+                                                                </div>
+                                                                <div className="divide-y divide-slate-100 dark:divide-slate-700/60">
+                                                                    {[
+                                                                        { label: 'Tipo', value: rec.type },
+                                                                        { label: 'Nome / Host', value: rec.name },
+                                                                        { label: 'Valore', value: rec.value },
+                                                                        ...(rec.priority != null ? [{ label: 'Priority', value: String(rec.priority) }] : []),
+                                                                        ...(rec.ttl ? [{ label: 'TTL', value: String(rec.ttl) }] : []),
+                                                                    ].map(field => {
+                                                                        const fieldKey = `${mailDomain.id}-${idx}-${field.label}`;
+                                                                        const wasCopied = copiedFields.has(fieldKey);
+                                                                        const justCopied = copiedField === fieldKey;
+                                                                        return (
+                                                                            <div key={field.label} className={`flex items-center gap-3 px-3 py-2 ${wasCopied ? 'bg-emerald-50/60 dark:bg-emerald-900/10' : 'bg-white dark:bg-slate-800'}`}>
+                                                                                <span className="text-xs font-semibold text-slate-400 dark:text-slate-500 w-24 shrink-0">{field.label}</span>
+                                                                                <span className="flex-1 text-xs font-mono text-slate-700 dark:text-slate-200 break-all">{field.value}</span>
+                                                                                <button
+                                                                                    onClick={() => handleCopy(fieldKey, field.value, true)}
+                                                                                    className={`shrink-0 flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors border ${
+                                                                                        justCopied
+                                                                                            ? 'border-emerald-300 text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 dark:border-emerald-700 dark:text-emerald-400'
+                                                                                            : wasCopied
+                                                                                                ? 'border-emerald-200 text-emerald-500 dark:border-emerald-800 dark:text-emerald-500 bg-emerald-50/50 dark:bg-emerald-900/10'
+                                                                                                : 'border-slate-200 dark:border-slate-700 hover:border-primary-400 hover:text-primary-600 dark:hover:text-primary-400 text-slate-500 dark:text-slate-400'
+                                                                                    }`}
+                                                                                >
+                                                                                    {justCopied
+                                                                                        ? <><Check size={11} /> Copiato!</>
+                                                                                        : wasCopied
+                                                                                            ? <><Check size={11} /> Copiato</>
+                                                                                            : <><Copy size={11} /> Copia</>
+                                                                                    }
+                                                                                </button>
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
                                                             </div>
-                                                        </div>
-                                                    ))}
+                                                        );
+                                                    })}
                                                 </div>
                                             </>
                                         )}
