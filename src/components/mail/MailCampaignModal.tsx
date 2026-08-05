@@ -1,17 +1,36 @@
-import React, { useEffect, useState } from 'react';
-import Modal from '../ui/Modal';
-import DateRangeFilter from '../ui/DateRangeFilter';
+import React, { useEffect, useState, useMemo } from 'react';
 import * as ApiService from '@api';
+import { supabase } from '../../lib/supabase';
 import type { Client, MailCampaign, MailTemplate, Lead } from '../../types';
-import { Loader2, Send, Clock, Calendar, Zap } from 'lucide-react';
+import {
+    X, Loader2, Send, Clock, Calendar, Zap, Search, Check,
+    Users, ChevronDown, ChevronUp, AlertCircle
+} from 'lucide-react';
 
 type ScheduleMode = 'now' | 'scheduled';
 
-const inputCls = "w-full px-3 py-2 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500";
+const inputCls = "w-full px-3 py-2 bg-slate-100 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500/40 transition-colors";
+const labelCls = "block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1";
 
-const LEAD_STATUSES: Lead['status'][] = ['Nuovo', 'Contattato', 'In Lavorazione', 'Preventivo Inviato', 'Preventivo Accettato', 'Preventivo Rifiutato', 'Vinto', 'Perso'];
+const LEAD_STATUSES: Lead['status'][] = [
+    'Nuovo', 'Contattato', 'In Lavorazione',
+    'Preventivo Inviato', 'Preventivo Accettato', 'Preventivo Rifiutato',
+    'Vinto', 'Perso', 'A Rate',
+];
 
-interface MailCampaignModalProps {
+const STATUS_COLORS: Record<string, string> = {
+    'Nuovo': 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
+    'Contattato': 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300',
+    'In Lavorazione': 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
+    'Preventivo Inviato': 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300',
+    'Preventivo Accettato': 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300',
+    'Preventivo Rifiutato': 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300',
+    'Vinto': 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300',
+    'Perso': 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300',
+    'A Rate': 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300',
+};
+
+interface Props {
     isOpen: boolean;
     onClose: () => void;
     campaign: MailCampaign | null;
@@ -21,13 +40,11 @@ interface MailCampaignModalProps {
     onSaved: (campaign: MailCampaign) => void;
 }
 
-const MailCampaignModal: React.FC<MailCampaignModalProps> = ({ isOpen, onClose, campaign, client, templates, canSend, onSaved }) => {
+const MailCampaignModal: React.FC<Props> = ({ isOpen, onClose, campaign, client, templates, canSend, onSaved }) => {
+    // ── Form state ───────────────────────────────────────────────────────────
     const [name, setName] = useState('');
     const [templateId, setTemplateId] = useState('');
     const [subject, setSubject] = useState('');
-    const [statuses, setStatuses] = useState<string[]>([]);
-    const [services, setServices] = useState<string[]>([]);
-    const [dateRange, setDateRange] = useState<{ start: Date | null; end: Date | null }>({ start: null, end: null });
     const [scheduleMode, setScheduleMode] = useState<ScheduleMode>('now');
     const [scheduledAt, setScheduledAt] = useState('');
     const [isSaving, setIsSaving] = useState(false);
@@ -35,57 +52,108 @@ const MailCampaignModal: React.FC<MailCampaignModalProps> = ({ isOpen, onClose, 
     const [error, setError] = useState('');
     const [successMsg, setSuccessMsg] = useState('');
 
-    const availableServices = (client.services || []).filter(s => s.name !== '__default_fields__').map(s => s.name);
+    // ── Filters ──────────────────────────────────────────────────────────────
+    const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
+    const [filterServices, setFilterServices] = useState<string[]>([]);
+    const [filterSearch, setFilterSearch] = useState('');
 
+    // ── Leads ────────────────────────────────────────────────────────────────
+    const [allLeads, setAllLeads] = useState<Lead[]>([]);
+    const [isLoadingLeads, setIsLoadingLeads] = useState(false);
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [showFilters, setShowFilters] = useState(true);
+
+    const availableServices = useMemo(() =>
+        (client.services || [])
+            .filter(s => s.name !== '__default_fields__' && s.name !== '__lead_mode__')
+            .map(s => s.name),
+        [client.services]
+    );
+
+    // ── Load leads ───────────────────────────────────────────────────────────
     useEffect(() => {
         if (!isOpen) return;
-        setError('');
-        setSuccessMsg('');
+        const fetchLeads = async () => {
+            setIsLoadingLeads(true);
+            try {
+                const { data, error } = await supabase
+                    .from('leads')
+                    .select('id, created_at, data, status, service, value')
+                    .eq('client_id', client.id)
+                    .order('created_at', { ascending: false });
+                if (!error) setAllLeads((data || []) as Lead[]);
+            } finally {
+                setIsLoadingLeads(false);
+            }
+        };
+        fetchLeads();
+    }, [isOpen, client.id]);
+
+    // ── Init form ────────────────────────────────────────────────────────────
+    useEffect(() => {
+        if (!isOpen) return;
+        setError(''); setSuccessMsg('');
         if (campaign) {
             setName(campaign.name);
             setTemplateId(campaign.template_id || '');
             setSubject(campaign.subject);
-            setStatuses(campaign.filters?.statuses || []);
-            setServices(campaign.filters?.services || []);
-            setDateRange({
-                start: campaign.filters?.created_after ? new Date(campaign.filters.created_after) : null,
-                end: campaign.filters?.created_before ? new Date(campaign.filters.created_before) : null,
-            });
+            setFilterStatuses(campaign.filters?.statuses || []);
+            setFilterServices(campaign.filters?.services || []);
+            setSelectedIds(new Set(campaign.filters?.lead_ids || []));
         } else {
-            const firstTemplate = templates[0];
-            setName('');
-            setTemplateId(firstTemplate?.id || '');
-            setSubject(firstTemplate?.subject_template || '');
-            setStatuses([]);
-            setServices([]);
-            setDateRange({ start: null, end: null });
-            setScheduleMode('now');
-            setScheduledAt('');
+            const first = templates[0];
+            setName(''); setTemplateId(first?.id || ''); setSubject(first?.subject_template || '');
+            setFilterStatuses([]); setFilterServices([]); setFilterSearch('');
+            setSelectedIds(new Set()); setScheduleMode('now'); setScheduledAt('');
         }
     }, [isOpen, campaign, templates]);
 
-    const handleTemplateChange = (id: string) => {
-        setTemplateId(id);
-        if (!campaign) {
-            const tpl = templates.find(t => t.id === id);
-            if (tpl) setSubject(tpl.subject_template);
+    // ── Filtered leads ───────────────────────────────────────────────────────
+    const filteredLeads = useMemo(() => {
+        const q = filterSearch.toLowerCase().trim();
+        return allLeads.filter(lead => {
+            if (filterStatuses.length > 0 && !filterStatuses.includes(lead.status)) return false;
+            if (filterServices.length > 0 && !filterServices.includes(lead.service || '')) return false;
+            if (q) {
+                const haystack = [
+                    lead.data?.nome, lead.data?.name, lead.data?.email,
+                    lead.data?.telefono, lead.data?.phone, lead.service,
+                    ...Object.values(lead.data || {}),
+                ].join(' ').toLowerCase();
+                if (!haystack.includes(q)) return false;
+            }
+            return true;
+        });
+    }, [allLeads, filterStatuses, filterServices, filterSearch]);
+
+    const allFilteredSelected = filteredLeads.length > 0 && filteredLeads.every(l => selectedIds.has(l.id));
+
+    const toggleLead = (id: string) => {
+        setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+    };
+
+    const toggleAll = () => {
+        if (allFilteredSelected) {
+            setSelectedIds(prev => { const n = new Set(prev); filteredLeads.forEach(l => n.delete(l.id)); return n; });
+        } else {
+            setSelectedIds(prev => { const n = new Set(prev); filteredLeads.forEach(l => n.add(l.id)); return n; });
         }
     };
 
-    const toggleInArray = (arr: string[], value: string, setter: (v: string[]) => void) => {
-        if (arr.includes(value)) setter(arr.filter(v => v !== value));
-        else setter([...arr, value]);
-    };
+    const toggleStatus = (s: string) =>
+        setFilterStatuses(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
+    const toggleService = (s: string) =>
+        setFilterServices(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
 
+    // ── Save / Send ──────────────────────────────────────────────────────────
     const buildFilters = () => ({
-        ...(statuses.length > 0 ? { statuses } : {}),
-        ...(services.length > 0 ? { services } : {}),
-        ...(dateRange.start ? { created_after: dateRange.start.toISOString() } : {}),
-        ...(dateRange.end ? { created_before: dateRange.end.toISOString() } : {}),
+        ...(filterStatuses.length > 0 ? { statuses: filterStatuses } : {}),
+        ...(filterServices.length > 0 ? { services: filterServices } : {}),
+        ...(selectedIds.size > 0 ? { lead_ids: [...selectedIds] } : {}),
     });
 
-    const persist = async (): Promise<MailCampaign> => {
-        const saved = await ApiService.saveMailCampaign({
+    const persist = async (): Promise<MailCampaign> =>
+        ApiService.saveMailCampaign({
             ...(campaign ? { id: campaign.id } : {}),
             client_id: client.id,
             name: name.trim(),
@@ -93,210 +161,305 @@ const MailCampaignModal: React.FC<MailCampaignModalProps> = ({ isOpen, onClose, 
             subject,
             filters: buildFilters(),
         });
-        return saved;
-    };
 
     const handleSaveDraft = async () => {
-        if (!name.trim()) {
-            setError('Inserisci un nome per la campagna.');
-            return;
-        }
-        setIsSaving(true);
-        setError('');
-        try {
-            const saved = await persist();
-            onSaved(saved);
-            onClose();
-        } catch (err: any) {
-            setError(err.message || 'Errore durante il salvataggio della campagna.');
-        } finally {
-            setIsSaving(false);
-        }
+        if (!name.trim()) { setError('Inserisci un nome per la campagna.'); return; }
+        setIsSaving(true); setError('');
+        try { onSaved(await persist()); onClose(); }
+        catch (e: any) { setError(e.message || 'Errore salvataggio.'); }
+        finally { setIsSaving(false); }
     };
 
     const handleSendNow = async () => {
-        if (!name.trim()) {
-            setError('Inserisci un nome per la campagna.');
-            return;
-        }
-        if (!templateId) {
-            setError('Seleziona un template per la campagna.');
-            return;
-        }
-        setIsSending(true);
-        setError('');
-        setSuccessMsg('');
+        if (!name.trim()) { setError('Inserisci un nome per la campagna.'); return; }
+        if (!templateId) { setError('Seleziona un template.'); return; }
+        setIsSending(true); setError(''); setSuccessMsg('');
         try {
             const saved = await persist();
             const sent = await ApiService.sendMailCampaign(saved.id);
             onSaved(sent);
-            setSuccessMsg('Campagna inviata.');
+            setSuccessMsg('Campagna inviata!');
             setTimeout(() => onClose(), 1200);
-        } catch (err: any) {
-            setError(err.message || 'Errore durante l\'invio della campagna.');
-        } finally {
-            setIsSending(false);
-        }
+        } catch (e: any) { setError(e.message || 'Errore invio.'); }
+        finally { setIsSending(false); }
     };
 
+    if (!isOpen) return null;
+
+    const leadName = (l: Lead) =>
+        l.data?.nome || l.data?.name || l.data?.Name || l.data?.cognome || '—';
+    const leadEmail = (l: Lead) => l.data?.email || l.data?.Email || '';
+    const leadPhone = (l: Lead) => l.data?.telefono || l.data?.phone || l.data?.Phone || '';
+
     return (
-        <Modal
-            isOpen={isOpen}
-            onClose={onClose}
-            title={campaign ? 'Modifica campagna' : 'Nuova campagna'}
-            size="large"
-            footer={
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2">
-                    <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors order-3 sm:order-1">
+        <div className="fixed inset-0 z-50 flex flex-col bg-slate-50 dark:bg-slate-900">
+            {/* ── Top bar ── */}
+            <div className="h-14 shrink-0 flex items-center gap-3 px-4 bg-white/90 dark:bg-slate-800/90 backdrop-blur-md border-b border-slate-200/70 dark:border-slate-700/60">
+                <button onClick={onClose}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                    <X size={18} />
+                </button>
+                <div className="h-5 w-px bg-slate-200 dark:bg-slate-700" />
+                <span className="text-sm font-semibold text-slate-800 dark:text-white">
+                    {campaign ? 'Modifica campagna' : 'Nuova campagna'}
+                </span>
+                <div className="ml-auto flex items-center gap-2">
+                    {error && <span className="text-xs text-red-500 hidden md:block max-w-xs truncate">{error}</span>}
+                    {successMsg && <span className="text-xs text-emerald-600">{successMsg}</span>}
+                    <button onClick={onClose}
+                        className="px-3 py-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors">
                         Annulla
                     </button>
-                    <button
-                        onClick={handleSaveDraft}
-                        disabled={isSaving || isSending}
-                        className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 disabled:opacity-50 text-slate-700 dark:text-gray-200 text-sm font-medium rounded-lg transition-colors order-2"
-                    >
-                        {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                        Salva come bozza
+                    <button onClick={handleSaveDraft} disabled={isSaving || isSending}
+                        className="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 disabled:opacity-50 text-slate-700 dark:text-gray-200 text-xs font-semibold rounded-lg transition-colors">
+                        {isSaving ? <Loader2 size={13} className="animate-spin inline mr-1" /> : null}
+                        Salva bozza
                     </button>
                     {canSend && (
-                        <button
-                            onClick={handleSendNow}
-                            disabled={isSaving || isSending}
-                            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-primary-600 hover:bg-primary-700 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors order-1 sm:order-3"
-                        >
-                            {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                        <button onClick={handleSendNow} disabled={isSaving || isSending}
+                            className="flex items-center gap-1.5 px-4 py-1.5 bg-primary-600 hover:bg-primary-700 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-colors">
+                            {isSending ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
                             Invia ora
                         </button>
                     )}
                 </div>
-            }
-        >
-            <div className="space-y-4">
-                {error && (
-                    <div className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-md p-3">{error}</div>
-                )}
-                {successMsg && (
-                    <div className="text-sm text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 rounded-md p-3">{successMsg}</div>
-                )}
-                {!canSend && (
-                    <div className="text-sm text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded-md p-3">
-                        Per inviare campagne devi prima collegare e verificare un dominio email nella tab "Dominio".
-                    </div>
-                )}
+            </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                        <label className="text-xs font-medium text-slate-500 dark:text-gray-400">Nome campagna</label>
-                        <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Es. Promo giugno" className={inputCls} />
-                    </div>
-                    <div>
-                        <label className="text-xs font-medium text-slate-500 dark:text-gray-400">Template</label>
-                        <select value={templateId} onChange={e => handleTemplateChange(e.target.value)} className={inputCls}>
-                            <option value="">Seleziona un template...</option>
-                            {templates.map(tpl => (
-                                <option key={tpl.id} value={tpl.id}>{tpl.name}</option>
-                            ))}
-                        </select>
-                        {templates.length === 0 && (
-                            <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">Crea prima un template nella sezione qui sopra.</p>
+            {/* ── Body ── */}
+            <div className="flex-1 min-h-0 flex overflow-hidden">
+
+                {/* ─── Left panel: impostazioni ─── */}
+                <div className="w-80 shrink-0 flex flex-col bg-white/80 dark:bg-slate-800/80 border-r border-slate-200/60 dark:border-slate-700/60 overflow-y-auto">
+                    <div className="p-4 space-y-4">
+
+                        {!canSend && (
+                            <div className="flex items-start gap-2 text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 rounded-xl p-3">
+                                <AlertCircle size={14} className="shrink-0 mt-0.5" />
+                                Collega e verifica un dominio email prima di inviare.
+                            </div>
                         )}
-                    </div>
-                </div>
 
-                <div>
-                    <label className="text-xs font-medium text-slate-500 dark:text-gray-400">Oggetto email</label>
-                    <input type="text" value={subject} onChange={e => setSubject(e.target.value)} placeholder="Es. {{brand_name}}: una novità per te" className={inputCls} />
-                </div>
-
-                {/* ── Pianificazione ── */}
-                <div className="border-t border-slate-200 dark:border-slate-700 pt-3">
-                    <h4 className="text-sm font-semibold text-slate-700 dark:text-gray-200 mb-2">Quando inviare</h4>
-                    <div className="grid grid-cols-2 gap-2 mb-3">
-                        {([
-                            { id: 'now', label: 'Invia subito', icon: <Zap size={14} />, desc: 'Inviata immediatamente' },
-                            { id: 'scheduled', label: 'Pianifica', icon: <Calendar size={14} />, desc: 'Scegli data e ora' },
-                        ] as { id: ScheduleMode; label: string; icon: React.ReactNode; desc: string }[]).map(opt => (
-                            <button key={opt.id} type="button" onClick={() => setScheduleMode(opt.id)}
-                                className={`flex items-start gap-2.5 p-3 rounded-xl border text-left transition-all ${scheduleMode === opt.id
-                                    ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
-                                    : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
-                                }`}>
-                                <span className={scheduleMode === opt.id ? 'text-primary-600 dark:text-primary-400 mt-0.5' : 'text-slate-400 mt-0.5'}>{opt.icon}</span>
-                                <div>
-                                    <p className={`text-xs font-semibold ${scheduleMode === opt.id ? 'text-primary-700 dark:text-primary-300' : 'text-slate-700 dark:text-slate-200'}`}>{opt.label}</p>
-                                    <p className="text-xs text-slate-400 dark:text-slate-500">{opt.desc}</p>
-                                </div>
-                            </button>
-                        ))}
-                    </div>
-                    {scheduleMode === 'scheduled' && (
+                        {/* Nome + Template */}
                         <div>
-                            <label className="text-xs font-medium text-slate-500 dark:text-gray-400 block mb-1">Data e ora di invio</label>
-                            <input type="datetime-local" value={scheduledAt} onChange={e => setScheduledAt(e.target.value)}
-                                className={inputCls} />
-                            <p className="text-xs text-slate-400 mt-1">
-                                <Clock size={10} className="inline mr-1" />
-                                Nota: l'invio pianificato richiede che il cron job sia configurato su Vercel.
-                            </p>
+                            <label className={labelCls}>Nome campagna</label>
+                            <input value={name} onChange={e => setName(e.target.value)}
+                                placeholder="Es. Re-engagement agosto" className={inputCls} />
                         </div>
-                    )}
-                </div>
 
-                <div className="border-t border-slate-200 dark:border-slate-700 pt-3">
-                    <h4 className="text-sm font-semibold text-slate-700 dark:text-gray-200 mb-2">Destinatari (segmento lead)</h4>
-                    <p className="text-xs text-slate-400 dark:text-gray-500 mb-2">Lascia vuoto per includere tutte le lead. Vengono escluse automaticamente le lead senza email valida e quelle che hanno annullato l'iscrizione.</p>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                            <label className="text-xs font-medium text-slate-500 dark:text-gray-400 block mb-1">Stato lead</label>
-                            <div className="flex flex-wrap gap-1.5">
-                                {LEAD_STATUSES.map(status => (
-                                    <button
-                                        key={status}
-                                        type="button"
-                                        onClick={() => toggleInArray(statuses, status, setStatuses)}
-                                        className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
-                                            statuses.includes(status)
-                                                ? 'bg-primary-600 text-white border-primary-600'
-                                                : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-gray-300 border-slate-200 dark:border-slate-600'
-                                        }`}
-                                    >
-                                        {status}
+                            <label className={labelCls}>Template email</label>
+                            <select value={templateId}
+                                onChange={e => {
+                                    setTemplateId(e.target.value);
+                                    if (!campaign) {
+                                        const t = templates.find(t => t.id === e.target.value);
+                                        if (t) setSubject(t.subject_template);
+                                    }
+                                }}
+                                className={inputCls}>
+                                <option value="">Seleziona template...</option>
+                                {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                            </select>
+                            {templates.length === 0 && (
+                                <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">Crea prima un template nella sezione Template.</p>
+                            )}
+                        </div>
+
+                        <div>
+                            <label className={labelCls}>Oggetto email</label>
+                            <input value={subject} onChange={e => setSubject(e.target.value)}
+                                placeholder="Es. {{brand_name}}: una novità per te" className={inputCls} />
+                        </div>
+
+                        {/* Pianificazione */}
+                        <div className="border-t border-slate-200 dark:border-slate-700 pt-3">
+                            <p className={labelCls}>Quando inviare</p>
+                            <div className="space-y-2">
+                                {([
+                                    { id: 'now', label: 'Invia subito', icon: <Zap size={13} /> },
+                                    { id: 'scheduled', label: 'Pianifica data', icon: <Calendar size={13} /> },
+                                ] as { id: ScheduleMode; label: string; icon: React.ReactNode }[]).map(opt => (
+                                    <button key={opt.id} type="button" onClick={() => setScheduleMode(opt.id)}
+                                        className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-left transition-all text-sm ${scheduleMode === opt.id
+                                            ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300 font-semibold'
+                                            : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-slate-300'
+                                        }`}>
+                                        {opt.icon} {opt.label}
                                     </button>
                                 ))}
                             </div>
+                            {scheduleMode === 'scheduled' && (
+                                <div className="mt-2">
+                                    <input type="datetime-local" value={scheduledAt}
+                                        onChange={e => setScheduledAt(e.target.value)} className={inputCls} />
+                                    <p className="text-xs text-slate-400 mt-1 flex items-center gap-1">
+                                        <Clock size={10} /> Richiede cron job attivo su Vercel.
+                                    </p>
+                                </div>
+                            )}
                         </div>
 
-                        {availableServices.length > 0 && (
-                            <div>
-                                <label className="text-xs font-medium text-slate-500 dark:text-gray-400 block mb-1">Servizio</label>
-                                <div className="flex flex-wrap gap-1.5">
-                                    {availableServices.map(service => (
-                                        <button
-                                            key={service}
-                                            type="button"
-                                            onClick={() => toggleInArray(services, service, setServices)}
-                                            className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
-                                                services.includes(service)
-                                                    ? 'bg-primary-600 text-white border-primary-600'
-                                                    : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-gray-300 border-slate-200 dark:border-slate-600'
-                                            }`}
-                                        >
-                                            {service}
+                        {/* Filtri */}
+                        <div className="border-t border-slate-200 dark:border-slate-700 pt-3">
+                            <button type="button" onClick={() => setShowFilters(v => !v)}
+                                className="w-full flex items-center justify-between mb-2">
+                                <span className={labelCls + ' mb-0'}>Filtra le lead</span>
+                                {showFilters ? <ChevronUp size={14} className="text-slate-400" /> : <ChevronDown size={14} className="text-slate-400" />}
+                            </button>
+
+                            {showFilters && (
+                                <div className="space-y-3">
+                                    {/* Stato */}
+                                    <div>
+                                        <p className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1.5">Stato lead</p>
+                                        <div className="flex flex-wrap gap-1">
+                                            {LEAD_STATUSES.map(s => (
+                                                <button key={s} type="button" onClick={() => toggleStatus(s)}
+                                                    className={`text-[11px] px-2 py-0.5 rounded-full border font-medium transition-colors ${filterStatuses.includes(s)
+                                                        ? 'bg-primary-600 text-white border-primary-600'
+                                                        : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-transparent hover:border-slate-300'
+                                                    }`}>
+                                                    {s}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Servizio */}
+                                    {availableServices.length > 0 && (
+                                        <div>
+                                            <p className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1.5">Servizio</p>
+                                            <div className="flex flex-wrap gap-1">
+                                                {availableServices.map(s => (
+                                                    <button key={s} type="button" onClick={() => toggleService(s)}
+                                                        className={`text-[11px] px-2 py-0.5 rounded-full border font-medium transition-colors ${filterServices.includes(s)
+                                                            ? 'bg-primary-600 text-white border-primary-600'
+                                                            : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-transparent hover:border-slate-300'
+                                                        }`}>
+                                                        {s}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {(filterStatuses.length > 0 || filterServices.length > 0) && (
+                                        <button type="button"
+                                            onClick={() => { setFilterStatuses([]); setFilterServices([]); }}
+                                            className="text-xs text-red-500 hover:text-red-600 underline">
+                                            Rimuovi filtri
                                         </button>
-                                    ))}
+                                    )}
                                 </div>
-                            </div>
-                        )}
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {/* ─── Right panel: lead ─── */}
+                <div className="flex-1 flex flex-col overflow-hidden">
+                    {/* Search bar + count */}
+                    <div className="shrink-0 px-4 py-3 bg-white/70 dark:bg-slate-800/70 border-b border-slate-200/60 dark:border-slate-700/60 flex items-center gap-3">
+                        <div className="relative flex-1 max-w-sm">
+                            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                            <input
+                                value={filterSearch}
+                                onChange={e => setFilterSearch(e.target.value)}
+                                placeholder="Cerca per nome, email, telefono, servizio..."
+                                className="w-full pl-8 pr-3 py-2 bg-slate-100 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 rounded-xl text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500/40 transition-colors"
+                            />
+                        </div>
+                        <div className="flex items-center gap-2 ml-auto">
+                            <span className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                                <Users size={13} />
+                                <span className="font-semibold text-slate-700 dark:text-slate-200">{selectedIds.size}</span> selezionate
+                                {filteredLeads.length !== allLeads.length && (
+                                    <span className="text-slate-400"> · {filteredLeads.length} visibili</span>
+                                )}
+                            </span>
+                            {selectedIds.size > 0 && (
+                                <button type="button" onClick={() => setSelectedIds(new Set())}
+                                    className="text-xs text-red-500 hover:text-red-600 underline">
+                                    Deseleziona tutto
+                                </button>
+                            )}
+                        </div>
                     </div>
 
-                    <div className="mt-3">
-                        <label className="text-xs font-medium text-slate-500 dark:text-gray-400 block mb-1">Data di arrivo della lead</label>
-                        <DateRangeFilter onDateChange={setDateRange} />
+                    {/* Lead list */}
+                    <div className="flex-1 overflow-y-auto">
+                        {isLoadingLeads ? (
+                            <div className="flex items-center justify-center h-40">
+                                <Loader2 className="w-6 h-6 animate-spin text-primary-500" />
+                            </div>
+                        ) : filteredLeads.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center h-40 gap-2">
+                                <Users size={32} className="text-slate-300 dark:text-slate-600" />
+                                <p className="text-sm text-slate-400">Nessuna lead trovata con i filtri selezionati.</p>
+                            </div>
+                        ) : (
+                            <table className="w-full text-sm">
+                                <thead className="sticky top-0 bg-slate-100/90 dark:bg-slate-900/90 backdrop-blur-sm border-b border-slate-200 dark:border-slate-700 z-10">
+                                    <tr>
+                                        <th className="w-10 px-4 py-2.5 text-left">
+                                            <button type="button" onClick={toggleAll}
+                                                className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${allFilteredSelected
+                                                    ? 'bg-primary-600 border-primary-600'
+                                                    : 'border-slate-300 dark:border-slate-600 hover:border-primary-400'
+                                                }`}>
+                                                {allFilteredSelected && <Check size={10} className="text-white" />}
+                                            </button>
+                                        </th>
+                                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Nome</th>
+                                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden md:table-cell">Email</th>
+                                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden lg:table-cell">Telefono</th>
+                                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden lg:table-cell">Servizio</th>
+                                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Stato</th>
+                                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden md:table-cell">Data</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                    {filteredLeads.map(lead => {
+                                        const selected = selectedIds.has(lead.id);
+                                        return (
+                                            <tr key={lead.id}
+                                                onClick={() => toggleLead(lead.id)}
+                                                className={`cursor-pointer transition-colors ${selected
+                                                    ? 'bg-primary-50 dark:bg-primary-900/10'
+                                                    : 'bg-white dark:bg-slate-800/60 hover:bg-slate-50 dark:hover:bg-slate-800'
+                                                }`}>
+                                                <td className="px-4 py-3">
+                                                    <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${selected
+                                                        ? 'bg-primary-600 border-primary-600'
+                                                        : 'border-slate-300 dark:border-slate-600'
+                                                    }`}>
+                                                        {selected && <Check size={10} className="text-white" />}
+                                                    </div>
+                                                </td>
+                                                <td className="px-3 py-3 font-medium text-slate-800 dark:text-white">{leadName(lead)}</td>
+                                                <td className="px-3 py-3 text-slate-500 dark:text-slate-400 hidden md:table-cell">
+                                                    {leadEmail(lead) || <span className="text-slate-300 dark:text-slate-600 italic text-xs">no email</span>}
+                                                </td>
+                                                <td className="px-3 py-3 text-slate-500 dark:text-slate-400 hidden lg:table-cell">{leadPhone(lead) || '—'}</td>
+                                                <td className="px-3 py-3 text-slate-500 dark:text-slate-400 hidden lg:table-cell text-xs">{lead.service || '—'}</td>
+                                                <td className="px-3 py-3">
+                                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${STATUS_COLORS[lead.status] || 'bg-slate-100 text-slate-600'}`}>
+                                                        {lead.status}
+                                                    </span>
+                                                </td>
+                                                <td className="px-3 py-3 text-slate-400 text-xs hidden md:table-cell whitespace-nowrap">
+                                                    {new Date(lead.created_at).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        )}
                     </div>
                 </div>
             </div>
-        </Modal>
+        </div>
     );
 };
 
