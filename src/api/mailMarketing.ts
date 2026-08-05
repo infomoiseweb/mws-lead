@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import type { MailDomain, MailMarketingSettings, MailTemplate, MailCampaign, MailCampaignRecipient, MailAutomation, MailMarketingOverviewClient } from '../types';
+import type { MailFlow, FlowData } from '../components/mail/MailFlowBuilder';
 
 async function authHeader(): Promise<Record<string, string>> {
     const { data: { session } } = await supabase.auth.getSession();
@@ -230,4 +231,49 @@ export async function sendMailCampaign(campaignId: string): Promise<MailCampaign
     }
     const { campaign } = await res.json();
     return campaign;
+}
+
+
+// ─── Mail Flows ────────────────────────────────────────────────────────────
+
+export async function getMailFlows(clientId: string): Promise<MailFlow[]> {
+    const { data, error } = await supabase
+        .from('mail_flows')
+        .select('*')
+        .eq('client_id', clientId)
+        .order('created_at', { ascending: false });
+    if (error) throw new Error(error.message);
+    return (data || []) as MailFlow[];
+}
+
+export async function saveMailFlow(params: {
+    id?: string;
+    client_id: string;
+    name: string;
+    active: boolean;
+    flow_data: FlowData;
+}): Promise<MailFlow> {
+    const { id, ...rest } = params;
+    if (id) {
+        const { data, error } = await supabase
+            .from('mail_flows')
+            .update({ ...rest, updated_at: new Date().toISOString() })
+            .eq('id', id)
+            .select()
+            .single();
+        if (error) throw new Error(error.message);
+        return data as MailFlow;
+    }
+    const { data, error } = await supabase
+        .from('mail_flows')
+        .insert(rest)
+        .select()
+        .single();
+    if (error) throw new Error(error.message);
+    return data as MailFlow;
+}
+
+export async function deleteMailFlow(flowId: string): Promise<void> {
+    const { error } = await supabase.from('mail_flows').delete().eq('id', flowId);
+    if (error) throw new Error(error.message);
 }

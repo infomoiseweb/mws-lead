@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import * as ApiService from '@api';
 import { uploadClientLogo } from '@api/storage';
-import type { Client, MailDomain, MailBranding, MailTemplate, MailCampaign, MailCampaignRecipient, MailAutomation } from '../../types';
+import type { Client, MailDomain, MailBranding, MailTemplate, MailCampaign, MailCampaignRecipient } from '../../types';
 import {
     Loader2, Globe, Palette, Send, Zap, Upload, Image as ImageIcon,
     Copy, Check, RefreshCw, Trash2, AlertCircle, CheckCircle2, Clock,
@@ -10,8 +10,8 @@ import {
     ChevronRight, TrendingUp, MousePointer, Eye
 } from 'lucide-react';
 import MailCampaignModal from '../../components/mail/MailCampaignModal';
-import MailAutomationModal from '../../components/mail/MailAutomationModal';
 import MailTemplateEditor from '../../components/mail/MailTemplateEditor';
+import MailFlowBuilder, { type MailFlow, type FlowData } from '../../components/mail/MailFlowBuilder';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -177,11 +177,12 @@ const MailMarketingPage: React.FC = () => {
     const [campaignsError, setCampaignsError] = useState('');
     const [campaignModalState, setCampaignModalState] = useState<{ open: boolean; campaign: MailCampaign | null }>({ open: false, campaign: null });
 
-    // Automations
-    const [automations, setAutomations] = useState<MailAutomation[]>([]);
-    const [isAutomationsLoading, setIsAutomationsLoading] = useState(true);
-    const [automationsError, setAutomationsError] = useState('');
-    const [automationModalState, setAutomationModalState] = useState<{ open: boolean; automation: MailAutomation | null }>({ open: false, automation: null });
+    // Flows
+    const [flows, setFlows] = useState<MailFlow[]>([]);
+    const [isFlowsLoading, setIsFlowsLoading] = useState(true);
+    const [flowsError, setFlowsError] = useState('');
+    const [editingFlow, setEditingFlow] = useState<MailFlow | null | 'new'>('new');
+    const [isSavingFlow, setIsSavingFlow] = useState(false);
 
     // ── Data fetching ──────────────────────────────────────────────────────────
 
@@ -240,22 +241,25 @@ const MailMarketingPage: React.FC = () => {
         }
     }, []);
 
-    const fetchAutomations = useCallback(async (clientId: string) => {
-        setIsAutomationsLoading(true);
+    const fetchFlows = useCallback(async (clientId: string) => {
+        setIsFlowsLoading(true);
         try {
-            const data = await ApiService.getMailAutomations(clientId);
-            setAutomations(data);
+            const data = await ApiService.getMailFlows(clientId);
+            setFlows(data);
+            // Se non c'è nessun flusso apri la canvas vuota per iniziare
+            if (data.length === 0) setEditingFlow('new');
+            else setEditingFlow(data[0]);
         } catch (err: any) {
-            setAutomationsError(err.message || 'Errore automazioni.');
+            setFlowsError(err.message || 'Errore flussi.');
         } finally {
-            setIsAutomationsLoading(false);
+            setIsFlowsLoading(false);
         }
     }, []);
 
     useEffect(() => { fetchData(); }, [fetchData]);
     useEffect(() => { fetchDomain(); }, [fetchDomain]);
     useEffect(() => { if (client) fetchCampaignsData(client.id); }, [client, fetchCampaignsData]);
-    useEffect(() => { if (client) fetchAutomations(client.id); }, [client, fetchAutomations]);
+    useEffect(() => { if (client) fetchFlows(client.id); }, [client, fetchFlows]);
 
     // ── Handlers ───────────────────────────────────────────────────────────────
 
@@ -354,25 +358,39 @@ const MailMarketingPage: React.FC = () => {
         } catch (err: any) { setCampaignsError(err.message || 'Errore eliminazione.'); }
     };
 
-    const handleAutomationSaved = (saved: MailAutomation) => {
-        setAutomations(prev => {
-            const exists = prev.some(a => a.id === saved.id);
-            return exists ? prev.map(a => a.id === saved.id ? saved : a) : [saved, ...prev];
-        });
+    const handleSaveFlow = async (name: string, active: boolean, flowData: FlowData) => {
+        if (!client) return;
+        setIsSavingFlow(true);
+        try {
+            const current = editingFlow !== 'new' ? editingFlow : null;
+            const saved = await ApiService.saveMailFlow({
+                ...(current ? { id: current.id } : {}),
+                client_id: client.id,
+                name,
+                active,
+                flow_data: flowData,
+            });
+            setFlows(prev => {
+                const exists = prev.some(f => f.id === saved.id);
+                return exists ? prev.map(f => f.id === saved.id ? saved : f) : [saved, ...prev];
+            });
+            setEditingFlow(saved);
+        } catch (err: any) {
+            setFlowsError(err.message || 'Errore salvataggio flusso.');
+        } finally {
+            setIsSavingFlow(false);
+        }
     };
 
-    const handleToggleAutomation = async (automation: MailAutomation) => {
+    const handleDeleteFlow = async () => {
+        if (!editingFlow || editingFlow === 'new') return;
         try {
-            const saved = await ApiService.saveMailAutomation({ id: automation.id, client_id: automation.client_id, active: !automation.active });
-            handleAutomationSaved(saved);
-        } catch (err: any) { setAutomationsError(err.message || 'Errore.'); }
-    };
-
-    const handleDeleteAutomation = async (automationId: string) => {
-        try {
-            await ApiService.deleteMailAutomation(automationId);
-            setAutomations(prev => prev.filter(a => a.id !== automationId));
-        } catch (err: any) { setAutomationsError(err.message || 'Errore.'); }
+            await ApiService.deleteMailFlow(editingFlow.id);
+            setFlows(prev => prev.filter(f => f.id !== (editingFlow as MailFlow).id));
+            setEditingFlow('new');
+        } catch (err: any) {
+            setFlowsError(err.message || 'Errore eliminazione flusso.');
+        }
     };
 
     // ── Stats for sidebar badge ─────────────────────────────────────────────
@@ -432,7 +450,7 @@ const MailMarketingPage: React.FC = () => {
 
                     <NavItem icon={<Send size={16} />} label="Campagne" active={activeView === 'campagne'} onClick={() => setActiveView('campagne')} badge={totalSent > 0 ? String(totalSent) : undefined} />
                     <NavItem icon={<FileText size={16} />} label="Template" active={activeView === 'template'} onClick={() => setActiveView('template')} badge={templates.length > 0 ? String(templates.length) : undefined} />
-                    <NavItem icon={<Zap size={16} />} label="Automazioni" active={activeView === 'automazioni'} onClick={() => setActiveView('automazioni')} badge={automations.filter(a => a.active).length > 0 ? String(automations.filter(a => a.active).length) : undefined} />
+                    <NavItem icon={<Zap size={16} />} label="Automazioni" active={activeView === 'automazioni'} onClick={() => setActiveView('automazioni')} badge={flows.filter(f => f.active).length > 0 ? String(flows.filter(f => f.active).length) : undefined} />
                     <NavItem icon={<Settings size={16} />} label="Impostazioni" active={activeView === 'impostazioni'} onClick={() => setActiveView('impostazioni')} />
 
                     {/* Domain status hint */}
@@ -574,88 +592,68 @@ const MailMarketingPage: React.FC = () => {
                         </div>
                     )}
 
-                    {/* ═══════════════ AUTOMAZIONI ═══════════════ */}
+                    {/* ═══════════════ AUTOMAZIONI (Flow Builder) ═══════════════ */}
                     {activeView === 'automazioni' && (
-                        <div className="space-y-5">
+                        <div className="space-y-4">
                             <div className="flex items-center justify-between">
                                 <div>
                                     <h2 className="text-lg font-bold text-slate-800 dark:text-white">Automazioni</h2>
-                                    <p className="text-sm text-slate-500 dark:text-slate-400">Email inviate automaticamente in base agli eventi delle lead.</p>
+                                    <p className="text-sm text-slate-500 dark:text-slate-400">Crea flussi visuali per inviare email automaticamente.</p>
                                 </div>
                                 <button
-                                    onClick={() => setAutomationModalState({ open: true, automation: null })}
+                                    onClick={() => setEditingFlow('new')}
                                     className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-semibold rounded-xl transition-colors shadow-sm"
                                 >
-                                    <Plus size={15} /> Nuova automazione
+                                    <Plus size={15} /> Nuovo flusso
                                 </button>
                             </div>
 
                             {!domainVerified && (
                                 <div className="flex items-center gap-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 rounded-xl p-4 text-sm text-amber-700 dark:text-amber-400">
                                     <AlertCircle size={16} className="shrink-0" />
-                                    <span>Per attivare le automazioni devi prima <button onClick={() => setActiveView('impostazioni')} className="underline font-medium">collegare e verificare un dominio email</button>.</span>
+                                    <span>Per attivare i flussi devi prima <button onClick={() => setActiveView('impostazioni')} className="underline font-medium">collegare e verificare un dominio email</button>.</span>
                                 </div>
                             )}
 
-                            {automationsError && (
-                                <div className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-xl p-3">{automationsError}</div>
+                            {flowsError && (
+                                <div className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-xl p-3">{flowsError}</div>
                             )}
 
-                            {isAutomationsLoading ? (
+                            {/* Flow list tabs */}
+                            {flows.length > 0 && (
+                                <div className="flex gap-2 flex-wrap">
+                                    <button
+                                        onClick={() => setEditingFlow('new')}
+                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border ${editingFlow === 'new' ? 'bg-primary-50 dark:bg-primary-900/30 border-primary-300 dark:border-primary-700 text-primary-700 dark:text-primary-300' : 'bg-white/80 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-500 hover:text-slate-700'}`}>
+                                        <Plus size={12} /> Nuovo
+                                    </button>
+                                    {flows.map(f => (
+                                        <button key={f.id}
+                                            onClick={() => setEditingFlow(f)}
+                                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border ${editingFlow !== 'new' && (editingFlow as MailFlow)?.id === f.id ? 'bg-primary-50 dark:bg-primary-900/30 border-primary-300 dark:border-primary-700 text-primary-700 dark:text-primary-300' : 'bg-white/80 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-500 hover:text-slate-700'}`}>
+                                            <span className={`w-1.5 h-1.5 rounded-full ${f.active ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                                            {f.name}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Flow builder canvas */}
+                            {isFlowsLoading ? (
                                 <div className="flex items-center justify-center py-16">
                                     <Loader2 className="w-6 h-6 animate-spin text-primary-500" />
                                 </div>
-                            ) : automations.length === 0 ? (
-                                <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl border border-slate-200/60 dark:border-slate-700/60 p-12 text-center">
-                                    <Zap size={36} className="mx-auto text-slate-300 dark:text-slate-600 mb-3" />
-                                    <p className="text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Nessuna automazione</p>
-                                    <p className="text-xs text-slate-400 dark:text-slate-500">Crea regole per inviare email automaticamente quando una lead arriva o cambia stato.</p>
-                                </div>
-                            ) : (
-                                <div className="space-y-3">
-                                    {automations.map(auto => {
-                                        const tpl = templates.find(t => t.id === auto.template_id);
-                                        const triggerLabel = auto.trigger_type === 'lead_created'
-                                            ? 'Nuova lead'
-                                            : `Stato → ${auto.trigger_status}`;
-                                        return (
-                                            <div key={auto.id} className={`bg-white/85 dark:bg-slate-800/85 backdrop-blur-sm rounded-2xl border transition-all ${auto.active ? 'border-slate-200/60 dark:border-slate-700/60' : 'border-slate-200/40 dark:border-slate-700/40 opacity-60'} p-4`}>
-                                                <div className="flex flex-wrap items-center gap-3">
-                                                    <div className="flex-1 min-w-0">
-                                                        <p className="font-semibold text-sm text-slate-800 dark:text-white">{auto.name}</p>
-                                                        <div className="flex flex-wrap items-center gap-2 mt-1">
-                                                            <span className="inline-flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-lg">
-                                                                {triggerLabel} <ArrowRight size={11} /> {auto.delay_hours === 0 ? 'subito' : `dopo ${auto.delay_hours}h`}
-                                                            </span>
-                                                            {tpl && (
-                                                                <span className="inline-flex items-center gap-1 text-xs text-slate-400 dark:text-slate-500">
-                                                                    <FileText size={11} /> {tpl.name}
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex items-center gap-2 ml-auto">
-                                                        <button type="button"
-                                                            onClick={() => handleToggleAutomation(auto)}
-                                                            role="switch"
-                                                            aria-checked={auto.active}
-                                                            className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${auto.active ? 'bg-primary-600' : 'bg-slate-300 dark:bg-slate-600'}`}
-                                                        >
-                                                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${auto.active ? 'translate-x-4' : 'translate-x-1'}`} />
-                                                        </button>
-                                                        <button type="button" onClick={() => setAutomationModalState({ open: true, automation: auto })}
-                                                            className="p-1.5 rounded-lg text-slate-400 hover:text-primary-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
-                                                            <Pencil size={14} />
-                                                        </button>
-                                                        <button type="button" onClick={() => handleDeleteAutomation(auto.id)}
-                                                            className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
-                                                            <Trash2 size={14} />
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
+                            ) : client && (
+                                <div className="bg-white/85 dark:bg-slate-800/85 backdrop-blur-sm rounded-2xl border border-slate-200/60 dark:border-slate-700/60 overflow-hidden" style={{ height: 580 }}>
+                                    <MailFlowBuilder
+                                        key={editingFlow === 'new' ? 'new' : (editingFlow as MailFlow)?.id}
+                                        flow={editingFlow === 'new' ? null : editingFlow as MailFlow}
+                                        templates={templates}
+                                        client={client}
+                                        isSaving={isSavingFlow}
+                                        onSave={handleSaveFlow}
+                                        onDelete={editingFlow !== 'new' ? handleDeleteFlow : undefined}
+                                    />
                                 </div>
                             )}
                         </div>
@@ -906,14 +904,6 @@ const MailMarketingPage: React.FC = () => {
                         templates={templates}
                         canSend={domainVerified}
                         onSaved={handleCampaignSaved}
-                    />
-                    <MailAutomationModal
-                        isOpen={automationModalState.open}
-                        onClose={() => setAutomationModalState({ open: false, automation: null })}
-                        automation={automationModalState.automation}
-                        clientId={client.id}
-                        templates={templates}
-                        onSaved={handleAutomationSaved}
                     />
                 </>
             )}
