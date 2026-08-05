@@ -1,25 +1,36 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
-    X, Code, LayoutGrid, ChevronUp, ChevronDown, Trash2, Plus,
-    Loader2, Type, MousePointer, ImageIcon, Minus, AlignLeft, Check
+    X, Code, LayoutGrid, ChevronUp, ChevronDown, Trash2,
+    Loader2, Type, MousePointer, ImageIcon, Minus, AlignLeft, Check, Upload
 } from 'lucide-react';
 import { renderPreview } from './templateLayouts';
 import * as ApiService from '@api';
+import { uploadMailLogo } from '@api/storage';
 import type { MailTemplate, MailBranding } from '../../types';
 
 // ─── Block types ────────────────────────────────────────────────────────────
 
-type BlockType = 'header' | 'text' | 'button' | 'image' | 'divider' | 'footer';
+type BlockType = 'header' | 'text' | 'button' | 'image' | 'logo' | 'divider' | 'footer';
+type LogoAlign = 'left' | 'center' | 'right';
 
 interface Block {
     id: string;
     type: BlockType;
+    // header
     title?: string;
+    // text
     content?: string;
+    // button
     label?: string;
     url?: string;
+    // image
     src?: string;
     alt?: string;
+    // logo
+    logoSrc?: string;
+    logoAlign?: LogoAlign;
+    logoWidth?: number;
+    logoBg?: string;
 }
 
 function genId() { return Math.random().toString(36).slice(2, 9); }
@@ -58,6 +69,18 @@ function blocksToHtml(blocks: Block[]): string {
                     `</div>`
                 );
                 break;
+            case 'logo': {
+                const align = b.logoAlign || 'center';
+                const width = b.logoWidth || 160;
+                const bg = b.logoBg || '#ffffff';
+                const src = b.logoSrc || '{{logo_url}}';
+                parts.push(
+                    `<div style="padding: 16px 24px; background: ${bg}; text-align: ${align};">` +
+                    `<img src="${src}" alt="Logo" style="width: ${width}px; max-width: 100%; display: inline-block;" />` +
+                    `</div>`
+                );
+                break;
+            }
             case 'divider':
                 parts.push(
                     `<div style="padding: 4px 24px; background: #ffffff;">` +
@@ -91,6 +114,7 @@ const BLOCK_DEFS: { type: BlockType; label: string; icon: React.ReactNode }[] = 
     { type: 'text', label: 'Testo', icon: <AlignLeft size={14} /> },
     { type: 'button', label: 'Pulsante', icon: <MousePointer size={14} /> },
     { type: 'image', label: 'Immagine', icon: <ImageIcon size={14} /> },
+    { type: 'logo', label: 'Logo', icon: <Upload size={14} /> },
     { type: 'divider', label: 'Divisore', icon: <Minus size={14} /> },
     { type: 'footer', label: 'Footer', icon: <AlignLeft size={14} /> },
 ];
@@ -126,13 +150,30 @@ interface BlockRowProps {
     index: number;
     total: number;
     selected: boolean;
+    clientId: string;
     onSelect: () => void;
     onChange: (b: Block) => void;
     onMove: (dir: -1 | 1) => void;
     onDelete: () => void;
 }
 
-const BlockRow: React.FC<BlockRowProps> = ({ block, index, total, selected, onSelect, onChange, onMove, onDelete }) => {
+const BlockRow: React.FC<BlockRowProps> = ({ block, index, total, selected, clientId, onSelect, onChange, onMove, onDelete }) => {
+    const [isUploading, setIsUploading] = useState(false);
+    const [uploadError, setUploadError] = useState('');
+    const logoInputRef = useRef<HTMLInputElement>(null);
+
+    const handleLogoUpload = async (file: File) => {
+        setIsUploading(true);
+        setUploadError('');
+        try {
+            const url = await uploadMailLogo(clientId, file);
+            onChange({ ...block, logoSrc: url });
+        } catch (e: any) {
+            setUploadError(e.message || 'Errore upload');
+        } finally {
+            setIsUploading(false);
+        }
+    };
     const def = BLOCK_DEFS.find(d => d.type === block.type)!;
     return (
         <div
@@ -208,6 +249,76 @@ const BlockRow: React.FC<BlockRowProps> = ({ block, index, total, selected, onSe
                                 <label className={labelCls}>Testo alternativo</label>
                                 <input className={inputCls} value={block.alt || ''} placeholder="Descrizione immagine"
                                     onChange={e => onChange({ ...block, alt: e.target.value })} />
+                            </div>
+                        </>
+                    )}
+                    {block.type === 'logo' && (
+                        <>
+                            {/* Upload */}
+                            <div>
+                                <label className={labelCls}>Logo</label>
+                                <input
+                                    ref={logoInputRef}
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={e => { const f = e.target.files?.[0]; if (f) handleLogoUpload(f); e.target.value = ''; }}
+                                />
+                                <div className="flex items-center gap-2">
+                                    {block.logoSrc && (
+                                        <img src={block.logoSrc} alt="Logo" className="h-10 w-auto rounded border border-slate-200 dark:border-slate-600 object-contain bg-white" />
+                                    )}
+                                    <button type="button" onClick={() => logoInputRef.current?.click()} disabled={isUploading}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-xs font-medium text-slate-600 dark:text-slate-300 hover:border-primary-400 hover:text-primary-600 transition-colors disabled:opacity-50">
+                                        {isUploading ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
+                                        {isUploading ? 'Caricamento...' : block.logoSrc ? 'Cambia logo' : 'Carica logo'}
+                                    </button>
+                                </div>
+                                {uploadError && <p className="text-xs text-red-500 mt-1">{uploadError}</p>}
+                                <p className="text-xs text-slate-400 mt-1">JPG, PNG, SVG, WebP — compresso automaticamente</p>
+                            </div>
+
+                            {/* Posizione */}
+                            <div>
+                                <label className={labelCls}>Posizione</label>
+                                <div className="flex gap-1.5">
+                                    {(['left', 'center', 'right'] as LogoAlign[]).map(a => (
+                                        <button key={a} type="button"
+                                            onClick={() => onChange({ ...block, logoAlign: a })}
+                                            className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-all capitalize ${(block.logoAlign || 'center') === a ? 'bg-primary-50 dark:bg-primary-900/30 border-primary-400 text-primary-700 dark:text-primary-400' : 'border-slate-200 dark:border-slate-600 text-slate-500 hover:border-slate-300'}`}>
+                                            {a === 'left' ? 'Sinistra' : a === 'center' ? 'Centro' : 'Destra'}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Dimensione */}
+                            <div>
+                                <label className={labelCls}>Larghezza — {block.logoWidth || 160}px</label>
+                                <input type="range" min={60} max={400} step={10}
+                                    value={block.logoWidth || 160}
+                                    onChange={e => onChange({ ...block, logoWidth: Number(e.target.value) })}
+                                    className="w-full accent-primary-600" />
+                                <div className="flex justify-between text-[10px] text-slate-400 mt-0.5">
+                                    <span>60px</span><span>400px</span>
+                                </div>
+                            </div>
+
+                            {/* Colore sfondo */}
+                            <div>
+                                <label className={labelCls}>Colore sfondo</label>
+                                <div className="flex items-center gap-2">
+                                    <input type="color" value={block.logoBg || '#ffffff'}
+                                        onChange={e => onChange({ ...block, logoBg: e.target.value })}
+                                        className="w-8 h-8 rounded-lg border border-slate-200 dark:border-slate-600 cursor-pointer p-0.5 bg-white dark:bg-slate-800" />
+                                    <input className={inputCls} value={block.logoBg || '#ffffff'}
+                                        onChange={e => onChange({ ...block, logoBg: e.target.value })}
+                                        placeholder="#ffffff" style={{ maxWidth: 120 }} />
+                                    <button type="button" onClick={() => onChange({ ...block, logoBg: 'transparent' })}
+                                        className="text-xs text-slate-400 hover:text-slate-600 underline">
+                                        Trasparente
+                                    </button>
+                                </div>
                             </div>
                         </>
                     )}
@@ -471,6 +582,7 @@ const MailTemplateEditor: React.FC<Props> = ({ template, clientId, branding, onS
                                         index={idx}
                                         total={blocks.length}
                                         selected={selectedBlockId === block.id}
+                                        clientId={clientId}
                                         onSelect={() => setSelectedBlockId(selectedBlockId === block.id ? null : block.id)}
                                         onChange={updated => setBlocks(prev => prev.map(b => b.id === updated.id ? updated : b))}
                                         onMove={dir => moveBlock(block.id, dir)}

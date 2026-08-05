@@ -32,6 +32,42 @@ export async function uploadQuotePdf(clientId: string, quoteId: string, pdf: Blo
     return `${data.publicUrl}?t=${Date.now()}`;
 }
 
+// Comprime un'immagine via canvas e la carica nel bucket "mail-assets/{clientId}/"
+// Ogni upload crea un file univoco (timestamp) in modo da non sovrascrivere loghi diversi.
+export async function uploadMailLogo(clientId: string, file: File, maxWidth = 600): Promise<string> {
+    // Comprimi via canvas
+    const compressed = await new Promise<Blob>((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+            const scale = Math.min(1, maxWidth / img.width);
+            const w = Math.round(img.width * scale);
+            const h = Math.round(img.height * scale);
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d')!;
+            ctx.drawImage(img, 0, 0, w, h);
+            canvas.toBlob(blob => {
+                if (blob) resolve(blob);
+                else reject(new Error('Compressione fallita'));
+            }, 'image/webp', 0.82);
+        };
+        img.onerror = () => reject(new Error('Impossibile leggere l\'immagine'));
+        img.src = URL.createObjectURL(file);
+    });
+
+    const path = `${clientId}/logo_${Date.now()}.webp`;
+    const { error } = await supabase.storage.from('mail-assets').upload(path, compressed, {
+        upsert: false,
+        cacheControl: '31536000',
+        contentType: 'image/webp',
+    });
+    if (error) throw new Error(error.message);
+
+    const { data } = supabase.storage.from('mail-assets').getPublicUrl(path);
+    return data.publicUrl;
+}
+
 // Restituisce un link corto (es. https://tuodominio.it/api/q/Ab3dE9fG) che reindirizza
 // al PDF del preventivo, senza esporre l'URL del progetto Supabase.
 export async function getQuoteShareUrl(quoteId: string, clientId: string): Promise<string> {
