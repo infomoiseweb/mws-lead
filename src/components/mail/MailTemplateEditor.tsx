@@ -41,13 +41,18 @@ function blocksToHtml(blocks: Block[]): string {
     ];
     for (const b of blocks) {
         switch (b.type) {
-            case 'header':
+            case 'header': {
+                const headerAlign = b.logoAlign || 'center';
+                const headerContent = b.logoSrc
+                    ? `<img src="${b.logoSrc}" alt="Logo" style="width: ${b.logoWidth || 160}px; max-width: 100%; display: inline-block;" />`
+                    : `<h1 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: 600;">${b.title || '{{brand_name}}'}</h1>`;
                 parts.push(
-                    `<div style="background: {{secondary_color}}; padding: 24px; text-align: center;">` +
-                    `<h1 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: 600;">${b.title || '{{brand_name}}'}</h1>` +
+                    `<div style="background: {{secondary_color}}; padding: 24px; text-align: ${headerAlign};">` +
+                    headerContent +
                     `</div>`
                 );
                 break;
+            }
             case 'text':
                 parts.push(
                     `<div style="padding: 20px 24px; background: #ffffff; color: #111827;">` +
@@ -209,11 +214,84 @@ const BlockRow: React.FC<BlockRowProps> = ({ block, index, total, selected, clie
             {selected && (
                 <div className="px-3 pb-3 pt-1 bg-white dark:bg-slate-800/80 border-t border-slate-100 dark:border-slate-700/60 space-y-2">
                     {block.type === 'header' && (
-                        <div>
-                            <label className={labelCls}>Titolo</label>
-                            <input className={inputCls} value={block.title || ''} placeholder="Titolo intestazione"
-                                onChange={e => onChange({ ...block, title: e.target.value })} />
-                        </div>
+                        <>
+                            {/* Toggle testo / logo */}
+                            <div>
+                                <label className={labelCls}>Contenuto intestazione</label>
+                                <div className="flex gap-1.5 mb-2">
+                                    <button type="button"
+                                        onClick={() => onChange({ ...block, logoSrc: undefined })}
+                                        className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-all ${!block.logoSrc ? 'bg-primary-50 dark:bg-primary-900/30 border-primary-400 text-primary-700 dark:text-primary-400' : 'border-slate-200 dark:border-slate-600 text-slate-500 hover:border-slate-300'}`}>
+                                        Testo
+                                    </button>
+                                    <button type="button"
+                                        onClick={() => { onChange({ ...block, title: undefined }); if (!block.logoSrc) setTimeout(() => logoInputRef.current?.click(), 50); }}
+                                        className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-all ${block.logoSrc ? 'bg-primary-50 dark:bg-primary-900/30 border-primary-400 text-primary-700 dark:text-primary-400' : 'border-slate-200 dark:border-slate-600 text-slate-500 hover:border-slate-300'}`}>
+                                        Logo
+                                    </button>
+                                </div>
+                            </div>
+
+                            {!block.logoSrc ? (
+                                <div>
+                                    <label className={labelCls}>Titolo</label>
+                                    <input className={inputCls} value={block.title || ''} placeholder="Titolo intestazione"
+                                        onChange={e => onChange({ ...block, title: e.target.value })} />
+                                </div>
+                            ) : (
+                                <>
+                                    {/* Logo upload nell'header */}
+                                    <div>
+                                        <input ref={logoInputRef} type="file" accept="image/*" className="hidden"
+                                            onChange={e => { const f = e.target.files?.[0]; if (f) handleLogoUpload(f); e.target.value = ''; }} />
+                                        <div className="flex items-center gap-2">
+                                            <img src={block.logoSrc} alt="Logo" className="h-10 w-auto rounded border border-slate-200 dark:border-slate-600 object-contain bg-white" />
+                                            <button type="button" onClick={() => logoInputRef.current?.click()} disabled={isUploading}
+                                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-xs font-medium text-slate-600 dark:text-slate-300 hover:border-primary-400 hover:text-primary-600 transition-colors disabled:opacity-50">
+                                                {isUploading ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
+                                                {isUploading ? 'Caricamento...' : 'Cambia logo'}
+                                            </button>
+                                        </div>
+                                        {uploadError && <p className="text-xs text-red-500 mt-1">{uploadError}</p>}
+                                    </div>
+                                    <div>
+                                        <label className={labelCls}>Posizione</label>
+                                        <div className="flex gap-1.5">
+                                            {(['left', 'center', 'right'] as LogoAlign[]).map(a => (
+                                                <button key={a} type="button"
+                                                    onClick={() => onChange({ ...block, logoAlign: a })}
+                                                    className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-all ${(block.logoAlign || 'center') === a ? 'bg-primary-50 dark:bg-primary-900/30 border-primary-400 text-primary-700 dark:text-primary-400' : 'border-slate-200 dark:border-slate-600 text-slate-500 hover:border-slate-300'}`}>
+                                                    {a === 'left' ? 'Sinistra' : a === 'center' ? 'Centro' : 'Destra'}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className={labelCls}>Larghezza — {block.logoWidth || 160}px</label>
+                                        <input type="range" min={60} max={400} step={10}
+                                            value={block.logoWidth || 160}
+                                            onChange={e => onChange({ ...block, logoWidth: Number(e.target.value) })}
+                                            className="w-full accent-primary-600" />
+                                    </div>
+                                </>
+                            )}
+
+                            {/* Posizione testo (solo se testo) */}
+                            {!block.logoSrc && (
+                                <div>
+                                    <label className={labelCls}>Allineamento</label>
+                                    <div className="flex gap-1.5">
+                                        {(['left', 'center', 'right'] as LogoAlign[]).map(a => (
+                                            <button key={a} type="button"
+                                                onClick={() => onChange({ ...block, logoAlign: a })}
+                                                className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-all ${(block.logoAlign || 'center') === a ? 'bg-primary-50 dark:bg-primary-900/30 border-primary-400 text-primary-700 dark:text-primary-400' : 'border-slate-200 dark:border-slate-600 text-slate-500 hover:border-slate-300'}`}>
+                                                {a === 'left' ? 'Sinistra' : a === 'center' ? 'Centro' : 'Destra'}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </>
                     )}
                     {block.type === 'text' && (
                         <div>
