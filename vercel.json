@@ -12,5 +12,11 @@
             "source": "/(.*)",
             "destination": "/index.html"
         }
+    ],
+    "crons": [
+        {
+            "path": "/api/mail-util?action=automations",
+            "schedule": "*/5 * * * *"
+        }
     ]
 }

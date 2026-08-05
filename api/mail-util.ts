@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { Resend } from 'resend';
 import { createClient } from '@supabase/supabase-js';
 import { renderMailTemplate, buildUnsubscribeUrl, findLeadEmail, findLeadName, verifyUnsubscribeToken } from './_lib/mailRender.js';
+import { executeSendCampaign } from './_lib/sendCampaign.js';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -49,11 +50,19 @@ async function handleUnsubscribe(req: VercelRequest, res: VercelResponse) {
 }
 
 async function handleAutomations(req: VercelRequest, res: VercelResponse) {
-    const secret = process.env.AUTOMATION_CRON_SECRET;
-    if (!secret) return res.status(500).json({ error: 'Server misconfigured' });
-    if (req.headers['x-cron-secret'] !== secret) return res.status(401).json({ error: 'Unauthorized' });
+    // Vercel invia il CRON_SECRET come "Authorization: Bearer <CRON_SECRET>"
+    // Manteniamo anche x-cron-secret per compatibilità con chiamate manuali
+    const cronSecret = process.env.CRON_SECRET || process.env.AUTOMATION_CRON_SECRET;
+    if (!cronSecret) return res.status(500).json({ error: 'CRON_SECRET non configurato' });
 
-    // Invia le campagne pianificate il cui scheduled_at è già passato
+    const authHeader = req.headers.authorization || '';
+    const legacyHeader = req.headers['x-cron-secret'];
+    const authorized = authHeader === `Bearer ${cronSecret}` || legacyHeader === cronSecret;
+    if (!authorized) return res.status(401).json({ error: 'Unauthorized' });
+
+    const baseUrl = `https://${req.headers.host}`;
+
+    // ── 1. Invia le campagne pianificate il cui scheduled_at è passato ──────
     const now = new Date().toISOString();
     const { data: scheduled } = await supabaseAdmin
         .from('mail_campaigns')
@@ -61,14 +70,10 @@ async function handleAutomations(req: VercelRequest, res: VercelResponse) {
         .eq('status', 'scheduled')
         .lte('scheduled_at', now);
 
+    const scheduledResults: any[] = [];
     for (const camp of scheduled || []) {
-        try {
-            await fetch(`https://${req.headers.host}/api/send-mail-campaign`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'x-cron-secret': secret },
-                body: JSON.stringify({ campaignId: camp.id, fromCron: true }),
-            });
-        } catch { /* non bloccante */ }
+        const result = await executeSendCampaign(camp.id, supabaseAdmin, resend, baseUrl);
+        scheduledResults.push({ campaign_id: camp.id, ...result });
     }
 
     const { data: automations, error: automationsError } = await supabaseAdmin
@@ -166,7 +171,7 @@ async function handleAutomations(req: VercelRequest, res: VercelResponse) {
         }
     }
 
-    return res.status(200).json({ processed: results.length, results });
+    return res.status(200).json({ scheduled: scheduledResults.length, automations: results.length, results, scheduledResults });
 }
 
 // 1x1 pixel GIF trasparente
