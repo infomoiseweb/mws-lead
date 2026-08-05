@@ -710,36 +710,39 @@ const MailMarketingPage: React.FC = () => {
                                         {mailDomain.status !== 'verified' && mailDomain.dns_records && mailDomain.dns_records.length > 0 && (
                                             <>
                                                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                                                    Aggiungi questi record DNS nel tuo provider, poi premi "Verifica ora". La propagazione può richiedere fino a qualche ora.
+                                                    Aggiungi questi record DNS nel tuo provider (es. GoDaddy, Cloudflare, Aruba), poi premi "Verifica ora". La propagazione può richiedere fino a qualche ora.
                                                 </p>
-                                                <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700">
-                                                    <table className="min-w-full text-xs">
-                                                        <thead className="bg-slate-50 dark:bg-slate-900/50">
-                                                            <tr className="text-left text-slate-400 dark:text-slate-500">
-                                                                <th className="px-3 py-2 font-medium">Tipo</th>
-                                                                <th className="px-3 py-2 font-medium">Nome</th>
-                                                                <th className="px-3 py-2 font-medium">Valore</th>
-                                                                <th className="px-3 py-2 font-medium">TTL</th>
-                                                                <th className="px-3 py-2 font-medium w-8"></th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                                                            {mailDomain.dns_records.map((rec, idx) => (
-                                                                <tr key={idx} className="bg-white dark:bg-slate-800">
-                                                                    <td className="px-3 py-2 font-mono text-slate-700 dark:text-slate-200 whitespace-nowrap">{rec.type}</td>
-                                                                    <td className="px-3 py-2 font-mono text-slate-700 dark:text-slate-200 max-w-[160px] truncate" title={rec.name}>{rec.name}</td>
-                                                                    <td className="px-3 py-2 font-mono text-slate-700 dark:text-slate-200 max-w-[220px] truncate" title={rec.value}>{rec.value}</td>
-                                                                    <td className="px-3 py-2 font-mono text-slate-400 whitespace-nowrap">{rec.ttl || '—'}</td>
-                                                                    <td className="px-3 py-2">
-                                                                        <button onClick={() => handleCopy(`${rec.type}-${idx}`, rec.value)}
-                                                                            className="p-1 text-slate-400 hover:text-primary-500 rounded transition-colors">
-                                                                            {copiedField === `${rec.type}-${idx}` ? <Check size={13} className="text-emerald-500" /> : <Copy size={13} />}
+                                                <div className="space-y-3">
+                                                    {mailDomain.dns_records.map((rec, idx) => (
+                                                        <div key={idx} className="rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+                                                            <div className="px-3 py-1.5 bg-slate-50 dark:bg-slate-900/50 flex items-center gap-2">
+                                                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Record {idx + 1}</span>
+                                                                <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400">{rec.type}</span>
+                                                            </div>
+                                                            <div className="divide-y divide-slate-100 dark:divide-slate-700/60">
+                                                                {[
+                                                                    { label: 'Tipo', value: rec.type },
+                                                                    { label: 'Nome / Host', value: rec.name },
+                                                                    { label: 'Valore', value: rec.value },
+                                                                    ...(rec.ttl ? [{ label: 'TTL', value: String(rec.ttl) }] : []),
+                                                                ].map(field => (
+                                                                    <div key={field.label} className="flex items-center gap-3 px-3 py-2 bg-white dark:bg-slate-800">
+                                                                        <span className="text-xs font-semibold text-slate-400 dark:text-slate-500 w-24 shrink-0">{field.label}</span>
+                                                                        <span className="flex-1 text-xs font-mono text-slate-700 dark:text-slate-200 break-all">{field.value}</span>
+                                                                        <button
+                                                                            onClick={() => handleCopy(`${idx}-${field.label}`, field.value)}
+                                                                            className="shrink-0 flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors border border-slate-200 dark:border-slate-700 hover:border-primary-400 hover:text-primary-600 dark:hover:text-primary-400 text-slate-500 dark:text-slate-400"
+                                                                        >
+                                                                            {copiedField === `${idx}-${field.label}`
+                                                                                ? <><Check size={11} className="text-emerald-500" /> Copiato</>
+                                                                                : <><Copy size={11} /> Copia</>
+                                                                            }
                                                                         </button>
-                                                                    </td>
-                                                                </tr>
-                                                            ))}
-                                                        </tbody>
-                                                    </table>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    ))}
                                                 </div>
                                             </>
                                         )}
