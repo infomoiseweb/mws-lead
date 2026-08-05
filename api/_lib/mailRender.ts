@@ -1,4 +1,4 @@
-import crypto from 'crypto';
+import * as crypto from 'crypto';
 
 // Sostituisce i placeholder {{chiave}} nel template con i valori forniti.
 // Le chiavi non presenti in `vars` vengono sostituite con stringa vuota.
