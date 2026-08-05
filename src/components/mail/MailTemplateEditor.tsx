@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { renderPreview } from './templateLayouts';
 import * as ApiService from '@api';
-import { uploadMailLogo } from '@api/storage';
+import { uploadMailLogo, listMailLogos, deleteMailLogo } from '@api/storage';
 import type { MailTemplate, MailBranding } from '../../types';
 
 // ─── Block types ────────────────────────────────────────────────────────────
@@ -145,6 +145,108 @@ interface Props {
     onClose: () => void;
 }
 
+// ─── Logo Picker ─────────────────────────────────────────────────────────────
+
+const MAX_LOGOS = 3;
+
+interface LogoPickerProps {
+    clientId: string;
+    currentSrc?: string;
+    onSelect: (url: string) => void;
+}
+
+const LogoPicker: React.FC<LogoPickerProps> = ({ clientId, currentSrc, onSelect }) => {
+    const [logos, setLogos] = useState<{ name: string; url: string }[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isUploading, setIsUploading] = useState(false);
+    const [deletingName, setDeletingName] = useState<string | null>(null);
+    const [error, setError] = useState('');
+    const inputRef = useRef<HTMLInputElement>(null);
+
+    const load = async () => {
+        setIsLoading(true);
+        try { setLogos(await listMailLogos(clientId)); } catch { /* silent */ }
+        finally { setIsLoading(false); }
+    };
+
+    useEffect(() => { load(); }, [clientId]);
+
+    const handleUpload = async (file: File) => {
+        if (logos.length >= MAX_LOGOS) { setError(`Puoi caricare al massimo ${MAX_LOGOS} loghi. Eliminane uno prima.`); return; }
+        setIsUploading(true); setError('');
+        try {
+            const url = await uploadMailLogo(clientId, file);
+            await load();
+            onSelect(url);
+        } catch (e: any) { setError(e.message || 'Errore upload'); }
+        finally { setIsUploading(false); }
+    };
+
+    const handleDelete = async (name: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        setDeletingName(name);
+        try { await deleteMailLogo(clientId, name); await load(); }
+        catch { /* silent */ }
+        finally { setDeletingName(null); }
+    };
+
+    return (
+        <div className="space-y-2">
+            <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                    I tuoi loghi ({logos.length}/{MAX_LOGOS})
+                </span>
+                {logos.length < MAX_LOGOS && (
+                    <>
+                        <input ref={inputRef} type="file" accept="image/*" className="hidden"
+                            onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = ''; }} />
+                        <button type="button" onClick={() => inputRef.current?.click()} disabled={isUploading}
+                            className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-dashed border-slate-300 dark:border-slate-600 text-xs font-medium text-slate-500 hover:border-primary-400 hover:text-primary-600 transition-colors disabled:opacity-50">
+                            {isUploading ? <Loader2 size={11} className="animate-spin" /> : <Upload size={11} />}
+                            {isUploading ? 'Caricamento...' : 'Carica nuovo'}
+                        </button>
+                    </>
+                )}
+            </div>
+
+            {error && <p className="text-xs text-red-500">{error}</p>}
+
+            {isLoading ? (
+                <div className="flex justify-center py-4"><Loader2 size={16} className="animate-spin text-slate-400" /></div>
+            ) : logos.length === 0 ? (
+                <div className="border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl p-4 text-center">
+                    <p className="text-xs text-slate-400 mb-2">Nessun logo caricato</p>
+                    <button type="button" onClick={() => inputRef.current?.click()} disabled={isUploading}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-50 dark:bg-primary-900/30 border border-primary-200 dark:border-primary-800 text-xs font-medium text-primary-700 dark:text-primary-400 hover:bg-primary-100 transition-colors mx-auto">
+                        <Upload size={12} /> Carica il tuo logo
+                    </button>
+                </div>
+            ) : (
+                <div className="grid grid-cols-3 gap-2">
+                    {logos.map(logo => (
+                        <div key={logo.name}
+                            onClick={() => onSelect(logo.url)}
+                            className={`relative group cursor-pointer rounded-xl border-2 p-2 bg-white dark:bg-slate-800 transition-all ${currentSrc === logo.url ? 'border-primary-500 ring-2 ring-primary-200 dark:ring-primary-800' : 'border-slate-200 dark:border-slate-700 hover:border-primary-300'}`}>
+                            <img src={logo.url} alt="Logo" className="w-full h-12 object-contain" />
+                            {currentSrc === logo.url && (
+                                <span className="absolute top-1 right-1 w-4 h-4 bg-primary-500 rounded-full flex items-center justify-center">
+                                    <Check size={10} className="text-white" />
+                                </span>
+                            )}
+                            <button type="button"
+                                onClick={e => handleDelete(logo.name, e)}
+                                disabled={deletingName === logo.name}
+                                className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 w-5 h-5 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center transition-all">
+                                {deletingName === logo.name ? <Loader2 size={9} className="animate-spin text-white" /> : <Trash2 size={9} className="text-white" />}
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
+
 // ─── Block editor row ────────────────────────────────────────────────────────
 
 const inputCls = "w-full px-3 py-1.5 bg-slate-100 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 rounded-lg text-sm text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50";
@@ -163,22 +265,6 @@ interface BlockRowProps {
 }
 
 const BlockRow: React.FC<BlockRowProps> = ({ block, index, total, selected, clientId, onSelect, onChange, onMove, onDelete }) => {
-    const [isUploading, setIsUploading] = useState(false);
-    const [uploadError, setUploadError] = useState('');
-    const logoInputRef = useRef<HTMLInputElement>(null);
-
-    const handleLogoUpload = async (file: File) => {
-        setIsUploading(true);
-        setUploadError('');
-        try {
-            const url = await uploadMailLogo(clientId, file);
-            onChange({ ...block, logoSrc: url });
-        } catch (e: any) {
-            setUploadError(e.message || 'Errore upload');
-        } finally {
-            setIsUploading(false);
-        }
-    };
     const def = BLOCK_DEFS.find(d => d.type === block.type)!;
     return (
         <div
@@ -225,7 +311,7 @@ const BlockRow: React.FC<BlockRowProps> = ({ block, index, total, selected, clie
                                         Testo
                                     </button>
                                     <button type="button"
-                                        onClick={() => { onChange({ ...block, title: undefined }); if (!block.logoSrc) setTimeout(() => logoInputRef.current?.click(), 50); }}
+                                        onClick={() => onChange({ ...block, title: undefined })}
                                         className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-all ${block.logoSrc ? 'bg-primary-50 dark:bg-primary-900/30 border-primary-400 text-primary-700 dark:text-primary-400' : 'border-slate-200 dark:border-slate-600 text-slate-500 hover:border-slate-300'}`}>
                                         Logo
                                     </button>
@@ -237,23 +323,23 @@ const BlockRow: React.FC<BlockRowProps> = ({ block, index, total, selected, clie
                                     <label className={labelCls}>Titolo</label>
                                     <input className={inputCls} value={block.title || ''} placeholder="Titolo intestazione"
                                         onChange={e => onChange({ ...block, title: e.target.value })} />
+                                    <div className="mt-2">
+                                        <label className={labelCls}>Allineamento</label>
+                                        <div className="flex gap-1.5">
+                                            {(['left', 'center', 'right'] as LogoAlign[]).map(a => (
+                                                <button key={a} type="button"
+                                                    onClick={() => onChange({ ...block, logoAlign: a })}
+                                                    className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-all ${(block.logoAlign || 'center') === a ? 'bg-primary-50 dark:bg-primary-900/30 border-primary-400 text-primary-700 dark:text-primary-400' : 'border-slate-200 dark:border-slate-600 text-slate-500 hover:border-slate-300'}`}>
+                                                    {a === 'left' ? 'Sinistra' : a === 'center' ? 'Centro' : 'Destra'}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
                                 </div>
                             ) : (
                                 <>
-                                    {/* Logo upload nell'header */}
-                                    <div>
-                                        <input ref={logoInputRef} type="file" accept="image/*" className="hidden"
-                                            onChange={e => { const f = e.target.files?.[0]; if (f) handleLogoUpload(f); e.target.value = ''; }} />
-                                        <div className="flex items-center gap-2">
-                                            <img src={block.logoSrc} alt="Logo" className="h-10 w-auto rounded border border-slate-200 dark:border-slate-600 object-contain bg-white" />
-                                            <button type="button" onClick={() => logoInputRef.current?.click()} disabled={isUploading}
-                                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-xs font-medium text-slate-600 dark:text-slate-300 hover:border-primary-400 hover:text-primary-600 transition-colors disabled:opacity-50">
-                                                {isUploading ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
-                                                {isUploading ? 'Caricamento...' : 'Cambia logo'}
-                                            </button>
-                                        </div>
-                                        {uploadError && <p className="text-xs text-red-500 mt-1">{uploadError}</p>}
-                                    </div>
+                                    <LogoPicker clientId={clientId} currentSrc={block.logoSrc}
+                                        onSelect={url => onChange({ ...block, logoSrc: url })} />
                                     <div>
                                         <label className={labelCls}>Posizione</label>
                                         <div className="flex gap-1.5">
@@ -274,22 +360,6 @@ const BlockRow: React.FC<BlockRowProps> = ({ block, index, total, selected, clie
                                             className="w-full accent-primary-600" />
                                     </div>
                                 </>
-                            )}
-
-                            {/* Posizione testo (solo se testo) */}
-                            {!block.logoSrc && (
-                                <div>
-                                    <label className={labelCls}>Allineamento</label>
-                                    <div className="flex gap-1.5">
-                                        {(['left', 'center', 'right'] as LogoAlign[]).map(a => (
-                                            <button key={a} type="button"
-                                                onClick={() => onChange({ ...block, logoAlign: a })}
-                                                className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-all ${(block.logoAlign || 'center') === a ? 'bg-primary-50 dark:bg-primary-900/30 border-primary-400 text-primary-700 dark:text-primary-400' : 'border-slate-200 dark:border-slate-600 text-slate-500 hover:border-slate-300'}`}>
-                                                {a === 'left' ? 'Sinistra' : a === 'center' ? 'Centro' : 'Destra'}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
                             )}
                         </>
                     )}
@@ -332,45 +402,22 @@ const BlockRow: React.FC<BlockRowProps> = ({ block, index, total, selected, clie
                     )}
                     {block.type === 'logo' && (
                         <>
-                            {/* Upload */}
-                            <div>
-                                <label className={labelCls}>Logo</label>
-                                <input
-                                    ref={logoInputRef}
-                                    type="file"
-                                    accept="image/*"
-                                    className="hidden"
-                                    onChange={e => { const f = e.target.files?.[0]; if (f) handleLogoUpload(f); e.target.value = ''; }}
-                                />
-                                <div className="flex items-center gap-2">
-                                    {block.logoSrc && (
-                                        <img src={block.logoSrc} alt="Logo" className="h-10 w-auto rounded border border-slate-200 dark:border-slate-600 object-contain bg-white" />
-                                    )}
-                                    <button type="button" onClick={() => logoInputRef.current?.click()} disabled={isUploading}
-                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-xs font-medium text-slate-600 dark:text-slate-300 hover:border-primary-400 hover:text-primary-600 transition-colors disabled:opacity-50">
-                                        {isUploading ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
-                                        {isUploading ? 'Caricamento...' : block.logoSrc ? 'Cambia logo' : 'Carica logo'}
-                                    </button>
-                                </div>
-                                {uploadError && <p className="text-xs text-red-500 mt-1">{uploadError}</p>}
-                                <p className="text-xs text-slate-400 mt-1">JPG, PNG, SVG, WebP — compresso automaticamente</p>
-                            </div>
+                            <LogoPicker clientId={clientId} currentSrc={block.logoSrc}
+                                onSelect={url => onChange({ ...block, logoSrc: url })} />
 
-                            {/* Posizione */}
                             <div>
                                 <label className={labelCls}>Posizione</label>
                                 <div className="flex gap-1.5">
                                     {(['left', 'center', 'right'] as LogoAlign[]).map(a => (
                                         <button key={a} type="button"
                                             onClick={() => onChange({ ...block, logoAlign: a })}
-                                            className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-all capitalize ${(block.logoAlign || 'center') === a ? 'bg-primary-50 dark:bg-primary-900/30 border-primary-400 text-primary-700 dark:text-primary-400' : 'border-slate-200 dark:border-slate-600 text-slate-500 hover:border-slate-300'}`}>
+                                            className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-all ${(block.logoAlign || 'center') === a ? 'bg-primary-50 dark:bg-primary-900/30 border-primary-400 text-primary-700 dark:text-primary-400' : 'border-slate-200 dark:border-slate-600 text-slate-500 hover:border-slate-300'}`}>
                                             {a === 'left' ? 'Sinistra' : a === 'center' ? 'Centro' : 'Destra'}
                                         </button>
                                     ))}
                                 </div>
                             </div>
 
-                            {/* Dimensione */}
                             <div>
                                 <label className={labelCls}>Larghezza — {block.logoWidth || 160}px</label>
                                 <input type="range" min={60} max={400} step={10}
@@ -382,7 +429,6 @@ const BlockRow: React.FC<BlockRowProps> = ({ block, index, total, selected, clie
                                 </div>
                             </div>
 
-                            {/* Colore sfondo */}
                             <div>
                                 <label className={labelCls}>Colore sfondo</label>
                                 <div className="flex items-center gap-2">

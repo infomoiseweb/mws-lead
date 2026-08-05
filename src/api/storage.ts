@@ -32,6 +32,26 @@ export async function uploadQuotePdf(clientId: string, quoteId: string, pdf: Blo
     return `${data.publicUrl}?t=${Date.now()}`;
 }
 
+// Lista i loghi già caricati nel bucket "mail-assets/{clientId}/"
+export async function listMailLogos(clientId: string): Promise<{ name: string; url: string }[]> {
+    const { data, error } = await supabase.storage.from('mail-assets').list(clientId, {
+        sortBy: { column: 'created_at', order: 'desc' },
+    });
+    if (error) throw new Error(error.message);
+    return (data || [])
+        .filter(f => f.name !== '.emptyFolderPlaceholder')
+        .map(f => ({
+            name: f.name,
+            url: supabase.storage.from('mail-assets').getPublicUrl(`${clientId}/${f.name}`).data.publicUrl,
+        }));
+}
+
+// Elimina un logo dal bucket "mail-assets/{clientId}/"
+export async function deleteMailLogo(clientId: string, fileName: string): Promise<void> {
+    const { error } = await supabase.storage.from('mail-assets').remove([`${clientId}/${fileName}`]);
+    if (error) throw new Error(error.message);
+}
+
 // Comprime un'immagine via canvas e la carica nel bucket "mail-assets/{clientId}/"
 // Ogni upload crea un file univoco (timestamp) in modo da non sovrascrivere loghi diversi.
 export async function uploadMailLogo(clientId: string, file: File, maxWidth = 600): Promise<string> {
