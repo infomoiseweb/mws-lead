@@ -113,7 +113,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const { data: clientData } = await supabaseAdmin
             .from('clients')
-            .select('meta_access_token, meta_token_expiry, meta_pages')
+            .select('meta_access_token, meta_token_expiry, meta_pages, meta_instagram_accounts')
             .eq('id', client_id)
             .single();
 
