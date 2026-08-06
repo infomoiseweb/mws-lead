@@ -219,30 +219,33 @@ const MailCampaignModal: React.FC<Props> = ({ isOpen, onClose, campaign, client,
                     {campaign ? 'Modifica campagna' : 'Nuova campagna'}
                 </span>
                 <div className="ml-auto flex items-center gap-2">
-                    {error && <span className="text-xs text-red-500 hidden md:block max-w-xs truncate">{error}</span>}
+                    {error && <span className="text-xs text-red-500 max-w-xs truncate">{error}</span>}
                     {successMsg && <span className="text-xs text-emerald-600">{successMsg}</span>}
                     <button onClick={onClose}
                         className="px-3 py-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors">
                         Annulla
                     </button>
-                    <button onClick={handleSaveDraft} disabled={isSaving || isSending}
-                        className="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 disabled:opacity-50 text-slate-700 dark:text-gray-200 text-xs font-semibold rounded-lg transition-colors">
-                        {isSaving ? <Loader2 size={13} className="animate-spin inline mr-1" /> : null}
-                        Salva bozza
-                    </button>
-                    {canSend && scheduleMode === 'now' && (
-                        <button onClick={handleSendNow} disabled={isSaving || isSending}
-                            className="flex items-center gap-1.5 px-4 py-1.5 bg-primary-600 hover:bg-primary-700 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-colors">
-                            {isSending ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
-                            Invia ora
-                        </button>
-                    )}
-                    {canSend && scheduleMode === 'scheduled' && (
+                    {scheduleMode === 'scheduled' ? (
                         <button onClick={handleSchedule} disabled={isSaving || isSending || !scheduledAt}
                             className="flex items-center gap-1.5 px-4 py-1.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-colors">
                             {isSaving ? <Loader2 size={13} className="animate-spin" /> : <Calendar size={13} />}
-                            Pianifica invio
+                            {!scheduledAt ? 'Scegli una data' : 'Pianifica invio'}
                         </button>
+                    ) : (
+                        <>
+                            <button onClick={handleSaveDraft} disabled={isSaving || isSending}
+                                className="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 disabled:opacity-50 text-slate-700 dark:text-gray-200 text-xs font-semibold rounded-lg transition-colors">
+                                {isSaving ? <Loader2 size={13} className="animate-spin inline mr-1" /> : null}
+                                Salva bozza
+                            </button>
+                            {canSend && (
+                                <button onClick={handleSendNow} disabled={isSaving || isSending}
+                                    className="flex items-center gap-1.5 px-4 py-1.5 bg-primary-600 hover:bg-primary-700 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-colors">
+                                    {isSending ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
+                                    Invia ora
+                                </button>
+                            )}
+                        </>
                     )}
                 </div>
             </div>
