@@ -100,6 +100,16 @@ const MailCampaignModal: React.FC<Props> = ({ isOpen, onClose, campaign, client,
             setFilterStatuses(campaign.filters?.statuses || []);
             setFilterServices(campaign.filters?.services || []);
             setSelectedIds(new Set(campaign.filters?.lead_ids || []));
+            if (campaign.scheduled_at) {
+                setScheduleMode('scheduled');
+                // Converti ISO → formato datetime-local (YYYY-MM-DDTHH:mm)
+                const d = new Date(campaign.scheduled_at);
+                const pad = (n: number) => String(n).padStart(2, '0');
+                setScheduledAt(`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`);
+            } else {
+                setScheduleMode('now');
+                setScheduledAt('');
+            }
         } else {
             const first = templates[0];
             setName(''); setTemplateId(first?.id || ''); setSubject(first?.subject_template || '');
