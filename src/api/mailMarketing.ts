@@ -124,7 +124,7 @@ export async function getMailCampaigns(clientId: string): Promise<MailCampaign[]
 
 export async function saveMailCampaign(campaign: Partial<MailCampaign> & { client_id: string }): Promise<MailCampaign> {
     if (campaign.id) {
-        const { id, client_id, created_at, sent_at, status, ...updates } = campaign;
+        const { id, client_id, created_at, sent_at, ...updates } = campaign;
         const { data, error } = await supabase
             .from('mail_campaigns')
             .update(updates)
@@ -136,7 +136,7 @@ export async function saveMailCampaign(campaign: Partial<MailCampaign> & { clien
         return data;
     }
 
-    const { id, created_at, sent_at, status, ...insertData } = campaign;
+    const { id, created_at, sent_at, ...insertData } = campaign;
     const { data, error } = await supabase
         .from('mail_campaigns')
         .insert(insertData)
