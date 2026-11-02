@@ -162,6 +162,32 @@ export async function getMailCampaignRecipients(campaignId: string): Promise<Mai
     return data || [];
 }
 
+export interface LeadMailHistoryEntry {
+    lead_id: string;
+    status: MailCampaignRecipient['status'];
+    sent_at: string | null;
+    opened_at: string | null;
+    campaign_name: string;
+}
+
+// Storico invii campagne per tutte le lead di un cliente (per mostrare chi ha già ricevuto mail)
+export async function getLeadMailHistory(clientId: string): Promise<LeadMailHistoryEntry[]> {
+    const { data, error } = await supabase
+        .from('mail_campaign_recipients')
+        .select('lead_id, status, sent_at, opened_at, mail_campaigns!inner(name, client_id)')
+        .eq('mail_campaigns.client_id', clientId)
+        .not('lead_id', 'is', null);
+
+    if (error) throw new Error(error.message);
+    return (data || []).map((r: any) => ({
+        lead_id: r.lead_id,
+        status: r.status,
+        sent_at: r.sent_at,
+        opened_at: r.opened_at ?? null,
+        campaign_name: r.mail_campaigns?.name || '',
+    }));
+}
+
 // ─── Automazioni email ───────────────────────────────────────────────────────
 
 export async function getMailAutomations(clientId: string): Promise<MailAutomation[]> {

@@ -76,6 +76,7 @@ const MailCampaignModal: React.FC<Props> = ({ isOpen, onClose, campaign, client,
     // ── Leads ────────────────────────────────────────────────────────────────
     const [allLeads, setAllLeads] = useState<Lead[]>([]);
     const [isLoadingLeads, setIsLoadingLeads] = useState(false);
+    const [mailHistory, setMailHistory] = useState<Record<string, ApiService.LeadMailHistoryEntry[]>>({});
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [showFilters, setShowFilters] = useState(true);
 
@@ -98,6 +99,12 @@ const MailCampaignModal: React.FC<Props> = ({ isOpen, onClose, campaign, client,
                     .eq('client_id', client.id)
                     .order('created_at', { ascending: false });
                 if (!error) setAllLeads((data || []) as Lead[]);
+                try {
+                    const history = await ApiService.getLeadMailHistory(client.id);
+                    const byLead: Record<string, ApiService.LeadMailHistoryEntry[]> = {};
+                    for (const h of history) (byLead[h.lead_id] ||= []).push(h);
+                    setMailHistory(byLead);
+                } catch { /* lo storico è informativo: se fallisce la lista resta utilizzabile */ }
             } finally {
                 setIsLoadingLeads(false);
             }
@@ -328,6 +335,31 @@ const MailCampaignModal: React.FC<Props> = ({ isOpen, onClose, campaign, client,
         l.data?.nome || l.data?.name || l.data?.Name || l.data?.cognome || '—';
     const leadEmail = (l: Lead) => l.data?.email || l.data?.Email || '';
     const leadPhone = (l: Lead) => l.data?.telefono || l.data?.phone || l.data?.Phone || '';
+    const formatShortDate = (iso: string) =>
+        new Date(iso).toLocaleDateString('it-IT', { day: '2-digit', month: 'short' });
+
+    const renderMailHistory = (leadId: string) => {
+        const entries = mailHistory[leadId] || [];
+        const sent = entries.filter(e => e.status === 'sent' || e.status === 'bounced');
+        const failed = entries.filter(e => e.status === 'failed');
+        if (sent.length === 0 && failed.length === 0) return <span className="text-slate-300 dark:text-slate-600">—</span>;
+        const lastSent = sent.map(e => e.sent_at).filter(Boolean).sort().pop();
+        const opened = sent.some(e => e.opened_at);
+        const tooltip = entries
+            .map(e => `${e.campaign_name} — ${e.status === 'failed' ? 'non inviata' : 'inviata'}${e.sent_at ? ' il ' + formatShortDate(e.sent_at) : ''}${e.opened_at ? ' (aperta)' : ''}`)
+            .join('\n');
+        return (
+            <div className="flex flex-col gap-0.5" title={tooltip}>
+                {sent.length > 0 && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 w-fit whitespace-nowrap">
+                        <Check size={10} /> {sent.length === 1 ? 'Inviata' : `Inviate ${sent.length}`}{lastSent ? ` · ${formatShortDate(lastSent)}` : ''}
+                    </span>
+                )}
+                {opened && <span className="text-[10px] text-emerald-600 dark:text-emerald-400">Aperta</span>}
+                {failed.length > 0 && <span className="text-[10px] text-red-500">{failed.length} non inviat{failed.length === 1 ? 'a' : 'e'}</span>}
+            </div>
+        );
+    };
 
     return (
         <div className="fixed inset-0 z-50 flex flex-col bg-slate-50 dark:bg-slate-900">
@@ -626,6 +658,8 @@ const MailCampaignModal: React.FC<Props> = ({ isOpen, onClose, campaign, client,
                                         <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden md:table-cell">Email</th>
                                         <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden lg:table-cell">Telefono</th>
                                         <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden lg:table-cell">Servizio</th>
+                                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Mail inviate</th>
+                                        {filterField && <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{filterField}</th>}
                                         <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Stato</th>
                                         {distanceFilterActive && <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Km</th>}
                                         <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden md:table-cell">Data</th>
@@ -655,6 +689,8 @@ const MailCampaignModal: React.FC<Props> = ({ isOpen, onClose, campaign, client,
                                                 </td>
                                                 <td className="px-3 py-3 text-slate-500 dark:text-slate-400 hidden lg:table-cell">{leadPhone(lead) || '—'}</td>
                                                 <td className="px-3 py-3 text-slate-500 dark:text-slate-400 hidden lg:table-cell text-xs">{lead.service || '—'}</td>
+                                                <td className="px-3 py-3 text-xs">{renderMailHistory(lead.id)}</td>
+                                                {filterField && <td className="px-3 py-3 text-slate-500 dark:text-slate-400 text-xs">{lead.data?.[filterField] || '—'}</td>}
                                                 <td className="px-3 py-3">
                                                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${STATUS_COLORS[lead.status] || 'bg-slate-100 text-slate-600'}`}>
                                                         {lead.status}
