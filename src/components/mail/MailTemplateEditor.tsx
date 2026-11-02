@@ -522,7 +522,7 @@ const MailTemplateEditor: React.FC<Props> = ({ template, clientId, branding, onS
         doc.open();
         doc.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0;padding:16px;background:#f1f5f9}*{box-sizing:border-box}</style></head><body>${previewHtml}</body></html>`);
         doc.close();
-    }, [previewHtml]);
+    }, [previewHtml, mode]);
 
     const addBlock = (type: BlockType) => {
         const newBlock: Block = { id: genId(), type };
@@ -573,6 +573,7 @@ const MailTemplateEditor: React.FC<Props> = ({ template, clientId, branding, onS
         setError('');
         try {
             const body = mode === 'visual' ? blocksToHtml(blocks) : htmlBody;
+            if (!body.trim()) { setError('Il corpo HTML del template è vuoto.'); return; }
             const saved = await ApiService.saveMailTemplate({
                 ...(template ? { id: template.id } : {}),
                 client_id: clientId,
@@ -615,7 +616,13 @@ const MailTemplateEditor: React.FC<Props> = ({ template, clientId, branding, onS
                 {/* Mode toggle */}
                 <div className="hidden sm:flex items-center gap-1 bg-slate-100 dark:bg-slate-700/60 rounded-lg p-0.5">
                     <button type="button"
-                        onClick={() => { if (mode !== 'visual') { setHtmlBody(htmlBody); setMode('visual'); } }}
+                        onClick={() => {
+                            if (mode === 'visual') return;
+                            // Passando ai blocchi l'HTML viene rigenerato dai blocchi: l'HTML personalizzato andrebbe perso
+                            if (htmlBody.trim() && htmlBody !== blocksToHtml(blocks)
+                                && !window.confirm('Passando alla modalità Blocchi il codice HTML personalizzato verrà sostituito. Continuare?')) return;
+                            setMode('visual');
+                        }}
                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${mode === 'visual' ? 'bg-white dark:bg-slate-600 text-slate-800 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'}`}>
                         <LayoutGrid size={13} /> Blocchi
                     </button>
