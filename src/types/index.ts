@@ -367,6 +367,8 @@ export interface MailCampaignFilters {
     field_filter?: { field: string; values: string[] };
     // Distanza massima in km dalla sede del cliente (richiede distance_settings attivo)
     max_km?: number;
+    // Esclude le lead che hanno già ricevuto almeno una campagna
+    exclude_mailed?: boolean;
 }
 
 export interface MailCampaign {

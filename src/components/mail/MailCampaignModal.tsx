@@ -64,6 +64,7 @@ const MailCampaignModal: React.FC<Props> = ({ isOpen, onClose, campaign, client,
     const [filterField, setFilterField] = useState('');
     const [filterFieldValues, setFilterFieldValues] = useState<string[]>([]);
     const [maxKm, setMaxKm] = useState('');
+    const [excludeMailed, setExcludeMailed] = useState(false);
     // km per lead: number = calcolata, null = indirizzo mancante o non trovato
     const [distances, setDistances] = useState<Record<string, number | null>>({});
     const [isCalculatingDistances, setIsCalculatingDistances] = useState(false);
@@ -125,8 +126,9 @@ const MailCampaignModal: React.FC<Props> = ({ isOpen, onClose, campaign, client,
             setFilterField(campaign.filters?.field_filter?.field || '');
             setFilterFieldValues(campaign.filters?.field_filter?.values || []);
             setMaxKm(campaign.filters?.max_km ? String(campaign.filters.max_km) : '');
-            // Con filtri campo/distanza i lead_ids salvati sono il risultato dei filtri, non una selezione manuale
-            const hasDerivedIds = !!(campaign.filters?.field_filter || campaign.filters?.max_km);
+            setExcludeMailed(!!campaign.filters?.exclude_mailed);
+            // Con filtri campo/distanza/già contattate i lead_ids salvati sono il risultato dei filtri, non una selezione manuale
+            const hasDerivedIds = !!(campaign.filters?.field_filter || campaign.filters?.max_km || campaign.filters?.exclude_mailed);
             setSelectedIds(new Set(hasDerivedIds ? [] : campaign.filters?.lead_ids || []));
             if (campaign.scheduled_at) {
                 setScheduleMode('scheduled');
@@ -142,7 +144,7 @@ const MailCampaignModal: React.FC<Props> = ({ isOpen, onClose, campaign, client,
             const first = templates[0];
             setName(''); setTemplateId(first?.id || ''); setSubject(first?.subject_template || '');
             setFilterStatuses([]); setFilterServices([]); setFilterSearch('');
-            setFilterField(''); setFilterFieldValues([]); setMaxKm('');
+            setFilterField(''); setFilterFieldValues([]); setMaxKm(''); setExcludeMailed(false);
             setSelectedIds(new Set()); setScheduleMode('now'); setScheduledAt('');
         }
     }, [isOpen, campaign, templates]);
@@ -204,6 +206,7 @@ const MailCampaignModal: React.FC<Props> = ({ isOpen, onClose, campaign, client,
             if (filterServices.length > 0 && !filterServices.includes(lead.service || '')) return false;
             if (filterField && filterFieldValues.length > 0
                 && !filterFieldValues.includes(String(lead.data?.[filterField] ?? '').trim())) return false;
+            if (excludeMailed && (mailHistory[lead.id] || []).some(h => h.status === 'sent' || h.status === 'bounced')) return false;
             if (distanceFilterActive) {
                 const km = distances[lead.id];
                 // Lead senza distanza (non calcolata, indirizzo mancante o non trovato) escluse
@@ -219,7 +222,7 @@ const MailCampaignModal: React.FC<Props> = ({ isOpen, onClose, campaign, client,
             }
             return true;
         });
-    }, [allLeads, filterStatuses, filterServices, filterSearch, filterField, filterFieldValues, distanceFilterActive, distances, maxKmValue]);
+    }, [allLeads, filterStatuses, filterServices, filterSearch, filterField, filterFieldValues, distanceFilterActive, distances, maxKmValue, excludeMailed, mailHistory]);
 
     const allFilteredSelected = filteredLeads.length > 0 && filteredLeads.every(l => selectedIds.has(l.id));
 
@@ -243,17 +246,19 @@ const MailCampaignModal: React.FC<Props> = ({ isOpen, onClose, campaign, client,
         setFilterFieldValues(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v]);
 
     const fieldFilterActive = !!filterField && filterFieldValues.length > 0;
-    const hasActiveFilters = filterStatuses.length > 0 || filterServices.length > 0 || fieldFilterActive || maxKm.trim() !== '';
+    // Filtri che il server non conosce: i destinatari vanno fissati come lead_ids
+    const derivedFiltersActive = fieldFilterActive || distanceFilterActive || excludeMailed;
+    const hasActiveFilters = filterStatuses.length > 0 || filterServices.length > 0 || fieldFilterActive || maxKm.trim() !== '' || excludeMailed;
     const clearFilters = () => {
         setFilterStatuses([]); setFilterServices([]);
-        setFilterField(''); setFilterFieldValues([]); setMaxKm('');
+        setFilterField(''); setFilterFieldValues([]); setMaxKm(''); setExcludeMailed(false);
     };
 
     // ── Save / Send ──────────────────────────────────────────────────────────
     // Il server conosce solo stato e servizio: con filtri campo/distanza e nessuna
     // selezione manuale, i destinatari vengono fissati come lead_ids
     const buildFilters = () => {
-        const derivedIds = selectedIds.size === 0 && (fieldFilterActive || distanceFilterActive)
+        const derivedIds = selectedIds.size === 0 && derivedFiltersActive
             ? filteredLeads.map(l => l.id)
             : [...selectedIds];
         return {
@@ -261,6 +266,7 @@ const MailCampaignModal: React.FC<Props> = ({ isOpen, onClose, campaign, client,
             ...(filterServices.length > 0 ? { services: filterServices } : {}),
             ...(fieldFilterActive ? { field_filter: { field: filterField, values: filterFieldValues } } : {}),
             ...(distanceFilterActive ? { max_km: maxKmValue } : {}),
+            ...(excludeMailed ? { exclude_mailed: true } : {}),
             ...(derivedIds.length > 0 ? { lead_ids: derivedIds } : {}),
         };
     };
@@ -268,7 +274,7 @@ const MailCampaignModal: React.FC<Props> = ({ isOpen, onClose, campaign, client,
     // Evita di inviare a tutti se i filtri campo/distanza escludono ogni lead
     // o se le distanze non sono ancora state calcolate
     const validateRecipients = (): boolean => {
-        if (selectedIds.size > 0 || !(fieldFilterActive || distanceFilterActive)) return true;
+        if (selectedIds.size > 0 || !derivedFiltersActive) return true;
         if (distanceFilterActive && isCalculatingDistances) {
             setError('Attendi il completamento del calcolo delle distanze.');
             return false;
@@ -554,6 +560,14 @@ const MailCampaignModal: React.FC<Props> = ({ isOpen, onClose, campaign, client,
                                             )}
                                         </div>
                                     )}
+
+                                    {/* Già contattate */}
+                                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                                        <input type="checkbox" checked={excludeMailed}
+                                            onChange={e => setExcludeMailed(e.target.checked)}
+                                            className="w-4 h-4 rounded accent-primary-600" />
+                                        <span className="text-xs text-slate-600 dark:text-slate-300">Escludi chi ha già ricevuto mail</span>
+                                    </label>
 
                                     {/* Distanza dalla sede */}
                                     <div>
