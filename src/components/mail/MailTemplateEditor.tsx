@@ -460,9 +460,11 @@ const BlockRow: React.FC<BlockRowProps> = ({ block, index, total, selected, clie
 const MailTemplateEditor: React.FC<Props> = ({ template, clientId, branding, onSaved, onDeleted, onClose }) => {
     const [name, setName] = useState('');
     const [subject, setSubject] = useState('');
-    const [mode, setMode] = useState<'visual' | 'html'>('visual');
+    // Stato iniziale già allineato al template: se partisse in 'visual', l'effetto di sync
+    // blocchi → HTML sovrascriverebbe il body_html caricato dal database
+    const [mode, setMode] = useState<'visual' | 'html'>(template ? 'html' : 'visual');
     const [blocks, setBlocks] = useState<Block[]>(DEFAULT_BLOCKS.map(b => ({ ...b, id: genId() })));
-    const [htmlBody, setHtmlBody] = useState('');
+    const [htmlBody, setHtmlBody] = useState(template ? (template.body_html || '') : '');
     const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
