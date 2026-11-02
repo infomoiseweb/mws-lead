@@ -1,11 +1,16 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import * as ApiService from '@api';
 import { supabase } from '../../lib/supabase';
+import { calculateDistanceKm } from '@lib/distance';
 import type { Client, MailCampaign, MailTemplate, Lead } from '../../types';
 import {
     X, Loader2, Send, Clock, Calendar, Zap, Search, Check,
-    Users, ChevronDown, ChevronUp, AlertCircle
+    Users, ChevronDown, ChevronUp, AlertCircle, MapPin
 } from 'lucide-react';
+
+// Campi con troppi valori distinti (nome, email, telefono...) non sono utili come filtro
+const MAX_FIELD_VALUES = 40;
+const DISTANCE_CONCURRENCY = 4;
 
 type ScheduleMode = 'now' | 'scheduled';
 
@@ -56,6 +61,17 @@ const MailCampaignModal: React.FC<Props> = ({ isOpen, onClose, campaign, client,
     const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
     const [filterServices, setFilterServices] = useState<string[]>([]);
     const [filterSearch, setFilterSearch] = useState('');
+    const [filterField, setFilterField] = useState('');
+    const [filterFieldValues, setFilterFieldValues] = useState<string[]>([]);
+    const [maxKm, setMaxKm] = useState('');
+    // km per lead: number = calcolata, null = indirizzo mancante o non trovato
+    const [distances, setDistances] = useState<Record<string, number | null>>({});
+    const [isCalculatingDistances, setIsCalculatingDistances] = useState(false);
+
+    const distanceSettings = client.distance_settings;
+    const distanceAvailable = !!(distanceSettings?.enabled && distanceSettings.company_address && distanceSettings.location_field);
+    const maxKmValue = Number(maxKm.replace(',', '.'));
+    const distanceFilterActive = distanceAvailable && maxKm.trim() !== '' && maxKmValue > 0;
 
     // ── Leads ────────────────────────────────────────────────────────────────
     const [allLeads, setAllLeads] = useState<Lead[]>([]);
@@ -99,7 +115,12 @@ const MailCampaignModal: React.FC<Props> = ({ isOpen, onClose, campaign, client,
             setSubject(campaign.subject);
             setFilterStatuses(campaign.filters?.statuses || []);
             setFilterServices(campaign.filters?.services || []);
-            setSelectedIds(new Set(campaign.filters?.lead_ids || []));
+            setFilterField(campaign.filters?.field_filter?.field || '');
+            setFilterFieldValues(campaign.filters?.field_filter?.values || []);
+            setMaxKm(campaign.filters?.max_km ? String(campaign.filters.max_km) : '');
+            // Con filtri campo/distanza i lead_ids salvati sono il risultato dei filtri, non una selezione manuale
+            const hasDerivedIds = !!(campaign.filters?.field_filter || campaign.filters?.max_km);
+            setSelectedIds(new Set(hasDerivedIds ? [] : campaign.filters?.lead_ids || []));
             if (campaign.scheduled_at) {
                 setScheduleMode('scheduled');
                 // Converti ISO → formato datetime-local (YYYY-MM-DDTHH:mm)
@@ -114,9 +135,59 @@ const MailCampaignModal: React.FC<Props> = ({ isOpen, onClose, campaign, client,
             const first = templates[0];
             setName(''); setTemplateId(first?.id || ''); setSubject(first?.subject_template || '');
             setFilterStatuses([]); setFilterServices([]); setFilterSearch('');
+            setFilterField(''); setFilterFieldValues([]); setMaxKm('');
             setSelectedIds(new Set()); setScheduleMode('now'); setScheduledAt('');
         }
     }, [isOpen, campaign, templates]);
+
+    // ── Campi del form filtrabili ────────────────────────────────────────────
+    const fieldOptions = useMemo(() => {
+        const valuesByField = new Map<string, Map<string, number>>();
+        for (const lead of allLeads) {
+            for (const [key, raw] of Object.entries(lead.data || {})) {
+                const value = String(raw ?? '').trim();
+                if (!value) continue;
+                if (!valuesByField.has(key)) valuesByField.set(key, new Map());
+                const counts = valuesByField.get(key)!;
+                counts.set(value, (counts.get(value) || 0) + 1);
+            }
+        }
+        return [...valuesByField.entries()]
+            .filter(([, counts]) => counts.size <= MAX_FIELD_VALUES)
+            .map(([field, counts]) => ({
+                field,
+                values: [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([value, count]) => ({ value, count })),
+            }))
+            .sort((a, b) => a.field.localeCompare(b.field));
+    }, [allLeads]);
+
+    const selectedFieldOption = fieldOptions.find(f => f.field === filterField);
+
+    // ── Calcolo distanze (solo quando il filtro distanza è attivo) ───────────
+    useEffect(() => {
+        if (!isOpen || !distanceFilterActive || !distanceSettings) return;
+        const pending = allLeads.filter(l => !(l.id in distances));
+        if (pending.length === 0) return;
+        let cancelled = false;
+        setIsCalculatingDistances(true);
+        (async () => {
+            const queue = [...pending];
+            const worker = async () => {
+                while (queue.length > 0 && !cancelled) {
+                    const lead = queue.shift()!;
+                    const address = lead.data?.[distanceSettings.location_field] || '';
+                    const r = address ? await calculateDistanceKm(distanceSettings.company_address, address) : null;
+                    if (!cancelled) setDistances(prev => ({ ...prev, [lead.id]: r ? r.km : null }));
+                }
+            };
+            await Promise.all(Array.from({ length: DISTANCE_CONCURRENCY }, worker));
+            if (!cancelled) setIsCalculatingDistances(false);
+        })();
+        return () => { cancelled = true; setIsCalculatingDistances(false); };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isOpen, distanceFilterActive, allLeads, distanceSettings]);
+
+    const distanceProgress = allLeads.filter(l => l.id in distances).length;
 
     // ── Filtered leads ───────────────────────────────────────────────────────
     const filteredLeads = useMemo(() => {
@@ -124,6 +195,13 @@ const MailCampaignModal: React.FC<Props> = ({ isOpen, onClose, campaign, client,
         return allLeads.filter(lead => {
             if (filterStatuses.length > 0 && !filterStatuses.includes(lead.status)) return false;
             if (filterServices.length > 0 && !filterServices.includes(lead.service || '')) return false;
+            if (filterField && filterFieldValues.length > 0
+                && !filterFieldValues.includes(String(lead.data?.[filterField] ?? '').trim())) return false;
+            if (distanceFilterActive) {
+                const km = distances[lead.id];
+                // Lead senza distanza (non calcolata, indirizzo mancante o non trovato) escluse
+                if (km == null || km > maxKmValue) return false;
+            }
             if (q) {
                 const haystack = [
                     lead.data?.nome, lead.data?.name, lead.data?.email,
@@ -134,7 +212,7 @@ const MailCampaignModal: React.FC<Props> = ({ isOpen, onClose, campaign, client,
             }
             return true;
         });
-    }, [allLeads, filterStatuses, filterServices, filterSearch]);
+    }, [allLeads, filterStatuses, filterServices, filterSearch, filterField, filterFieldValues, distanceFilterActive, distances, maxKmValue]);
 
     const allFilteredSelected = filteredLeads.length > 0 && filteredLeads.every(l => selectedIds.has(l.id));
 
@@ -154,13 +232,46 @@ const MailCampaignModal: React.FC<Props> = ({ isOpen, onClose, campaign, client,
         setFilterStatuses(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
     const toggleService = (s: string) =>
         setFilterServices(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
+    const toggleFieldValue = (v: string) =>
+        setFilterFieldValues(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v]);
+
+    const fieldFilterActive = !!filterField && filterFieldValues.length > 0;
+    const hasActiveFilters = filterStatuses.length > 0 || filterServices.length > 0 || fieldFilterActive || maxKm.trim() !== '';
+    const clearFilters = () => {
+        setFilterStatuses([]); setFilterServices([]);
+        setFilterField(''); setFilterFieldValues([]); setMaxKm('');
+    };
 
     // ── Save / Send ──────────────────────────────────────────────────────────
-    const buildFilters = () => ({
-        ...(filterStatuses.length > 0 ? { statuses: filterStatuses } : {}),
-        ...(filterServices.length > 0 ? { services: filterServices } : {}),
-        ...(selectedIds.size > 0 ? { lead_ids: [...selectedIds] } : {}),
-    });
+    // Il server conosce solo stato e servizio: con filtri campo/distanza e nessuna
+    // selezione manuale, i destinatari vengono fissati come lead_ids
+    const buildFilters = () => {
+        const derivedIds = selectedIds.size === 0 && (fieldFilterActive || distanceFilterActive)
+            ? filteredLeads.map(l => l.id)
+            : [...selectedIds];
+        return {
+            ...(filterStatuses.length > 0 ? { statuses: filterStatuses } : {}),
+            ...(filterServices.length > 0 ? { services: filterServices } : {}),
+            ...(fieldFilterActive ? { field_filter: { field: filterField, values: filterFieldValues } } : {}),
+            ...(distanceFilterActive ? { max_km: maxKmValue } : {}),
+            ...(derivedIds.length > 0 ? { lead_ids: derivedIds } : {}),
+        };
+    };
+
+    // Evita di inviare a tutti se i filtri campo/distanza escludono ogni lead
+    // o se le distanze non sono ancora state calcolate
+    const validateRecipients = (): boolean => {
+        if (selectedIds.size > 0 || !(fieldFilterActive || distanceFilterActive)) return true;
+        if (distanceFilterActive && isCalculatingDistances) {
+            setError('Attendi il completamento del calcolo delle distanze.');
+            return false;
+        }
+        if (filteredLeads.length === 0) {
+            setError('Nessuna lead corrisponde ai filtri selezionati.');
+            return false;
+        }
+        return true;
+    };
 
     const persist = async (overrides?: Record<string, any>): Promise<MailCampaign> =>
         ApiService.saveMailCampaign({
@@ -185,6 +296,7 @@ const MailCampaignModal: React.FC<Props> = ({ isOpen, onClose, campaign, client,
         if (!name.trim()) { setError('Inserisci un nome per la campagna.'); return; }
         if (!templateId) { setError('Seleziona un template.'); return; }
         if (!scheduledAt) { setError('Seleziona una data e ora di invio.'); return; }
+        if (!validateRecipients()) return;
         setIsSaving(true); setError('');
         try {
             const saved = await persist({ status: 'scheduled', scheduled_at: new Date(scheduledAt).toISOString() });
@@ -198,6 +310,7 @@ const MailCampaignModal: React.FC<Props> = ({ isOpen, onClose, campaign, client,
     const handleSendNow = async () => {
         if (!name.trim()) { setError('Inserisci un nome per la campagna.'); return; }
         if (!templateId) { setError('Seleziona un template.'); return; }
+        if (!validateRecipients()) return;
         setIsSending(true); setError(''); setSuccessMsg('');
         try {
             const saved = await persist();
@@ -382,9 +495,69 @@ const MailCampaignModal: React.FC<Props> = ({ isOpen, onClose, campaign, client,
                                         </div>
                                     )}
 
-                                    {(filterStatuses.length > 0 || filterServices.length > 0) && (
+                                    {/* Campo del form (es. "Identificare il servizio") */}
+                                    {fieldOptions.length > 0 && (
+                                        <div>
+                                            <p className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1.5">Risposta del form</p>
+                                            <select value={filterField}
+                                                onChange={e => { setFilterField(e.target.value); setFilterFieldValues([]); }}
+                                                className={inputCls + ' !py-1.5 text-xs'}>
+                                                <option value="">— Scegli un campo —</option>
+                                                {fieldOptions.map(f => (
+                                                    <option key={f.field} value={f.field}>{f.field}</option>
+                                                ))}
+                                            </select>
+                                            {selectedFieldOption && (
+                                                <div className="flex flex-wrap gap-1 mt-1.5">
+                                                    {selectedFieldOption.values.map(({ value, count }) => (
+                                                        <button key={value} type="button" onClick={() => toggleFieldValue(value)}
+                                                            className={`text-[11px] px-2 py-0.5 rounded-full border font-medium transition-colors ${filterFieldValues.includes(value)
+                                                                ? 'bg-primary-600 text-white border-primary-600'
+                                                                : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-transparent hover:border-slate-300'
+                                                            }`}>
+                                                            {value} <span className="opacity-60">({count})</span>
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Distanza dalla sede */}
+                                    <div>
+                                        <p className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1.5">Distanza dalla sede</p>
+                                        {distanceAvailable ? (
+                                            <>
+                                                <div className="flex items-center gap-2">
+                                                    <MapPin size={13} className="text-slate-400 shrink-0" />
+                                                    <span className="text-xs text-slate-500 dark:text-slate-400 shrink-0">Entro</span>
+                                                    <input type="number" min={1} inputMode="decimal" value={maxKm}
+                                                        onChange={e => setMaxKm(e.target.value)}
+                                                        placeholder="es. 30"
+                                                        className={inputCls + ' !py-1.5 text-xs max-w-[90px]'} />
+                                                    <span className="text-xs text-slate-500 dark:text-slate-400">km</span>
+                                                </div>
+                                                {distanceFilterActive && isCalculatingDistances && (
+                                                    <p className="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
+                                                        <Loader2 size={10} className="animate-spin" /> Calcolo distanze {distanceProgress}/{allLeads.length}...
+                                                    </p>
+                                                )}
+                                                {distanceFilterActive && !isCalculatingDistances && (
+                                                    <p className="text-[11px] text-slate-400 mt-1">
+                                                        Le lead senza indirizzo valido nel campo "{distanceSettings!.location_field}" sono escluse.
+                                                    </p>
+                                                )}
+                                            </>
+                                        ) : (
+                                            <p className="text-[11px] text-slate-400 italic">
+                                                Attiva il calcolo distanza nelle impostazioni del cliente per usare questo filtro.
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    {hasActiveFilters && (
                                         <button type="button"
-                                            onClick={() => { setFilterStatuses([]); setFilterServices([]); }}
+                                            onClick={clearFilters}
                                             className="text-xs text-red-500 hover:text-red-600 underline">
                                             Rimuovi filtri
                                         </button>
@@ -454,6 +627,7 @@ const MailCampaignModal: React.FC<Props> = ({ isOpen, onClose, campaign, client,
                                         <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden lg:table-cell">Telefono</th>
                                         <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden lg:table-cell">Servizio</th>
                                         <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Stato</th>
+                                        {distanceFilterActive && <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Km</th>}
                                         <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden md:table-cell">Data</th>
                                     </tr>
                                 </thead>
@@ -486,6 +660,11 @@ const MailCampaignModal: React.FC<Props> = ({ isOpen, onClose, campaign, client,
                                                         {lead.status}
                                                     </span>
                                                 </td>
+                                                {distanceFilterActive && (
+                                                    <td className="px-3 py-3 text-slate-500 dark:text-slate-400 text-xs whitespace-nowrap">
+                                                        {distances[lead.id] != null ? `${Math.round(distances[lead.id]!)} km` : '—'}
+                                                    </td>
+                                                )}
                                                 <td className="px-3 py-3 text-slate-400 text-xs hidden md:table-cell whitespace-nowrap">
                                                     {new Date(lead.created_at).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' })}
                                                 </td>

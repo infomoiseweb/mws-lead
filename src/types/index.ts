@@ -362,6 +362,11 @@ export interface MailCampaignFilters {
     services?: string[];
     created_after?: string;
     created_before?: string;
+    lead_ids?: string[];
+    // Filtro su un campo del form della lead (es. "Identificare il servizio")
+    field_filter?: { field: string; values: string[] };
+    // Distanza massima in km dalla sede del cliente (richiede distance_settings attivo)
+    max_km?: number;
 }
 
 export interface MailCampaign {
