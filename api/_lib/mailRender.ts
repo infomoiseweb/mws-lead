@@ -64,16 +64,18 @@ export function injectTracking(html: string, baseUrl: string, recipientId: strin
     return tracked + pixel;
 }
 
-const EMAIL_KEY_REGEX = /e[-_ ]?mail/i;
+// Copre "email", "e-mail", "E_mail" ma anche "mail" / "indirizzo_mail"
+const EMAIL_KEY_REGEX = /mail/i;
+const EMAIL_VALUE_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Estrae l'email della lead cercando tra le chiavi del campo `data` (form dinamici).
+// Fallback: primo valore che ha la forma di un indirizzo email.
 export function findLeadEmail(data: Record<string, string>): string | null {
-    for (const [key, value] of Object.entries(data || {})) {
-        if (EMAIL_KEY_REGEX.test(key) && value && value.includes('@')) {
-            return value.trim();
-        }
-    }
-    return null;
+    const entries = Object.entries(data || {}).map(([k, v]) => [k, String(v ?? '').trim()] as const);
+    const byKey = entries.find(([key, value]) => EMAIL_KEY_REGEX.test(key) && EMAIL_VALUE_REGEX.test(value));
+    if (byKey) return byKey[1];
+    const byValue = entries.find(([, value]) => EMAIL_VALUE_REGEX.test(value));
+    return byValue ? byValue[1] : null;
 }
 
 export function findLeadName(data: Record<string, string>): string {

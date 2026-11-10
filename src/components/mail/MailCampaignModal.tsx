@@ -339,7 +339,12 @@ const MailCampaignModal: React.FC<Props> = ({ isOpen, onClose, campaign, client,
 
     const leadName = (l: Lead) =>
         l.data?.nome || l.data?.name || l.data?.Name || l.data?.cognome || '—';
-    const leadEmail = (l: Lead) => l.data?.email || l.data?.Email || '';
+    // Stessa logica di findLeadEmail lato server (api/_lib/mailRender.ts): chiave che contiene "mail", poi qualsiasi valore a forma di email
+    const leadEmail = (l: Lead) => {
+        const entries = Object.entries(l.data || {}).map(([k, v]) => [k, String(v ?? '').trim()] as const);
+        const isEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+        return (entries.find(([k, v]) => /mail/i.test(k) && isEmail(v)) || entries.find(([, v]) => isEmail(v)))?.[1] || '';
+    };
     const leadPhone = (l: Lead) => l.data?.telefono || l.data?.phone || l.data?.Phone || '';
     const formatShortDate = (iso: string) =>
         new Date(iso).toLocaleDateString('it-IT', { day: '2-digit', month: 'short' });
