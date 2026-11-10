@@ -15,6 +15,7 @@ import FormGenerator from '@components/ui/FormGenerator';
 import LiveOverview from '@components/analytics/LiveOverview';
 import { useAuth } from '@contexts/AuthContext';
 import SavedFormsModule from '@components/ui/SavedFormsModule';
+import { findLeadPhone } from '@lib/leadContact';
 
 // Funzione di copia robusta con fallback
 const copyTextToClipboard = async (text: string): Promise<boolean> => {
@@ -1701,7 +1702,7 @@ const AdminDashboard: React.FC = () => {
                                                 </td>
                                                 {filterClientId === 'all' && <td className="px-6 py-4 whitespace-nowrap text-sm border-b border-slate-200 dark:border-slate-700 text-slate-600 dark:text-gray-300 cursor-pointer" onClick={() => handleViewLeadDetails(lead, client)}>{client.name}</td>}
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm border-b border-slate-200 dark:border-slate-700 text-slate-600 dark:text-gray-300 cursor-pointer" onClick={() => handleViewLeadDetails(lead, client)}>{lead.service || 'N/D'}</td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm border-b border-slate-200 dark:border-slate-700 text-slate-600 dark:text-gray-300 cursor-pointer" onClick={() => handleViewLeadDetails(lead, client)}>{lead.data.telefono || '-'}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm border-b border-slate-200 dark:border-slate-700 text-slate-600 dark:text-gray-300 cursor-pointer" onClick={() => handleViewLeadDetails(lead, client)}>{findLeadPhone(lead.data) || '-'}</td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm border-b border-slate-200 dark:border-slate-700 text-slate-600 dark:text-gray-300 cursor-pointer" onClick={() => handleViewLeadDetails(lead, client)}>
                                                     {new Date(lead.created_at).toLocaleDateString('it-IT')}
                                                 </td>
@@ -1749,7 +1750,7 @@ const AdminDashboard: React.FC = () => {
                                         </div>
                                         <div className="text-sm text-slate-600 dark:text-gray-300 space-y-1 pt-2 mt-2 border-t border-slate-200 dark:border-slate-700">
                                             {lead.service && <div className="flex text-xs"><span className="w-1/3 text-gray-500">Servizio:</span><span className="w-2/3 font-medium">{lead.service}</span></div>}
-                                            {lead.data.telefono && <div className="flex text-xs"><span className="w-1/3 text-gray-500">Telefono:</span><span className="w-2/3 font-medium">{lead.data.telefono}</span></div>}
+                                            {findLeadPhone(lead.data) && <div className="flex text-xs"><span className="w-1/3 text-gray-500">Telefono:</span><span className="w-2/3 font-medium">{findLeadPhone(lead.data)}</span></div>}
                                         </div>
                                         <div className="text-xs text-gray-500 dark:text-gray-400 pt-2 border-t border-slate-200 dark:border-slate-700">
                                             Data: {new Date(lead.created_at).toLocaleDateString('it-IT')}

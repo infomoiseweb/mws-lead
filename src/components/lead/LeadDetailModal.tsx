@@ -11,7 +11,7 @@ import QuoteDetailModal from '@components/quote/QuoteDetailModal';
 import AppointmentsMap from './AppointmentsMap';
 import { geocodeAddress } from '@lib/geocoding';
 import { useLeadDistance } from '@hooks/useLeadDistance';
-import { findLeadEmail } from '@lib/leadEmail';
+import { findLeadEmail, findLeadPhone } from '@lib/leadContact';
 import { PaymentPlanModal } from './PaymentPlanModal';
 import LeadStatusHistory from './LeadStatusHistory';
 
@@ -286,7 +286,7 @@ function substituteTemplateVars(body: string, lead: { data: Record<string, strin
     let result = body;
     // Standard vars
     result = result.replace(/\{\{nome\}\}/g, lead.data.nome || lead.data.name || '');
-    result = result.replace(/\{\{telefono\}\}/g, lead.data.telefono || lead.data.phone || '');
+    result = result.replace(/\{\{telefono\}\}/g, findLeadPhone(lead.data));
     result = result.replace(/\{\{email\}\}/g, findLeadEmail(lead.data));
     result = result.replace(/\{\{servizio\}\}/g, lead.service || '');
     result = result.replace(/\{\{data\}\}/g, new Date(lead.created_at).toLocaleDateString('it-IT'));
@@ -707,8 +707,9 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
     };
 
     const handleCopyPhone = async () => {
-        if (!lead?.data?.telefono) return;
-        const success = await copyTextToClipboard(lead.data.telefono);
+        const phone = findLeadPhone(lead?.data);
+        if (!phone) return;
+        const success = await copyTextToClipboard(phone);
         if (success) {
             setPhoneCopied(true);
             setTimeout(() => setPhoneCopied(false), 2000);
@@ -1048,7 +1049,7 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
     };
 
 
-    const whatsappNumber = normalizeForWhatsApp(lead?.data?.telefono);
+    const whatsappNumber = normalizeForWhatsApp(findLeadPhone(lead?.data));
     const whatsappUrl = whatsappNumber ? `https://wa.me/${whatsappNumber}` : '#';
     const leadEmail = findLeadEmail(lead.data);
     
@@ -1456,7 +1457,7 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
             case 'genera':
                 return (
                     <div>
-                        {lead.data.telefono && (
+                        {findLeadPhone(lead.data) && (
                             <div className="mb-6 p-4 bg-slate-100 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700">
                                 <h4 className="text-md font-semibold text-slate-800 dark:text-white mb-2">
                                     Contatta su WhatsApp
@@ -1464,7 +1465,7 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center">
                                         <Phone size={16} className="text-gray-500 mr-2 flex-shrink-0" />
-                                        <span className="font-mono text-slate-700 dark:text-gray-300">{lead.data.telefono}</span>
+                                        <span className="font-mono text-slate-700 dark:text-gray-300">{findLeadPhone(lead.data)}</span>
                                     </div>
                                     <div className="flex items-center space-x-2">
                                         <button 

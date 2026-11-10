@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Calendar, Clock, User, Briefcase, Info, Phone, Copy, Check, Hash, FileText, Loader2, Edit, Trash2, Save, X, ChevronDown } from 'lucide-react';
 import * as ApiService from '@api';
 import QuoteCreatorModal from '@components/quote/QuoteCreatorModal';
-import { findLeadEmail } from '@lib/leadEmail';
+import { findLeadEmail, findLeadPhone } from '@lib/leadContact';
 
 const copyTextToClipboard = async (text: string): Promise<boolean> => {
     if (navigator.clipboard && window.isSecureContext) {
@@ -227,7 +227,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({ isOpen,
     const isGeneralAppointment = !appointment.leads;
     const lead = appointment.leads;
     const client = appointment.clients;
-    const leadPhone = lead?.data?.telefono;
+    const leadPhone = findLeadPhone(lead?.data);
     const leadEmail = findLeadEmail(lead?.data);
 
     const completeLeadUpdate = async (attributionChoice: 'creation' | 'current') => {

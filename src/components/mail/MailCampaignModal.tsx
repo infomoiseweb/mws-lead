@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import * as ApiService from '@api';
 import { supabase } from '../../lib/supabase';
 import { calculateDistanceKm } from '@lib/distance';
-import { findLeadEmail } from '@lib/leadEmail';
+import { findLeadEmail, findLeadPhone } from '@lib/leadContact';
 import type { Client, MailCampaign, MailTemplate, Lead } from '../../types';
 import {
     X, Loader2, Send, Clock, Calendar, Zap, Search, Check,
@@ -341,7 +341,7 @@ const MailCampaignModal: React.FC<Props> = ({ isOpen, onClose, campaign, client,
     const leadName = (l: Lead) =>
         l.data?.nome || l.data?.name || l.data?.Name || l.data?.cognome || '—';
     const leadEmail = (l: Lead) => findLeadEmail(l.data);
-    const leadPhone = (l: Lead) => l.data?.telefono || l.data?.phone || l.data?.Phone || '';
+    const leadPhone = (l: Lead) => findLeadPhone(l.data);
     const formatShortDate = (iso: string) =>
         new Date(iso).toLocaleDateString('it-IT', { day: '2-digit', month: 'short' });
 

@@ -9,3 +9,12 @@ export function findLeadEmail(data: Record<string, unknown> | null | undefined):
     if (byKey) return byKey[1];
     return entries.find(([, value]) => EMAIL_VALUE_REGEX.test(value))?.[1] || '';
 }
+
+// Telefono: "telefono", "Telefono", "phone", "numero_di_telefono", "cellulare", "whatsapp"...
+// Il valore deve contenere almeno 6 cifre per escludere risposte non numeriche.
+const PHONE_KEY_REGEX = /tel|phone|cell|whats/i;
+
+export function findLeadPhone(data: Record<string, unknown> | null | undefined): string {
+    const entries = Object.entries(data || {}).map(([k, v]) => [k, String(v ?? '').trim()] as const);
+    return entries.find(([key, value]) => PHONE_KEY_REGEX.test(key) && (value.match(/\d/g) || []).length >= 6)?.[1] || '';
+}
