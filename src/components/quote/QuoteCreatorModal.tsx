@@ -6,6 +6,7 @@ import { Plus, Trash2, Save, Loader2, X, ChevronDown, ChevronRight, User, Phone,
 import { incrementQuoteNumber } from '@lib/quoteNumbering';
 import QuotePreviewDocument from './QuotePreviewDocument';
 import { useLeadDistance } from '@hooks/useLeadDistance';
+import { findLeadEmail } from '@lib/leadEmail';
 
 interface QuoteCreatorModalProps {
     isOpen: boolean;
@@ -423,12 +424,12 @@ const QuoteCreatorModal: React.FC<QuoteCreatorModalProps> = ({ isOpen, onClose, 
                                     </div>
                                 </div>
                             )}
-                            {(lead.data.mail || lead.data.email) && (
+                            {findLeadEmail(lead.data) && (
                                 <div className="flex items-start gap-2">
                                     <Mail size={14} className="mt-0.5 text-slate-400 dark:text-gray-500 shrink-0" />
                                     <div className="min-w-0">
                                         <p className="text-xs text-slate-500 dark:text-gray-400">Email</p>
-                                        <p className="text-sm font-semibold text-slate-800 dark:text-white break-words">{lead.data.mail || lead.data.email}</p>
+                                        <p className="text-sm font-semibold text-slate-800 dark:text-white break-words">{findLeadEmail(lead.data)}</p>
                                     </div>
                                 </div>
                             )}

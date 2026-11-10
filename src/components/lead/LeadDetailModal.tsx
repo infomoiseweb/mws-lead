@@ -11,6 +11,7 @@ import QuoteDetailModal from '@components/quote/QuoteDetailModal';
 import AppointmentsMap from './AppointmentsMap';
 import { geocodeAddress } from '@lib/geocoding';
 import { useLeadDistance } from '@hooks/useLeadDistance';
+import { findLeadEmail } from '@lib/leadEmail';
 import { PaymentPlanModal } from './PaymentPlanModal';
 import LeadStatusHistory from './LeadStatusHistory';
 
@@ -286,7 +287,7 @@ function substituteTemplateVars(body: string, lead: { data: Record<string, strin
     // Standard vars
     result = result.replace(/\{\{nome\}\}/g, lead.data.nome || lead.data.name || '');
     result = result.replace(/\{\{telefono\}\}/g, lead.data.telefono || lead.data.phone || '');
-    result = result.replace(/\{\{email\}\}/g, lead.data.email || '');
+    result = result.replace(/\{\{email\}\}/g, findLeadEmail(lead.data));
     result = result.replace(/\{\{servizio\}\}/g, lead.service || '');
     result = result.replace(/\{\{data\}\}/g, new Date(lead.created_at).toLocaleDateString('it-IT'));
     // Dynamic: any other {{field}} from lead.data
@@ -717,7 +718,7 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
     };
     
     const handleCopyEmail = async () => {
-        const email = lead?.data?.mail || lead?.data?.email;
+        const email = findLeadEmail(lead?.data);
         if (!email) return;
         const success = await copyTextToClipboard(email);
         if (success) {
@@ -1049,7 +1050,7 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
 
     const whatsappNumber = normalizeForWhatsApp(lead?.data?.telefono);
     const whatsappUrl = whatsappNumber ? `https://wa.me/${whatsappNumber}` : '#';
-    const leadEmail = lead.data.mail || lead.data.email;
+    const leadEmail = findLeadEmail(lead.data);
     
     const technicalFields = ['ip_address', 'user_agent', '_is_historical'];
     const mainDataEntries = Object.entries(lead.data).filter(([key]) => !technicalFields.includes(key));
