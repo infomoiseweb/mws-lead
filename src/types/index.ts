@@ -322,6 +322,8 @@ export interface MailMarketingSettings {
     branding?: MailBranding;
     // Nome mostrato come mittente, es. "Mario Rossi" in "Mario Rossi <noreply@dominio.it>"
     sender_name?: string;
+    // Indirizzo a cui arrivano le risposte (Reply-To): le mail partono da noreply@
+    reply_to_email?: string;
     // Dominio verificato su Resend usato per l'invio (es. "mail.clientedomain.it")
     verified_domain?: string;
 }

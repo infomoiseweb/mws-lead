@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { Resend } from 'resend';
 import { createClient } from '@supabase/supabase-js';
-import { renderMailTemplate, buildUnsubscribeUrl, findLeadEmail, findLeadName, verifyUnsubscribeToken } from './_lib/mailRender.js';
+import { renderMailTemplate, buildUnsubscribeUrl, findLeadEmail, findLeadName, verifyUnsubscribeToken, buildMailHeaders, getReplyTo, htmlToText } from './_lib/mailRender.js';
 import { executeSendCampaign } from './_lib/sendCampaign.js';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -132,6 +132,7 @@ async function handleAutomations(req: VercelRequest, res: VercelResponse) {
             const branding = client.marketing_settings?.branding || {};
             const senderName = client.marketing_settings?.sender_name || client.name;
             const fromAddress = `${senderName} <noreply@${mailDomain.domain}>`;
+            const replyTo = getReplyTo(client.marketing_settings);
 
             for (const lead of pendingLeads) {
                 const email = findLeadEmail(lead.data || {});
@@ -141,6 +142,7 @@ async function handleAutomations(req: VercelRequest, res: VercelResponse) {
                     continue;
                 }
 
+                const unsubscribeUrl = buildUnsubscribeUrl(baseUrl, email, client.id);
                 const vars: Record<string, string> = {
                     nome: findLeadName(lead.data || {}),
                     logo_url: branding.logo_url || '',
@@ -148,14 +150,18 @@ async function handleAutomations(req: VercelRequest, res: VercelResponse) {
                     primary_color: branding.primary_color || '#2563eb',
                     secondary_color: branding.secondary_color || '#1e293b',
                     footer_text: branding.footer_text || client.name,
-                    unsubscribe_link: buildUnsubscribeUrl(baseUrl, email, client.id),
+                    unsubscribe_link: unsubscribeUrl,
                 };
+                const html = renderMailTemplate(template.body_html, vars);
 
                 const { error: sendError } = await resend.emails.send({
                     from: fromAddress,
                     to: [email],
                     subject: renderMailTemplate(template.subject_template, vars),
-                    html: renderMailTemplate(template.body_html, vars),
+                    html,
+                    text: htmlToText(html),
+                    headers: buildMailHeaders(unsubscribeUrl),
+                    ...(replyTo ? { replyTo } : {}),
                 });
 
                 if (sendError) result.failed++;

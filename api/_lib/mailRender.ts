@@ -37,6 +37,44 @@ export function buildUnsubscribeUrl(baseUrl: string, email: string, clientId: st
     return `${baseUrl}/api/mail-util?action=unsubscribe&token=${encodeURIComponent(token)}`;
 }
 
+// Header che migliorano la consegna: disiscrizione con un clic (RFC 8058, richiesta da Gmail/Yahoo
+// per chi invia in volume) — l'handler unsubscribe accetta anche il POST del client di posta
+export function buildMailHeaders(unsubscribeUrl: string): Record<string, string> {
+    return {
+        'List-Unsubscribe': `<${unsubscribeUrl}>`,
+        'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+    };
+}
+
+const VALID_EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Reply-To configurato dal cliente (le risposte arrivano a lui invece che a noreply@)
+export function getReplyTo(marketingSettings: any): string | undefined {
+    const replyTo = String(marketingSettings?.reply_to_email || '').trim();
+    return VALID_EMAIL_REGEX.test(replyTo) ? replyTo : undefined;
+}
+
+// Versione solo testo della mail: le mail solo-HTML risultano più "commerciali" ai filtri
+export function htmlToText(html: string): string {
+    return html
+        .replace(/<!--[\s\S]*?-->/g, '')
+        .replace(/<(head|style|script|title)[^>]*>[\s\S]*?<\/\1>/gi, '')
+        .replace(/<a\s[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi, (_m, href, label) => {
+            const text = label.replace(/<[^>]+>/g, '').trim();
+            return text && text !== href ? `${text} (${href})` : href;
+        })
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<\/(p|div|h[1-6]|tr|li|table)>/gi, '\n')
+        .replace(/<li[^>]*>/gi, '- ')
+        .replace(/<[^>]+>/g, '')
+        .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+        .replace(/[ \t]+/g, ' ')
+        .replace(/ *\n */g, '\n')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+}
+
 export function buildTrackOpenUrl(baseUrl: string, recipientId: string): string {
     return `${baseUrl}/api/mail-util?action=track_open&rid=${encodeURIComponent(recipientId)}`;
 }

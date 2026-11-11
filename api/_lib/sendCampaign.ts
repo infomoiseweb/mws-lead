@@ -1,6 +1,6 @@
 import { Resend } from 'resend';
 import { SupabaseClient } from '@supabase/supabase-js';
-import { renderMailTemplate, buildUnsubscribeUrl, findLeadEmail, findLeadName, injectTracking } from './mailRender.js';
+import { renderMailTemplate, buildUnsubscribeUrl, findLeadEmail, findLeadName, injectTracking, buildMailHeaders, getReplyTo, htmlToText } from './mailRender.js';
 
 const BATCH_SIZE = 90;
 
@@ -78,6 +78,7 @@ export async function executeSendCampaign(
     const branding = client.marketing_settings?.branding || {};
     const senderName = client.marketing_settings?.sender_name || client.name;
     const fromAddress = `${senderName} <noreply@${mailDomain.domain}>`;
+    const replyTo = getReplyTo(client.marketing_settings);
 
     // Pre-inserisce i recipient
     const pendingRows: any[] = [];
@@ -114,6 +115,7 @@ export async function executeSendCampaign(
         const chunk = insertedRecipients.slice(i, i + BATCH_SIZE);
         const { data: batchResult, error: batchError } = await resend.batch.send(
             chunk.map((r: any) => {
+                const unsubscribeUrl = buildUnsubscribeUrl(baseUrl, r.email, client.id);
                 const vars: Record<string, string> = {
                     nome: r.lead_name || '',
                     logo_url: branding.logo_url || '',
@@ -121,12 +123,20 @@ export async function executeSendCampaign(
                     primary_color: branding.primary_color || '#2563eb',
                     secondary_color: branding.secondary_color || '#1e293b',
                     footer_text: branding.footer_text || client.name,
-                    unsubscribe_link: buildUnsubscribeUrl(baseUrl, r.email, client.id),
+                    unsubscribe_link: unsubscribeUrl,
                 };
                 const rawHtml = renderMailTemplate(template.body_html, vars);
                 const trackedHtml = injectTracking(rawHtml, baseUrl, r.id);
                 const subject = renderMailTemplate(campaign.subject || template.subject_template, vars);
-                return { from: fromAddress, to: [r.email], subject, html: trackedHtml };
+                return {
+                    from: fromAddress,
+                    to: [r.email],
+                    subject,
+                    html: trackedHtml,
+                    text: htmlToText(rawHtml),
+                    headers: buildMailHeaders(unsubscribeUrl),
+                    ...(replyTo ? { replyTo } : {}),
+                };
             })
         );
 

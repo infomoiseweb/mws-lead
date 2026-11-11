@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
     X, Code, LayoutGrid, ChevronUp, ChevronDown, Trash2,
-    Loader2, Type, MousePointer, ImageIcon, Minus, AlignLeft, Check, Upload
+    Loader2, Type, MousePointer, ImageIcon, Minus, AlignLeft, Check, Upload, PenLine
 } from 'lucide-react';
 import { renderPreview } from './templateLayouts';
 import * as ApiService from '@api';
@@ -113,6 +113,18 @@ const DEFAULT_BLOCKS: Block[] = [
     { id: genId(), type: 'button', label: 'Scopri di più', url: '#' },
     { id: genId(), type: 'footer' },
 ];
+
+// Modello "lettera personale": solo testo, nessuna immagine/pulsante, firma di una persona.
+// Gmail tende a mostrare mail di questo tipo nella scheda Principale invece che in Promozioni.
+const PERSONAL_LETTER_SUBJECT = '{{nome}}, una domanda veloce';
+const PERSONAL_LETTER_HTML = `<div style="font-family: Arial, sans-serif; font-size: 15px; line-height: 1.6; color: #222222; max-width: 600px;">
+<p>Ciao {{nome}},</p>
+<p>ti scrivo personalmente perché [scrivi qui il motivo, come se scrivessi a una persona sola].</p>
+<p>[Una o due frasi con il contenuto. Al massimo un link, scritto nel testo: <a href="https://tuosito.it">tuosito.it</a>]</p>
+<p>Se hai domande rispondi pure a questa mail, la leggo io.</p>
+<p>A presto,<br/>[Nome Cognome]<br/>{{brand_name}}</p>
+<p style="font-size: 12px; color: #888888; margin-top: 32px;">Non vuoi più ricevere queste mail? <a href="{{unsubscribe_link}}" style="color: #888888;">Annulla l'iscrizione</a></p>
+</div>`;
 
 const BLOCK_DEFS: { type: BlockType; label: string; icon: React.ReactNode }[] = [
     { type: 'header', label: 'Intestazione', icon: <Type size={14} /> },
@@ -540,6 +552,14 @@ const MailTemplateEditor: React.FC<Props> = ({ template, clientId, branding, onS
         setSelectedBlockId(newBlock.id);
     };
 
+    const applyPersonalLetter = () => {
+        const hasCustomContent = htmlBody.trim() && htmlBody !== blocksToHtml(blocks) && htmlBody !== PERSONAL_LETTER_HTML;
+        if (hasCustomContent && !window.confirm('Il contenuto attuale verrà sostituito dal modello "Lettera personale". Continuare?')) return;
+        setMode('html');
+        setHtmlBody(PERSONAL_LETTER_HTML);
+        if (!template) setSubject(PERSONAL_LETTER_SUBJECT);
+    };
+
     const moveBlock = useCallback((id: string, dir: -1 | 1) => {
         setBlocks(prev => {
             const idx = prev.findIndex(b => b.id === id);
@@ -634,6 +654,12 @@ const MailTemplateEditor: React.FC<Props> = ({ template, clientId, branding, onS
                         <Code size={13} /> HTML
                     </button>
                 </div>
+
+                <button type="button" onClick={applyPersonalLetter}
+                    title="Modello solo testo, più adatto ad arrivare nella scheda Principale di Gmail"
+                    className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                    <PenLine size={13} /> Lettera personale
+                </button>
 
                 <div className="ml-auto flex items-center gap-2">
                     {error && <span className="text-xs text-red-500 hidden sm:block">{error}</span>}

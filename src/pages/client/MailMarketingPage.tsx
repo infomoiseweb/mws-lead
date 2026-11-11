@@ -163,6 +163,7 @@ const MailMarketingPage: React.FC = () => {
     // Branding
     const [branding, setBranding] = useState<MailBranding>({ primary_color: '#2563eb' });
     const [senderName, setSenderName] = useState('');
+    const [replyToEmail, setReplyToEmail] = useState('');
     const [isUploadingLogo, setIsUploadingLogo] = useState(false);
     const [logoError, setLogoError] = useState('');
     const [isSavingBranding, setIsSavingBranding] = useState(false);
@@ -197,6 +198,7 @@ const MailMarketingPage: React.FC = () => {
             setClient(data);
             if (data?.marketing_settings?.branding) setBranding(data.marketing_settings.branding);
             if (data?.marketing_settings?.sender_name) setSenderName(data.marketing_settings.sender_name);
+            if (data?.marketing_settings?.reply_to_email) setReplyToEmail(data.marketing_settings.reply_to_email);
         } finally {
             setIsLoading(false);
         }
@@ -326,7 +328,7 @@ const MailMarketingPage: React.FC = () => {
         if (!client) return;
         setIsSavingBranding(true);
         try {
-            const updated = await ApiService.updateMarketingSettings(client.id, { ...client.marketing_settings, branding, sender_name: senderName });
+            const updated = await ApiService.updateMarketingSettings(client.id, { ...client.marketing_settings, branding, sender_name: senderName, reply_to_email: replyToEmail.trim() });
             setClient(prev => prev ? { ...prev, marketing_settings: updated } : prev);
             setBrandingSaved(true); setTimeout(() => setBrandingSaved(false), 2000);
         } catch (err: any) { setLogoError(err.message || 'Errore salvataggio.'); }
@@ -889,6 +891,16 @@ const MailMarketingPage: React.FC = () => {
                                                 placeholder={client?.name} className={inputCls} />
                                             <p className="text-xs text-slate-400 mt-1">
                                                 Es: "{senderName || client?.name} &lt;noreply@{mailDomain?.domain || 'tuodominio.it'}&gt;"
+                                            </p>
+                                        </div>
+
+                                        {/* Reply-To */}
+                                        <div>
+                                            <label className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1 block">Email per le risposte</label>
+                                            <input type="email" value={replyToEmail} onChange={e => setReplyToEmail(e.target.value)}
+                                                placeholder="es. info@tuodominio.it" className={inputCls} />
+                                            <p className="text-xs text-slate-400 mt-1">
+                                                Quando una lead risponde alla mail, la risposta arriva qui. Le risposte aiutano Gmail a mostrare le tue mail nella scheda Principale.
                                             </p>
                                         </div>
 
