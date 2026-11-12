@@ -170,6 +170,17 @@ export interface LeadMailHistoryEntry {
     campaign_name: string;
 }
 
+// Email disiscritte dalle comunicazioni del cliente (minuscole): a queste il server non invia
+export async function getMailUnsubscribedEmails(clientId: string): Promise<string[]> {
+    const { data, error } = await supabase
+        .from('mail_unsubscribes')
+        .select('email')
+        .eq('client_id', clientId);
+
+    if (error) throw new Error(error.message);
+    return (data || []).map((r: any) => String(r.email).toLowerCase());
+}
+
 // Storico invii campagne per tutte le lead di un cliente (per mostrare chi ha già ricevuto mail)
 export async function getLeadMailHistory(clientId: string): Promise<LeadMailHistoryEntry[]> {
     const { data, error } = await supabase

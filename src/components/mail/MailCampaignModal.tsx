@@ -79,6 +79,7 @@ const MailCampaignModal: React.FC<Props> = ({ isOpen, onClose, campaign, client,
     const [allLeads, setAllLeads] = useState<Lead[]>([]);
     const [isLoadingLeads, setIsLoadingLeads] = useState(false);
     const [mailHistory, setMailHistory] = useState<Record<string, ApiService.LeadMailHistoryEntry[]>>({});
+    const [unsubscribedEmails, setUnsubscribedEmails] = useState<Set<string>>(new Set());
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [showFilters, setShowFilters] = useState(true);
 
@@ -106,6 +107,7 @@ const MailCampaignModal: React.FC<Props> = ({ isOpen, onClose, campaign, client,
                     const byLead: Record<string, ApiService.LeadMailHistoryEntry[]> = {};
                     for (const h of history) (byLead[h.lead_id] ||= []).push(h);
                     setMailHistory(byLead);
+                    setUnsubscribedEmails(new Set(await ApiService.getMailUnsubscribedEmails(client.id)));
                 } catch { /* lo storico è informativo: se fallisce la lista resta utilizzabile */ }
             } finally {
                 setIsLoadingLeads(false);
@@ -274,8 +276,25 @@ const MailCampaignModal: React.FC<Props> = ({ isOpen, onClose, campaign, client,
 
     // Evita di inviare a tutti se i filtri campo/distanza escludono ogni lead
     // o se le distanze non sono ancora state calcolate
+    const isUnsubscribed = (l: Lead) => {
+        const email = findLeadEmail(l.data);
+        return !!email && unsubscribedEmails.has(email.toLowerCase());
+    };
+
     const validateRecipients = (): boolean => {
-        if (selectedIds.size > 0 || !derivedFiltersActive) return true;
+        if (selectedIds.size > 0) {
+            const selected = allLeads.filter(l => selectedIds.has(l.id));
+            const reachable = selected.filter(l => findLeadEmail(l.data) && !isUnsubscribed(l));
+            if (reachable.length === 0) {
+                const unsub = selected.filter(isUnsubscribed).length;
+                setError(unsub > 0
+                    ? `Nessun destinatario: ${unsub === 1 ? 'la lead selezionata si è disiscritta' : `le ${unsub} lead selezionate si sono disiscritte`} dalle tue mail (oppure non ha un'email valida).`
+                    : 'Nessuna delle lead selezionate ha un indirizzo email valido.');
+                return false;
+            }
+            return true;
+        }
+        if (!derivedFiltersActive) return true;
         if (distanceFilterActive && isCalculatingDistances) {
             setError('Attendi il completamento del calcolo delle distanze.');
             return false;
@@ -345,11 +364,17 @@ const MailCampaignModal: React.FC<Props> = ({ isOpen, onClose, campaign, client,
     const formatShortDate = (iso: string) =>
         new Date(iso).toLocaleDateString('it-IT', { day: '2-digit', month: 'short' });
 
-    const renderMailHistory = (leadId: string) => {
-        const entries = mailHistory[leadId] || [];
+    const renderMailHistory = (lead: Lead) => {
+        const unsubscribedBadge = isUnsubscribed(lead) && (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 w-fit whitespace-nowrap"
+                title="Questa persona ha annullato l'iscrizione: non riceverà più le tue mail">
+                Disiscritta
+            </span>
+        );
+        const entries = mailHistory[lead.id] || [];
         const sent = entries.filter(e => e.status === 'sent' || e.status === 'bounced');
         const failed = entries.filter(e => e.status === 'failed');
-        if (sent.length === 0 && failed.length === 0) return <span className="text-slate-300 dark:text-slate-600">—</span>;
+        if (sent.length === 0 && failed.length === 0) return unsubscribedBadge || <span className="text-slate-300 dark:text-slate-600">—</span>;
         const lastSent = sent.map(e => e.sent_at).filter(Boolean).sort().pop();
         const opened = sent.some(e => e.opened_at);
         const tooltip = entries
@@ -357,6 +382,7 @@ const MailCampaignModal: React.FC<Props> = ({ isOpen, onClose, campaign, client,
             .join('\n');
         return (
             <div className="flex flex-col gap-0.5" title={tooltip}>
+                {unsubscribedBadge}
                 {sent.length > 0 && (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 w-fit whitespace-nowrap">
                         <Check size={10} /> {sent.length === 1 ? 'Inviata' : `Inviate ${sent.length}`}{lastSent ? ` · ${formatShortDate(lastSent)}` : ''}
@@ -704,7 +730,7 @@ const MailCampaignModal: React.FC<Props> = ({ isOpen, onClose, campaign, client,
                                                 </td>
                                                 <td className="px-3 py-3 text-slate-500 dark:text-slate-400 hidden lg:table-cell">{leadPhone(lead) || '—'}</td>
                                                 <td className="px-3 py-3 text-slate-500 dark:text-slate-400 hidden lg:table-cell text-xs">{lead.service || '—'}</td>
-                                                <td className="px-3 py-3 text-xs">{renderMailHistory(lead.id)}</td>
+                                                <td className="px-3 py-3 text-xs">{renderMailHistory(lead)}</td>
                                                 {filterField && <td className="px-3 py-3 text-slate-500 dark:text-slate-400 text-xs">{lead.data?.[filterField] || '—'}</td>}
                                                 <td className="px-3 py-3">
                                                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${STATUS_COLORS[lead.status] || 'bg-slate-100 text-slate-600'}`}>

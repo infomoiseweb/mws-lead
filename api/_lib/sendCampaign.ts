@@ -82,9 +82,11 @@ export async function executeSendCampaign(
 
     // Pre-inserisce i recipient
     const pendingRows: any[] = [];
+    let skippedUnsubscribed = 0;
     for (const lead of leads || []) {
         const email = findLeadEmail(lead.data || {});
-        if (!email || unsubscribedEmails.has(email.toLowerCase())) continue;
+        if (!email) continue;
+        if (unsubscribedEmails.has(email.toLowerCase())) { skippedUnsubscribed++; continue; }
         pendingRows.push({
             campaign_id: campaignId,
             lead_id: lead.id,
@@ -96,7 +98,12 @@ export async function executeSendCampaign(
 
     if (pendingRows.length === 0) {
         await supabaseAdmin.from('mail_campaigns').update({ status: 'failed' }).eq('id', campaignId);
-        return { sent: 0, failed: 0, error: 'Nessuna lead con email valida' };
+        return {
+            sent: 0, failed: 0,
+            error: skippedUnsubscribed > 0
+                ? `Nessun destinatario: ${skippedUnsubscribed} lead si ${skippedUnsubscribed === 1 ? 'è disiscritta' : 'sono disiscritte'} dalle mail e le altre non hanno un'email valida`
+                : 'Nessuna lead con email valida',
+        };
     }
 
     const { data: insertedRecipients, error: insertError } = await supabaseAdmin
