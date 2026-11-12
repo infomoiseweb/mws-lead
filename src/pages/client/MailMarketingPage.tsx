@@ -77,8 +77,9 @@ const CampaignCard: React.FC<{
                         className="p-1.5 rounded-lg text-slate-400 hover:text-primary-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
                         <Pencil size={13} />
                     </button>
-                    {campaign.status === 'draft' && (
-                        <button type="button" onClick={onDelete}
+                    {/* Durante l'invio no: la funzione server sta ancora scrivendo i destinatari */}
+                    {campaign.status !== 'sending' && (
+                        <button type="button" onClick={onDelete} title="Elimina campagna"
                             className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
                             <Trash2 size={13} />
                         </button>
@@ -375,9 +376,16 @@ const MailMarketingPage: React.FC = () => {
     };
 
     const handleDeleteCampaign = async (campaignId: string) => {
+        const campaign = campaigns.find(c => c.id === campaignId);
+        const wasSent = campaign && campaign.status !== 'draft';
+        const message = wasSent
+            ? `Eliminare la campagna "${campaign!.name}"?\n\nVerranno cancellate anche le sue statistiche (inviate, aperture, click) e lo storico invii delle lead. Le mail già consegnate restano nelle caselle dei destinatari.`
+            : `Eliminare la bozza "${campaign?.name || ''}"?`;
+        if (!window.confirm(message)) return;
         try {
             await ApiService.deleteMailCampaign(campaignId);
             setCampaigns(prev => prev.filter(c => c.id !== campaignId));
+            setRecipientCounts(prev => { const next = { ...prev }; delete next[campaignId]; return next; });
         } catch (err: any) { setCampaignsError(err.message || 'Errore eliminazione.'); }
     };
 
