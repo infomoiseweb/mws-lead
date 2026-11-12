@@ -87,12 +87,19 @@ const CampaignCard: React.FC<{
             </div>
 
             {/* Stats row */}
-            {counts && campaign.status === 'sent' && (
-                <div className="grid grid-cols-3 gap-2 pt-3 border-t border-slate-100 dark:border-slate-700/60">
+            {/* Statistiche anche per campagne fallite/parziali: mostrano quante mail sono partite davvero */}
+            {counts && (counts.sent > 0 || counts.failed > 0) && (
+                <div className={`grid ${counts.failed > 0 ? 'grid-cols-4' : 'grid-cols-3'} gap-2 pt-3 border-t border-slate-100 dark:border-slate-700/60`}>
                     <div className="text-center">
                         <div className="text-xs text-slate-400 mb-0.5">Inviate</div>
                         <div className="font-semibold text-sm text-slate-700 dark:text-slate-200">{counts.sent}</div>
                     </div>
+                    {counts.failed > 0 && (
+                        <div className="text-center" title="Riapri la campagna e clicca Invia ora: verranno ritentate solo queste, senza doppioni">
+                            <div className="text-xs text-slate-400 mb-0.5">Non inviate</div>
+                            <div className="font-semibold text-sm text-red-500">{counts.failed}</div>
+                        </div>
+                    )}
                     <div className="text-center">
                         <div className="flex items-center justify-center gap-1 text-xs text-slate-400 mb-0.5">
                             <Eye size={10} /> Aperture

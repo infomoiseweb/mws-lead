@@ -349,8 +349,11 @@ const MailCampaignModal: React.FC<Props> = ({ isOpen, onClose, campaign, client,
             const saved = await persist();
             const sent = await ApiService.sendMailCampaign(saved.id);
             onSaved(sent);
-            setSuccessMsg('Campagna inviata!');
-            setTimeout(() => onClose(), 1200);
+            const recipients = await ApiService.getMailCampaignRecipients(saved.id).catch(() => []);
+            const ok = recipients.filter(r => r.status === 'sent' || r.status === 'bounced').length;
+            const ko = recipients.filter(r => r.status === 'failed').length;
+            setSuccessMsg(ko > 0 ? `Inviate ${ok} mail, ${ko} non inviate (indirizzo non valido).` : `Campagna inviata a ${ok} contatti!`);
+            setTimeout(() => onClose(), 2500);
         } catch (e: any) { setError(e.message || 'Errore invio.'); }
         finally { setIsSending(false); }
     };

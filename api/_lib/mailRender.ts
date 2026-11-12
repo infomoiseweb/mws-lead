@@ -104,15 +104,23 @@ export function injectTracking(html: string, baseUrl: string, recipientId: strin
 
 // Copre "email", "e-mail", "E_mail" ma anche "mail" / "indirizzo_mail"
 const EMAIL_KEY_REGEX = /mail/i;
-const EMAIL_VALUE_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Stessa logica di src/lib/leadContact.ts: dal valore si estrae solo l'indirizzo
+// ("mailto:mario@libero.it" → "mario@libero.it"), perché Resend rifiuta l'intero batch
+// se anche un solo `to` non è nel formato standard.
+const EMAIL_EXTRACT_REGEX = /[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}/;
+
+export function extractEmail(value: unknown): string {
+    const match = String(value ?? '').replace(/^\s*mailto:/i, '').match(EMAIL_EXTRACT_REGEX);
+    return match ? match[0].replace(/^\.+|\.+$/g, '').toLowerCase() : '';
+}
 
 // Estrae l'email della lead cercando tra le chiavi del campo `data` (form dinamici).
-// Fallback: primo valore che ha la forma di un indirizzo email.
+// Fallback: primo valore che contiene un indirizzo email.
 export function findLeadEmail(data: Record<string, string>): string | null {
-    const entries = Object.entries(data || {}).map(([k, v]) => [k, String(v ?? '').trim()] as const);
-    const byKey = entries.find(([key, value]) => EMAIL_KEY_REGEX.test(key) && EMAIL_VALUE_REGEX.test(value));
+    const entries = Object.entries(data || {}).map(([k, v]) => [k, extractEmail(v)] as const);
+    const byKey = entries.find(([key, email]) => EMAIL_KEY_REGEX.test(key) && email);
     if (byKey) return byKey[1];
-    const byValue = entries.find(([, value]) => EMAIL_VALUE_REGEX.test(value));
+    const byValue = entries.find(([, email]) => email);
     return byValue ? byValue[1] : null;
 }
 

@@ -3,6 +3,9 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { renderMailTemplate, buildUnsubscribeUrl, findLeadEmail, findLeadName, injectTracking, buildMailHeaders, getReplyTo, htmlToText } from './mailRender.js';
 
 const BATCH_SIZE = 90;
+// Resend accetta ~2 richieste/secondo
+const RESEND_THROTTLE_MS = 550;
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export async function executeSendCampaign(
     campaignId: string,
@@ -80,13 +83,31 @@ export async function executeSendCampaign(
     const fromAddress = `${senderName} <noreply@${mailDomain.domain}>`;
     const replyTo = getReplyTo(client.marketing_settings);
 
+    // Re-invio della stessa campagna: chi l'ha già ricevuta viene saltato, i tentativi
+    // falliti/in sospeso precedenti vengono sostituiti dal nuovo tentativo
+    const { data: previousRecipients } = await supabaseAdmin
+        .from('mail_campaign_recipients')
+        .select('email, status')
+        .eq('campaign_id', campaignId);
+    const alreadySent = new Set((previousRecipients || [])
+        .filter((r: any) => r.status === 'sent' || r.status === 'bounced')
+        .map((r: any) => String(r.email).toLowerCase()));
+    await supabaseAdmin.from('mail_campaign_recipients')
+        .delete()
+        .eq('campaign_id', campaignId)
+        .in('status', ['failed', 'pending']);
+
     // Pre-inserisce i recipient
     const pendingRows: any[] = [];
+    const queuedEmails = new Set<string>();
     let skippedUnsubscribed = 0;
     for (const lead of leads || []) {
         const email = findLeadEmail(lead.data || {});
         if (!email) continue;
         if (unsubscribedEmails.has(email.toLowerCase())) { skippedUnsubscribed++; continue; }
+        // Già ricevuta in un invio precedente, o stessa email su più lead
+        if (alreadySent.has(email) || queuedEmails.has(email)) continue;
+        queuedEmails.add(email);
         pendingRows.push({
             campaign_id: campaignId,
             lead_id: lead.id,
@@ -94,6 +115,11 @@ export async function executeSendCampaign(
             lead_name: findLeadName(lead.data || {}),
             status: 'pending',
         });
+    }
+
+    if (pendingRows.length === 0 && alreadySent.size > 0) {
+        await supabaseAdmin.from('mail_campaigns').update({ status: 'sent' }).eq('id', campaignId);
+        return { sent: 0, failed: 0, error: 'Tutte le lead selezionate hanno già ricevuto questa campagna' };
     }
 
     if (pendingRows.length === 0) {
@@ -118,48 +144,66 @@ export async function executeSendCampaign(
     let sent = 0;
     let failed = 0;
 
-    for (let i = 0; i < insertedRecipients.length; i += BATCH_SIZE) {
-        const chunk = insertedRecipients.slice(i, i + BATCH_SIZE);
-        const { data: batchResult, error: batchError } = await resend.batch.send(
-            chunk.map((r: any) => {
-                const unsubscribeUrl = buildUnsubscribeUrl(baseUrl, r.email, client.id);
-                const vars: Record<string, string> = {
-                    nome: r.lead_name || '',
-                    logo_url: branding.logo_url || '',
-                    brand_name: branding.brand_name || client.name,
-                    primary_color: branding.primary_color || '#2563eb',
-                    secondary_color: branding.secondary_color || '#1e293b',
-                    footer_text: branding.footer_text || client.name,
-                    unsubscribe_link: unsubscribeUrl,
-                };
-                const rawHtml = renderMailTemplate(template.body_html, vars);
-                const trackedHtml = injectTracking(rawHtml, baseUrl, r.id);
-                const subject = renderMailTemplate(campaign.subject || template.subject_template, vars);
-                return {
-                    from: fromAddress,
-                    to: [r.email],
-                    subject,
-                    html: trackedHtml,
-                    text: htmlToText(rawHtml),
-                    headers: buildMailHeaders(unsubscribeUrl),
-                    ...(replyTo ? { replyTo } : {}),
-                };
-            })
-        );
+    const buildMessage = (r: any) => {
+        const unsubscribeUrl = buildUnsubscribeUrl(baseUrl, r.email, client.id);
+        const vars: Record<string, string> = {
+            nome: r.lead_name || '',
+            logo_url: branding.logo_url || '',
+            brand_name: branding.brand_name || client.name,
+            primary_color: branding.primary_color || '#2563eb',
+            secondary_color: branding.secondary_color || '#1e293b',
+            footer_text: branding.footer_text || client.name,
+            unsubscribe_link: unsubscribeUrl,
+        };
+        const rawHtml = renderMailTemplate(template.body_html, vars);
+        const trackedHtml = injectTracking(rawHtml, baseUrl, r.id);
+        const subject = renderMailTemplate(campaign.subject || template.subject_template, vars);
+        return {
+            from: fromAddress,
+            to: [r.email],
+            subject,
+            html: trackedHtml,
+            text: htmlToText(rawHtml),
+            headers: buildMailHeaders(unsubscribeUrl),
+            ...(replyTo ? { replyTo } : {}),
+        };
+    };
 
-        for (let j = 0; j < chunk.length; j++) {
-            const r = chunk[j];
-            const ok = !batchError && batchResult?.data?.[j];
-            await supabaseAdmin.from('mail_campaign_recipients').update({
-                status: ok ? 'sent' : 'failed',
-                sent_at: ok ? new Date().toISOString() : null,
-                error: ok ? null : (batchError?.message || 'Invio non riuscito'),
-            }).eq('id', r.id);
-            ok ? sent++ : failed++;
+    const markRecipient = async (r: any, ok: boolean, errorMessage?: string) => {
+        await supabaseAdmin.from('mail_campaign_recipients').update({
+            status: ok ? 'sent' : 'failed',
+            sent_at: ok ? new Date().toISOString() : null,
+            error: ok ? null : (errorMessage || 'Invio non riuscito'),
+        }).eq('id', r.id);
+        ok ? sent++ : failed++;
+    };
+
+    // Resend rifiuta l'intero batch se anche un solo messaggio non è valido: in quel caso il
+    // gruppo viene diviso a metà finché l'indirizzo errato resta isolato (≈2·log2(n) richieste,
+    // invece di n invii singoli che sforerebbero rate limit e timeout della funzione)
+    const sendGroup = async (group: any[]): Promise<void> => {
+        const { data: batchResult, error: batchError } = await resend.batch.send(group.map(buildMessage));
+        if (!batchError) {
+            for (let j = 0; j < group.length; j++) await markRecipient(group[j], !!batchResult?.data?.[j]);
+            return;
         }
+        if (group.length === 1) {
+            await markRecipient(group[0], false, batchError.message);
+            return;
+        }
+        await sleep(RESEND_THROTTLE_MS);
+        const mid = Math.ceil(group.length / 2);
+        await sendGroup(group.slice(0, mid));
+        await sleep(RESEND_THROTTLE_MS);
+        await sendGroup(group.slice(mid));
+    };
+
+    for (let i = 0; i < insertedRecipients.length; i += BATCH_SIZE) {
+        if (i > 0) await sleep(RESEND_THROTTLE_MS);
+        await sendGroup(insertedRecipients.slice(i, i + BATCH_SIZE));
     }
 
-    const finalStatus = sent === 0 ? 'failed' : 'sent';
+    const finalStatus = sent === 0 && alreadySent.size === 0 ? 'failed' : 'sent';
     await supabaseAdmin.from('mail_campaigns')
         .update({ status: finalStatus, sent_at: new Date().toISOString() })
         .eq('id', campaignId);
